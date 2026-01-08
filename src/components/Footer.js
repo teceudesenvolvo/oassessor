@@ -1,3 +1,8 @@
+import React from 'react';
+import Logo from '../assets/logomarca.png';
+import AppStore from '../assets/appStore.png';
+import GooglePlay from '../assets/googlePlay.png';
+
 // Footer.js
 export default function Footer() {
   return (
@@ -5,34 +10,33 @@ export default function Footer() {
       <div className="footer-content">
         <div className="footer-brand">
           <div className="logo-container">
-            <span className="logo-o">O</span><span>Assessor</span>
+            <span><img src={Logo} alt="Logo" className='logo-img-footer' /></span>
           </div>
         </div>
         
         <div className="footer-info">
           <h4>Contato</h4>
-          <p>Endereço: Avenida Prefeito Maurício Brasileiro...</p>
-          <p>Telefone: (85) 3315-4462</p>
+          <p>Email: </p>
+          <p>Telefone: </p>
         </div>
 
         <div className="footer-links">
-          <h4>Nossos Serviços</h4>
+          <h4>Links</h4>
           <ul>
-            <li>Registrar Reclamação</li>
-            <li>Entrar na sua conta</li>
+            <li><a className='footer-links' href="/">Cadastrar-se</a></li>
+            <li><a className='footer-links' href="/">Entrar na sua conta</a></li>
           </ul>
         </div>
 
         <div className="footer-apps">
-          <div className="qr-code"></div>
           <div className="store-buttons">
-             <div className="store-badge">App Store</div>
-             <div className="store-badge">Google Play</div>
+             <div className="store-badge"><img className='lojas-app-footer' src={AppStore} alt="App Store"/></div>
+             <div className="store-badge"><img className='lojas-app-footer' src={GooglePlay} alt="Google Play"/></div>
           </div>
         </div>
       </div>
       <div className="footer-bottom">
-        Copyright © 2025 Procon CMSGA. Todos os direitos reservados.
+        Copyright © 2025 Blu Tecnologias. Todos os direitos reservados.
       </div>
     </footer>
   );
