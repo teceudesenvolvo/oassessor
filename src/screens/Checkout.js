@@ -5,7 +5,7 @@ import { auth, db } from '../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { createSubscription } from '../pagarme';
-import Logo from '../assets/logomarca.png';
+import Logo from '../assets/logomarca-vertical-azul.png';
 
 export default function Checkout() {
   const { planId } = useParams();

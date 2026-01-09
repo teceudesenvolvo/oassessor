@@ -1,27 +1,54 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../firebaseConfig';
 import Logo from '../assets/logomarca.png';
+
 /**
  * Componente de Login principal utilizando React.
  * Os estilos foram movidos para uma tag <style> interna para garantir a compatibilidade do Preview.
  */
-const App = () => {
+export default function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  // Estado para animação
+  const [animating, setAnimating] = useState(false);
+  const [clickPos, setClickPos] = useState({ x: 0, y: 0 });
 
-  const handleSubmit = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    
-    // Simulação de autenticação
-    setTimeout(() => {
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
       setLoading(false);
-      console.log('Login efetuado com:', { email, password });
-      // Nota: alert() funciona no iframe, mas em produção utilize um modal customizado.
-      alert('Sucesso! Redirecionando para o Painel...');
-    }, 1500);
+      setAnimating(true);
+      
+      // Aguarda a animação terminar antes de trocar de rota
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 800);
+
+    } catch (error) {
+      setLoading(false);
+      console.error("Erro no login:", error);
+      let msg = "Erro ao entrar. Verifique suas credenciais.";
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        msg = "E-mail ou senha incorretos.";
+      }
+      setError(msg);
+    }
+  };
+
+  const captureClick = (e) => {
+    setClickPos({ x: e.clientX, y: e.clientY });
   };
 
   return (
@@ -45,7 +72,7 @@ const App = () => {
 
         {/* Formulário de Autenticação */}
         <main className="login-form-content">
-          <form onSubmit={handleSubmit} className="auth-form">
+          <form onSubmit={handleLogin} className="auth-form">
             
             {/* Input de Identificação */}
             <div className="form-field">
@@ -89,12 +116,19 @@ const App = () => {
               </div>
             </div>
 
+            {/* Mensagem de Erro */}
+            {error && (
+              <div style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '10px', textAlign: 'center', fontWeight: '500' }}>
+                {error}
+              </div>
+            )}
+
             {/* Botão de Ação Principal */}
             <button 
               type="submit" 
               className={`submit-login-btn ${loading ? 'btn-loading' : ''}`}
               disabled={loading}
-              onClick={handleSubmit}
+              onClick={captureClick}
             >
               {loading ? (
                 <div className="spinner"></div>
@@ -128,8 +162,30 @@ const App = () => {
           <span className="badge-item">LGPD Compliant</span>
         </div>
       </div>
+
+      {/* Elemento de Animação (Círculo Verde) */}
+      {animating && (
+        <div style={{
+          position: 'fixed',
+          top: clickPos.y,
+          left: clickPos.x,
+          width: '20px',
+          height: '20px',
+          backgroundColor: '#4ADE80', // Cor do botão
+          borderRadius: '50%',
+          transform: 'translate(-50%, -50%) scale(0)',
+          animation: 'expandCircle 0.8s forwards',
+          zIndex: 9999,
+          pointerEvents: 'none'
+        }}>
+          <style>{`
+            @keyframes expandCircle {
+              0% { transform: translate(-50%, -50%) scale(0); }
+              100% { transform: translate(-50%, -50%) scale(250); }
+            }
+          `}</style>
+        </div>
+      )}
     </div>
   );
-};
-
-export default App;
+}

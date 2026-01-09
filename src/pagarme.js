@@ -1,6 +1,6 @@
-import axios from 'axios';
+// import axios from 'axios';
 
-const API_KEY = 'SUA_API_KEY_PAGARME'; // Use chaves públicas para tokenização no front
+// const API_KEY = 'SUA_API_KEY_PAGARME'; // Use chaves públicas para tokenização no front
 
 export const createSubscription = async (userData, cardData, planId) => {
   try {

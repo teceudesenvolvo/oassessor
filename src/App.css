@@ -13,6 +13,12 @@
   }
 }
 
+.logo-header{
+  width: 150px;
+  height: 20px;
+  object-fit: contain;
+}
+
 .App-header {
   background-color: #282c34;
   min-height: 100vh;
@@ -49,6 +55,7 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  border-radius: 0 0 40px 40px;
 }
 
 .logo-container {
@@ -84,6 +91,32 @@
   border-radius: 20px;
   font-weight: bold;
   cursor: pointer;
+  align-items: center;
+  color: white;
+  justify-content: center;
+  justify-items: center;
+  display: flex;
+  align-items: center;
+}
+
+.btn-primary > svg {
+  display: inline-block;
+  margin-left: 8px
+}
+
+.btn-secondary{
+  justify-content: center;
+  justify-items: center;
+  display: flex;
+  align-items: center;
+  border-radius: 20px;
+  padding: 12px 40px;
+}
+
+.btn-secondary > svg {
+  display: inline-block;
+  margin-right: 8px;
+  align-items: center;
 }
 
 .btn-outline {
@@ -93,8 +126,12 @@
   padding: 12px 40px;
   border-radius: 20px;
   cursor: pointer;
+  transition: all 0.3s ease;
 }
-
+.btn-outline:hover {
+  background-color: #52e085;
+  color: white;
+}
 /* Services.css */
 .services-section {
   max-width: 1000px;
@@ -290,7 +327,7 @@
 }
 
 .custom-input {
-  width: 100%;
+  width: 87%;
   padding: 16px 16px 16px 48px;
   background-color: #f1f5f9;
   border: 2px solid transparent;
@@ -300,6 +337,7 @@
   font-weight: 500;
   outline: none;
   transition: all 0.2s ease;
+  margin: 5px;
 }
 
 .custom-input:focus {
@@ -741,7 +779,7 @@
 }
 
 .checkout-logo {
-  height: 60px;
+  height: 30px;
   margin-bottom: 15px;
 }
 
@@ -773,7 +811,7 @@
 }
 
 .step-indicator.active {
-  background-color: #2563eb;
+  background-color: #0F172A;
   color: white;
   transform: scale(1.1);
 }
@@ -806,5 +844,109 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-top: 10px;
+}
+
+/* --- Navigation Menu --- */
+.main-nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0px;
+  z-index: 100;
+}
+
+.nav-brand img {
+  height: 30px;
+  margin-left: 20px;
+  object-fit: contain;
+}
+
+.nav-list {
+  display: flex;
+  list-style: none;
+  gap: 30px;
+  margin: 0;
+  padding-top: 10px;
+}
+
+.nav-list li a {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 16px;
+  transition: color 0.3s ease;
+}
+
+.nav-list li a:hover {
+  color: #52e085;
+}
+
+.nav-btn {
+  background: transparent;
+  border: 1px solid #52e085;
+  color: white;
+  margin-top: -10px;
+  margin-right: 40px;
+  padding: 8px 25px;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.nav-btn:hover {
+  background: #52e085;
+  color: #0f172a;
+}
+
+@media (max-width: 768px) {
+  .nav-list {
+    display: none;
+  }
+  .main-nav {
+    padding: 20px;
+  }
+}
+
+/* --- Service Cards Hover Effect --- */
+.service-card {
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.service-card:hover {
+  background-color: #fff;
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.service-card h4 {
+  margin: 15px 0 0;
+  color: #0f172a;
+  font-size: 1.1rem;
+}
+
+.service-desc {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: all 0.4s ease;
+  font-size: 0.9rem;
+  color: #64748b;
+  margin-top: 0;
+}
+
+.service-card:hover .service-desc {
+  max-height: 100px; /* Altura suficiente para o texto */
+  opacity: 1;
   margin-top: 10px;
 }

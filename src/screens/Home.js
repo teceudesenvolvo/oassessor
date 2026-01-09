@@ -1,10 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Logo from '../assets/logomarca.png';
+import Navbar from '../components/Navbar';
 
 export default function Home() {
   const navigate = useNavigate();
-  const items = ["Multi-Plataforma", "LGPD Compliance", "Disparos Inteligentes", "Relatório", "Mapa de Eleitores", "Alertas em Tempo Real"];
+  
+  const items = [
+    { 
+      title: "Multi-Plataforma", 
+      description: "Acesse seus dados de qualquer lugar: Web, Android ou iOS com sincronização automática." 
+    },
+    { 
+      title: "LGPD Compliance", 
+      description: "Segurança total para seus dados e conformidade rigorosa com a Lei Geral de Proteção de Dados." 
+    },
+    { 
+      title: "Disparos Inteligentes", 
+      description: "Crie campanhas de mensagens segmentadas para engajar sua base de eleitores." 
+    },
+    { 
+      title: "Relatório", 
+      description: "Acompanhe o crescimento da campanha com gráficos detalhados e métricas de desempenho." 
+    },
+    { 
+      title: "Mapa de Eleitores", 
+      description: "Visualize a distribuição geográfica dos seus votos com mapas interativos." 
+    },
+    { 
+      title: "Alertas em Tempo Real", 
+      description: "Receba notificações instantâneas sobre atividades da equipe e ocorrências em campo." 
+    }
+  ];
 
   const [text, setText] = useState('');
 
@@ -85,16 +111,15 @@ export default function Home() {
         `}
       </style>
       <header className="hero-section">
+        <Navbar />
         <div className="logo-container">
-          <span className="logo-text"><img src={Logo} alt="Logo" className='logo-img' /></span>
         </div>
         <div className="hero-content">
           <p className="subtitle">Transforme dados em votos com a plataforma de inteligência eleitoral mais completa do mercado.</p>
           <h1>{text}<span className="cursor">|</span></h1>
           <p className="small-text">Não dependa mais de listas velhas ou planilhas desorganizadas.</p>
           <div className="button-group">
-            <button className="btn-primary" onClick={() => navigate('/login')}>Entrar</button>
-            <button className="btn-outline" onClick={() => navigate('/login')}>Cadastrar</button>
+            <button className="btn-outline" onClick={() => navigate('/login')}>Entrar</button>
           </div>
         </div>
       </header>
@@ -104,7 +129,8 @@ export default function Home() {
             {items.map((item, index) => (
               <div key={index} className="service-card">
                 <div className="icon-placeholder"></div>
-                <p>{item}</p>
+                <h4>{item.title}</h4>
+                <p className="service-desc">{item.description}</p>
               </div>
             ))}
           </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, 
   Menu, 
@@ -15,11 +15,42 @@ import Notifications from './Notifications';
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('Inicio');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showTransition, setShowTransition] = useState(true);
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
+  useEffect(() => {
+    // Remove o elemento de transição do DOM após a animação
+    const timer = setTimeout(() => setShowTransition(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="dashboard-container">
+      {/* Animação de Entrada (Círculo diminuindo) */}
+      {showTransition && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          width: '20px',
+          height: '20px',
+          backgroundColor: '#4ADE80',
+          borderRadius: '50%',
+          transform: 'translate(-50%, -50%) scale(250)',
+          animation: 'shrinkCircle 0.8s forwards',
+          zIndex: 9999,
+          pointerEvents: 'none'
+        }}>
+          <style>{`
+            @keyframes shrinkCircle {
+              0% { transform: translate(-50%, -50%) scale(250); }
+              100% { transform: translate(-50%, -50%) scale(0); }
+            }
+          `}</style>
+        </div>
+      )}
+
       {/* --- Sidebar (Menu Lateral) --- */}
       <Sidebar 
         activeTab={activeTab} 

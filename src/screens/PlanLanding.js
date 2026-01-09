@@ -103,7 +103,7 @@ export default function PlanLanding() {
             <h3 style={{ fontSize: '1.1rem', color: '#334155', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>O que está incluído:</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
                 {plan.features.map((feature, index) => (
-                <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#475569' }}>
+                <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#475569', height: '60px' }}>
                     <CheckCircle2 size={20} color="#10b981" style={{ flexShrink: 0 }} />
                     <span style={{ fontWeight: '500' }}>{feature}</span>
                 </div>
