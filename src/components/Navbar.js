@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Logo from '../assets/logomarca-vertical.png';
 
 export default function Navbar() {
@@ -11,10 +11,10 @@ export default function Navbar() {
                 <img src={Logo} alt="Logo" className='logo-header' />
             </div>
             <ul className="nav-list">
-                <li><a href="#home">Início</a></li>
-                <li><a href="#plans">Planos</a></li>
-                <li><a href="#about">Sobre</a></li>
-                <li><a href="#contact">Contato</a></li>
+                <li><Link to="/">Início</Link></li>
+                <li><Link to="/plans">Planos</Link></li>
+                <li><Link to="/about">Sobre</Link></li>
+                <li><Link to="/contact">Contato</Link></li>
                 <button className="nav-btn" onClick={() => navigate('/login')}>Entrar</button>
             </ul>
         </nav>

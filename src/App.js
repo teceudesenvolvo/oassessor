@@ -11,6 +11,9 @@ import Login from './screens/Login';
 import Dashboard from './screens/Dashboard';
 import PlanLanding from './screens/PlanLanding';
 import Checkout from './screens/Checkout';
+import Plans from './screens/Plans';
+import About from './screens/About';
+import Contact from './screens/Contact';
 
 
 function App() {
@@ -21,6 +24,9 @@ function App() {
           <Route exact path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/plan/:id" element={<PlanLanding />} />
+          <Route path="/plans" element={<Plans />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/checkout/:planId" element={<Checkout />} />
           <Route path="/dashboard" element={<Dashboard />} />
         </Routes>

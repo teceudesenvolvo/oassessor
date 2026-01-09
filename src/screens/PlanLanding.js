@@ -1,52 +1,81 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle2, ArrowLeft } from 'lucide-react';
-import Logo from '../assets/logomarca.png';
+import { CheckCircle2 } from 'lucide-react';
+import Navbar from '../components/Navbar';
 
 export default function PlanLanding() {
   const { id } = useParams();
   const navigate = useNavigate();
 
   const plansData = {
-    basico: {
-      title: "PLANO BÁSICO",
+    bronze: {
+      title: "PLANO BRONZE",
       subtitle: "(Vereador / Inicial)",
-      price: "R$ 99,90/mês",
-      description: "Ideal para candidatos a vereador em cidades pequenas ou lideranças iniciando a construção de base.",
+      price: "R$ 499,99/mês",
+      description: "Até 500 cadastros. Ideal para pequenas campanhas e lideranças locais.",
       features: [
-        "Até 3 Assessores na sua equipe",
-        "Cadastre até 2.000 Eleitores",
-        "App de Cadastro Rápido com GPS",
+        "Até 500 Cadastros",
+        "Equipe com 5 Usuários",
         "Mapa simples (visualização de pontos)",
+        "Gestão de Equipe Básica",
         "Suporte via E-mail"
       ]
     },
-    profissional: {
-      title: "PLANO PROFISSIONAL",
+    prata: {
+      title: "PLANO PRATA",
       subtitle: "(Prefeito / Crescimento)",
-      price: "R$ 299,90/mês",
-      description: "Ideal para candidatos a prefeito, vereadores em capitais ou campanhas que precisam de inteligência geográfica.",
+      price: "R$ 799,99/mês",
+      description: "Até 1000 cadastros. Para campanhas que precisam de mais estrutura e inteligência.",
       features: [
-        "Até 15 Assessores na sua equipe",
-        "Cadastre até 20.000 Eleitores",
-        "Mapas de Calor (Heatmaps)",
-        "Gestão de Metas e Ranking",
-        "App do Eleitor",
-        "Suporte Prioritário via Chat"
+        "Até 1000 Cadastros",
+        "Equipe com 10 Usuários",
+        "Agenda de atividades diárias",
+        "Segmentação Avançada",
+        "Relatórios de Eleitores",
+        "Mapa de Eleitores"
       ]
     },
-    estrategico: {
-      title: "PLANO ESTRATÉGICO",
-      subtitle: "(Majoritária / Comitê Central)",
-      price: "Sob Consulta",
-      description: "Ideal para Deputados (Estaduais/Federais), Senadores ou grandes comitês partidários.",
+    ouro: {
+      title: "PLANO OURO",
+      subtitle: "(Expansão)",
+      price: "R$ 999,99/mês",
+      description: "Até 1500 cadastros. Ideal para campanhas competitivas com grande volume de dados.",
       features: [
-        "50+ Assessores (Ilimitado sob consulta)",
-        "Eleitores Ilimitados",
-        "Inteligência de Dados (BI)",
+        "Até 1500 Cadastros",
+        "Equipe com 20 Usuários",
+        "Agenda de atividades diárias",
         "Segmentação Avançada",
-        "API Aberta para Integrações",
-        "Gestor de Conta Dedicado"
+        "Relatórios de Eleitores",
+        "Mapa de Eleitores"
+      ]
+    },
+    
+    diamante: {
+      title: "PLANO DIAMANTE",
+      subtitle: "(Alta Performance)",
+      price: "R$ 1.299,99/mês",
+      description: "Até 2000 Cadastros. Para campanhas de grande porte.",
+      features: [
+        "Até 2000 Cadastros",
+        "Equipe com 30 Usuários",
+        "Agenda de atividades diárias",
+        "Segmentação Avançada",
+        "Relatórios de Eleitores",
+        "Mapa de Eleitores"
+      ]
+    },
+    livre: {
+      title: "PLANO SEM LIMITES",
+      subtitle: "(Majoritária / Comitê Central)",
+      price: "R$ 1.999,99/mês",
+      description: "Plano livre. A solução definitiva para grandes comitês e partidos.",
+      features: [
+        "Cadastros Ilimitados",
+        "Equipe com Usuários Ilimitados",
+        "Agenda de atividades diárias",
+        "Segmentação Avançada",
+        "Relatórios de Eleitores",
+        "Mapa de Eleitores"
       ]
     }
   };
@@ -64,29 +93,10 @@ export default function PlanLanding() {
 
   return (
     <div className="plan-landing-wrapper">
+      <Navbar />
       <header className="hero-section" style={{ height: '50vh', minHeight: '400px', position: 'relative' }}>
-         <button 
-            onClick={() => navigate('/')} 
-            style={{ 
-                position: 'absolute', 
-                top: '30px', 
-                left: '30px', 
-                background: 'rgba(255,255,255,0.1)', 
-                border: '1px solid rgba(255,255,255,0.2)', 
-                color: 'white', 
-                cursor: 'pointer', 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '8px',
-                padding: '8px 16px',
-                borderRadius: '20px',
-                backdropFilter: 'blur(4px)'
-            }}
-         >
-            <ArrowLeft size={18} /> Voltar
-         </button>
+        
         <div className="logo-container">
-          <span className="logo-text"><img src={Logo} alt="Logo" className='logo-img' style={{ height: '120px', marginTop: '0' }} /></span>
         </div>
         <div className="hero-content">
           <h1 style={{ fontSize: '3rem', marginBottom: '10px' }}>{plan.title}</h1>
@@ -99,9 +109,9 @@ export default function PlanLanding() {
           <h2 style={{ color: '#0f172a', fontSize: '2.5rem', marginBottom: '15px' }}>{plan.price}</h2>
           <p style={{ color: '#64748b', fontSize: '1.1rem', marginBottom: '40px', lineHeight: '1.6' }}>{plan.description}</p>
           
-          <div style={{ textAlign: 'left', display: 'inline-block', background: '#f8fafc', padding: '30px', borderRadius: '16px', width: '100%', marginBottom: '40px' }}>
+          <div style={{ textAlign: 'left', display: 'inline-block', background: '#f8fafc', padding: '30px', borderRadius: '16px', width: '80%', marginBottom: '40px' }}>
             <h3 style={{ fontSize: '1.1rem', color: '#334155', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>O que está incluído:</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '0px' }}>
                 {plan.features.map((feature, index) => (
                 <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#475569', height: '60px' }}>
                     <CheckCircle2 size={20} color="#10b981" style={{ flexShrink: 0 }} />
@@ -113,7 +123,7 @@ export default function PlanLanding() {
 
           <button 
             className="btn-primary" 
-            style={{ width: '100%', maxWidth: '400px', padding: '20px', fontSize: '1.2rem', borderRadius: '12px' }}
+            style={{ margin: '0 auto', width: '100%', maxWidth: '200px', padding: '10px', fontSize: '15px', borderRadius: '12px' }}
             onClick={() => navigate(`/checkout/${id}`)}
           >
             Contratar Agora

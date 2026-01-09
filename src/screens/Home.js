@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { Splide, SplideSlide } from '@splidejs/react-splide';
+import '@splidejs/react-splide/css';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -72,29 +74,45 @@ export default function Home() {
 
   const plans = [
     {
-      id: "basico",
-      title: "PLANO BÁSICO",
-      subtitle: "(Vereador / Inicial)",
-      ideal: "Candidatos a vereador em cidades pequenas ou lideranças iniciando a construção de base.",
-      team: "Até 3 Assessores na sua equipe.",
-      database: "Cadastre até 2.000 Eleitores.",
-    },
-    {
-      id: "profissional",
-      title: "PLANO PROFISSIONAL",
-      subtitle: "(Prefeito / Crescimento)",
-      ideal: "Candidatos a prefeito, vereadores em capitais ou campanhas que precisam de inteligência geográfica.",
-      team: "Até 15 Assessores nas sua equipe.",
-      database: "Cadastre até 20.000 Eleitores.",
-    },
-    {
-      id: "estrategico",
-      title: "PLANO ESTRATÉGICO",
+      id: "livre",
+      title: "PLANO SEM LIMITES",
       subtitle: "(Majoritária / Comitê Central)",
-      ideal: "Deputados (Estaduais/Federais), Senadores ou grandes comitês partidários.",
-      team: "50+ Assessores (Ilimitado sob consulta).",
-      database: "Eleitores Ilimitados (sob consulta).",
-    }
+      ideal: "Grandes comitês e partidos que precisam de liberdade total.",
+      team: "Usuários Ilimitados.",
+      database: "Base de Eleitores Ilimitada.",
+    },
+     {
+      id: "diamante",
+      title: "PLANO DIAMANTE",
+      subtitle: "(Expansão)",
+      ideal: "Campanhas competitivas com grande volume de dados.",
+      team: "Até 2000 Usuários.",
+      database: "Base de Eleitores Ilimitada.",
+    },
+   {
+      id: "ouro",
+      title: "PLANO OURO",
+      subtitle: "(Crescimento)",
+      ideal: "Campanhas em crescimento que precisam de inteligência.",
+      team: "Até 1500 Usuários.",
+      database: "Base de Eleitores Ilimitada.",
+    },
+    {
+      id: "prata",
+      title: "PLANO PRATA",
+      subtitle: "(Intermediário)",
+      ideal: "Campanhas que precisam de mais estrutura.",
+      team: "Até 1000 Usuários.",
+      database: "Base de Eleitores Ilimitada.",
+    },
+    {
+      id: "bronze",
+      title: "PLANO BRONZE",
+      subtitle: "(Vereador / Inicial)",
+      ideal: "Pequenas campanhas e lideranças locais.",
+      team: "Até 500 Usuários.",
+      database: "Base de Eleitores Ilimitada.",
+    },
   ];
 
   return (
@@ -136,26 +154,39 @@ export default function Home() {
           </div>
 
           <h3 className="section-title">Nossos Planos</h3>
-          <div className="team-grid">
+          <div style={{ marginBottom: '100px' }}>
+            <Splide options={{
+              perPage: 3,
+              gap: '2rem',
+              breakpoints: {
+                1024: { perPage: 2 },
+                640: { perPage: 1 },
+              },
+              pagination: true,
+              arrows: true,
+              type: 'loop'
+            }} aria-label="Nossos Planos">
             {plans.map((plan, index) => (
-              <div key={index} className="team-card" style={{ textAlign: 'left', alignItems: 'flex-start', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <h4 style={{ margin: 0, color: '#2563eb' }}>{plan.title}</h4>
-                <span style={{ fontSize: '0.9em', fontWeight: 'bold', color: '#555' }}>{plan.subtitle}</span>
-                
-                <p style={{ fontSize: '0.95em', margin: '10px 0' }}><strong>Ideal para:</strong> {plan.ideal}</p>
-                
-                <p style={{ margin: 0 }}><strong>Equipe:</strong> {plan.team}</p>
-                <p style={{ margin: 0 }}><strong>Base de Dados:</strong> {plan.database}</p>
-                <input 
-                  type='button' 
-                  value='Selecionar Plano' 
-                  className='btn-primary' 
-                  style={{ marginTop: '30px' }} 
-                  onClick={() => navigate(`/plan/${plan.id}`)}
-                />
-               
-              </div>
+              <SplideSlide key={index}>
+                <div className="team-card" style={{ textAlign: 'left', alignItems: 'flex-start', display: 'flex', flexDirection: 'column', gap: '10px', height: '100%' }}>
+                  <h4 style={{ margin: 0, color: '#2563eb' }}>{plan.title}</h4>
+                  <span style={{ fontSize: '0.9em', fontWeight: 'bold', color: '#555' }}>{plan.subtitle}</span>
+                  
+                  <p style={{ fontSize: '0.95em', margin: '10px 0' }}><strong>Ideal para:</strong> {plan.ideal}</p>
+                  
+                  <p style={{ margin: 0 }}><strong>Equipe:</strong> {plan.team}</p>
+                  <p style={{ margin: 0 }}><strong>Base de Dados:</strong> {plan.database}</p>
+                  <input 
+                    type='button' 
+                    value='Selecionar Plano' 
+                    className='btn-primary' 
+                    style={{ marginTop: '30px' }} 
+                    onClick={() => navigate(`/plan/${plan.id}`)}
+                  />
+                </div>
+              </SplideSlide>
             ))}
+            </Splide>
           </div>
         </section>
       </main>
