@@ -1,0 +1,135 @@
+import React, { useState } from 'react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react';
+import Logo from '../assets/logomarca.png';
+/**
+ * Componente de Login principal utilizando React.
+ * Os estilos foram movidos para uma tag <style> interna para garantir a compatibilidade do Preview.
+ */
+const App = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    // Simulação de autenticação
+    setTimeout(() => {
+      setLoading(false);
+      console.log('Login efetuado com:', { email, password });
+      // Nota: alert() funciona no iframe, mas em produção utilize um modal customizado.
+      alert('Sucesso! Redirecionando para o Painel...');
+    }, 1500);
+  };
+
+  return (
+    <div className="login-page-wrapper">
+
+      <div className="login-card-web">
+        
+        {/* Seção Superior com Gradiente e Logo */}
+        <header className="login-header-section">
+          <div className="header-decoration">
+            <div className="blur-circle circle-1"></div>
+            <div className="blur-circle circle-2"></div>
+          </div>
+          
+          <div className="header-brand">
+            <img src={Logo} alt="Logo" className='logo-img' />
+            <p> ¹
+            </p>
+          </div>
+        </header>
+
+        {/* Formulário de Autenticação */}
+        <main className="login-form-content">
+          <form onSubmit={handleSubmit} className="auth-form">
+            
+            {/* Input de Identificação */}
+            <div className="form-field">
+              <label className="field-label">E-mail</label>
+              <div className="input-container">
+                <Mail size={20} className="field-icon-left" />
+                <input 
+                  type="text" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="exemplo@campanha.com"
+                  className="custom-input"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Input de Senha */}
+            <div className="form-field">
+              <div className="label-flex">
+                <label className="field-label">Senha</label>
+                <button type="button" className="forgot-pass-btn">Esqueceu?</button>
+              </div>
+              <div className="input-container">
+                <Lock size={20} className="field-icon-left" />
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="custom-input pr-12"
+                  required
+                />
+                <button 
+                  type="button" 
+                  className="toggle-visibility"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Botão de Ação Principal */}
+            <button 
+              type="submit" 
+              className={`submit-login-btn ${loading ? 'btn-loading' : ''}`}
+              disabled={loading}
+              onClick={handleSubmit}
+            >
+              {loading ? (
+                <div className="spinner"></div>
+              ) : (
+                <>
+                  <span>Entrar na Plataforma</span>
+                  <ArrowRight size={20} className="btn-arrow" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Rodapé de Registro */}
+          <footer className="register-footer">
+            <p className="no-account-text">Ainda não tem acesso?</p>
+            <button className="create-account-btn">
+              Criar Conta
+            </button>
+          </footer>
+        </main>
+
+        {/* Selos de Segurança */}
+        <div className="security-badges">
+          <span className="badge-item">
+            <CheckCircle2 size={12} className="check-icon" /> 
+            Conexão Segura
+          </span>
+          <span className="badge-divider"></span>
+          <span className="badge-item">Privacidade Total</span>
+          <span className="badge-divider"></span>
+          <span className="badge-item">LGPD Compliant</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import Logo from '../assets/logomarca.png';
 import AppStore from '../assets/appStore.png';
 import GooglePlay from '../assets/googlePlay.png';
@@ -23,8 +24,8 @@ export default function Footer() {
         <div className="footer-links">
           <h4>Links</h4>
           <ul>
-            <li><a className='footer-links' href="/">Cadastrar-se</a></li>
-            <li><a className='footer-links' href="/">Entrar na sua conta</a></li>
+            <li><Link className='footer-links' to="/login">Cadastrar-se</Link></li>
+            <li><Link className='footer-links' to="/login">Entrar na sua conta</Link></li>
           </ul>
         </div>
 

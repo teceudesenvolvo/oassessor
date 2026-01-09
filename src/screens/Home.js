@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Logo from '../assets/logomarca.png';
 
 export default function Home() {
+  const navigate = useNavigate();
   const items = ["Multi-Plataforma", "LGPD Compliance", "Disparos Inteligentes", "Relatório", "Mapa de Eleitores", "Alertas em Tempo Real"];
 
   const [text, setText] = useState('');
@@ -44,6 +46,7 @@ export default function Home() {
 
   const plans = [
     {
+      id: "basico",
       title: "PLANO BÁSICO",
       subtitle: "(Vereador / Inicial)",
       ideal: "Candidatos a vereador em cidades pequenas ou lideranças iniciando a construção de base.",
@@ -51,6 +54,7 @@ export default function Home() {
       database: "Cadastre até 2.000 Eleitores.",
     },
     {
+      id: "profissional",
       title: "PLANO PROFISSIONAL",
       subtitle: "(Prefeito / Crescimento)",
       ideal: "Candidatos a prefeito, vereadores em capitais ou campanhas que precisam de inteligência geográfica.",
@@ -58,6 +62,7 @@ export default function Home() {
       database: "Cadastre até 20.000 Eleitores.",
     },
     {
+      id: "estrategico",
       title: "PLANO ESTRATÉGICO",
       subtitle: "(Majoritária / Comitê Central)",
       ideal: "Deputados (Estaduais/Federais), Senadores ou grandes comitês partidários.",
@@ -88,8 +93,8 @@ export default function Home() {
           <h1>{text}<span className="cursor">|</span></h1>
           <p className="small-text">Não dependa mais de listas velhas ou planilhas desorganizadas.</p>
           <div className="button-group">
-            <button className="btn-primary">Entrar</button>
-            <button className="btn-outline">Cadastrar</button>
+            <button className="btn-primary" onClick={() => navigate('/login')}>Entrar</button>
+            <button className="btn-outline" onClick={() => navigate('/login')}>Cadastrar</button>
           </div>
         </div>
       </header>
@@ -115,7 +120,13 @@ export default function Home() {
                 
                 <p style={{ margin: 0 }}><strong>Equipe:</strong> {plan.team}</p>
                 <p style={{ margin: 0 }}><strong>Base de Dados:</strong> {plan.database}</p>
-                <input type='button' value='Selecionar Plano' className='btn-primary' style={{ marginTop: '30px' }} />
+                <input 
+                  type='button' 
+                  value='Selecionar Plano' 
+                  className='btn-primary' 
+                  style={{ marginTop: '30px' }} 
+                  onClick={() => navigate(`/plan/${plan.id}`)}
+                />
                
               </div>
             ))}
