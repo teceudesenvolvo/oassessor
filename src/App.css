@@ -1,5 +1,9 @@
 .App {
   text-align: center;
+  overflow-x: none;
+}
+.main-container{
+  overflow-x: hidden !important;
 }
 
 .App-logo {
@@ -141,7 +145,7 @@
 
 .services-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsivo automático */
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Responsivo automático */
   gap: 20px;
 }
 
@@ -162,7 +166,7 @@
 
 .team-grid {
   display: grid; /* Corrigido de flex para grid */
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Responsivo automático */
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Responsivo automático */
   gap: 20px;
   margin-bottom: 200px;
 }
@@ -934,6 +938,7 @@
   
   .team-grid {
     margin-bottom: 80px;
+    width: 90%;
   }
 }
 
