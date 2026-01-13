@@ -172,13 +172,13 @@
 }
 
 .team-card {
-  background: white;
+  background: rgb(246, 246, 246);
   padding: 20px;
-  border-radius: 8px;
+  border-radius: 20px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   text-align: center;
-  width: 100%;
-  margin-right: 20px;
+  width: 90%;
+  margin-right: 20px !important;
 }
 
 .avatar {

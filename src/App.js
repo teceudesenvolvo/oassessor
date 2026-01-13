@@ -6,15 +6,16 @@ import './App.css';
 import Footer from './components/Footer';
 
 // Importing Screens 
-import Home from './screens/Home';
-import Login from './screens/Login';
-import Dashboard from './screens/Dashboard';
-import PlanLanding from './screens/PlanLanding';
-import Checkout from './screens/Checkout';
-import Plans from './screens/Plans';
-import About from './screens/About';
-import Contact from './screens/Contact';
+import Home from './screens/out/Home';
+import PlanLanding from './screens/out/PlanLanding';
+import Contact from './screens/out/Contact';
+import Checkout from './screens/out/Checkout';
+import Plans from './screens/out/Plans';
+import About from './screens/out/About';
 
+import Login from './screens/out/Login';
+
+import Dashboard from './screens/in/Dashboard';
 
 function App() {
   return (

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Navbar from '../components/Navbar';
+import Navbar from '../../components/Navbar';
 import { Splide, SplideSlide } from '@splidejs/react-splide';
 import '@splidejs/react-splide/css';
+import { BarChart3, Users, ShieldCheck, Trophy, Zap } from 'lucide-react';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -153,6 +154,60 @@ export default function Home() {
             ))}
           </div>
 
+          {/* Seção de Impacto / Estatísticas */}
+          <div style={{ padding: '80px 0', textAlign: 'center' }}>
+             <h3 className="section-title" style={{ marginTop: '0', marginBottom: '60px' }}>Resultados que Falam por Si</h3>
+             <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '40px' }}>
+                <div style={{ padding: '20px', minWidth: '200px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}><Users size={40} color="#52e085" /></div>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#0f172a' }}>+2.5M</div>
+                    <div style={{ color: '#64748b', fontWeight: '500' }}>Eleitores Gerenciados</div>
+                </div>
+                <div style={{ padding: '20px', minWidth: '200px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}><Trophy size={40} color="#52e085" /></div>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#0f172a' }}>98%</div>
+                    <div style={{ color: '#64748b', fontWeight: '500' }}>Taxa de Retenção</div>
+                </div>
+                <div style={{ padding: '20px', minWidth: '200px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}><Zap size={40} color="#52e085" /></div>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#0f172a' }}>24/7</div>
+                    <div style={{ color: '#64748b', fontWeight: '500' }}>Suporte Especializado</div>
+                </div>
+             </div>
+          </div>
+
+          {/* Seção de Diferenciais Detalhados */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '40px', marginBottom: '100px', textAlign: 'left' }}>
+              <div style={{ background: 'white', padding: '30px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                  <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#0f172a' }}><BarChart3 color="#2563eb"/> Inteligência de Dados</h3>
+                  <p style={{ color: '#64748b', lineHeight: '1.6' }}>Transforme planilhas confusas em dashboards claros. Tome decisões baseadas em fatos, não em suposições.</p>
+              </div>
+              <div style={{ background: 'white', padding: '30px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                  <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#0f172a' }}><Users color="#2563eb"/> Gestão de Equipe</h3>
+                  <p style={{ color: '#64748b', lineHeight: '1.6' }}>Monitore o desempenho dos seus assessores em tempo real. Saiba quem está trabalhando e onde.</p>
+              </div>
+              <div style={{ background: 'white', padding: '30px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                  <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#0f172a' }}><ShieldCheck color="#2563eb"/> Segurança LGPD</h3>
+                  <p style={{ color: '#64748b', lineHeight: '1.6' }}>Seus dados blindados. Nossa plataforma segue rigorosamente todas as normas de proteção de dados.</p>
+              </div>
+          </div>
+
+          
+
+          {/* CTA Final */}
+          <div style={{ 
+              backgroundColor: '#0f172a', 
+              borderRadius: '24px', 
+              padding: '60px 40px', 
+              textAlign: 'center', 
+              color: 'white',
+              marginBottom: '40px'
+          }}>
+              <h2 style={{ fontSize: '2rem', marginBottom: '15px' }}>Sua vitória começa com organização</h2>
+              <p style={{ marginBottom: '30px', color: '#94a3b8' }}>Não deixe para a última hora. Organize sua base, mobilize sua equipe e vença.</p>
+              <button className="btn-primary" style={{ margin: '0 auto' }} onClick={() => navigate('/plans')}>Conheça nossos planos</button>
+          </div>
+
           <h3 className="section-title">Nossos Planos</h3>
           <div style={{ marginBottom: '100px' }}>
             <Splide options={{
@@ -178,7 +233,7 @@ export default function Home() {
                   <p style={{ margin: 0 }}><strong>Base de Dados:</strong> {plan.database}</p>
                   <input 
                     type='button' 
-                    value='Selecionar Plano' 
+                    value='Conhecer Plano' 
                     className='btn-primary' 
                     style={{ marginTop: '30px' }} 
                     onClick={() => navigate(`/plan/${plan.id}`)}

@@ -5,7 +5,7 @@ import {
   Search,
   Bell
 } from 'lucide-react';
-import Sidebar from '../components/Sidebar';
+import Sidebar from '../../components/Sidebar';
 import Team from './Team';
 import Agenda from './Agenda';
 import Voters from './Voters';

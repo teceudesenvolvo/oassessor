@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User, MapPin, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Lock } from 'lucide-react';
-import { auth, db } from '../firebaseConfig';
+import { auth, db } from '../../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { createSubscription } from '../pagarme';
-import Logo from '../assets/logomarca-vertical-azul.png';
+import { createSubscription } from '../../pagarme';
+import Logo from '../../assets/logomarca-vertical-azul.png';
 
 export default function Checkout() {
   const { planId } = useParams();

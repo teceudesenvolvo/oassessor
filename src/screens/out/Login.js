@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebaseConfig';
-import Logo from '../assets/logomarca.png';
+import { auth } from '../../firebaseConfig';
+import Logo from '../../assets/logomarca.png';
 
 /**
  * Componente de Login principal utilizando React.
