@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
   User, 
   Menu, 
@@ -6,24 +7,52 @@ import {
   Bell
 } from 'lucide-react';
 import Sidebar from '../../components/Sidebar';
-import Team from './Team';
-import Agenda from './Agenda';
-import Voters from './Voters';
-import Profile from './Profile';
-import Notifications from './Notifications';
+
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('Inicio');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showTransition, setShowTransition] = useState(true);
+  const [showTransition, setShowTransition] = useState(() => {
+    return !sessionStorage.getItem('dashboard_welcome_shown');
+  });
+  
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
   useEffect(() => {
-    // Remove o elemento de transição do DOM após a animação
-    const timer = setTimeout(() => setShowTransition(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
+    if (showTransition) {
+      // Remove o elemento de transição do DOM após a animação e marca como visto
+      const timer = setTimeout(() => {
+        setShowTransition(false);
+        sessionStorage.setItem('dashboard_welcome_shown', 'true');
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [showTransition]);
+
+  // Sincroniza a aba ativa com a URL atual
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.includes('/team')) setActiveTab('Minha Equipe');
+    else if (path.includes('/agenda')) setActiveTab('Agenda');
+    else if (path.includes('/voters')) setActiveTab('Eleitores');
+    else if (path.includes('/profile')) setActiveTab('Perfil');
+    else if (path.includes('/notifications')) setActiveTab('Notificações');
+    else setActiveTab('Inicio');
+  }, [location]);
+
+  // Função para navegar quando clicar no Sidebar
+  const handleNavigation = (tabName) => {
+    setActiveTab(tabName);
+    if (tabName === 'Inicio') navigate('/dashboard');
+    else if (tabName === 'Minha Equipe') navigate('/dashboard/team');
+    else if (tabName === 'Agenda') navigate('/dashboard/agenda');
+    else if (tabName === 'Eleitores') navigate('/dashboard/voters');
+    else if (tabName === 'Perfil') navigate('/dashboard/profile');
+    else if (tabName === 'Notificações') navigate('/dashboard/notifications');
+  };
 
   return (
     <div className="dashboard-container">
@@ -54,7 +83,7 @@ export default function Dashboard() {
       {/* --- Sidebar (Menu Lateral) --- */}
       <Sidebar 
         activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+        setActiveTab={handleNavigation} 
         isOpen={isMobileMenuOpen} 
         toggleMenu={toggleMobileMenu} 
       />
@@ -73,7 +102,7 @@ export default function Dashboard() {
               <Search size={18} />
               <input type="text" placeholder="Buscar..." />
             </div>
-            <button className="icon-btn" onClick={() => setActiveTab('Notificações')}>
+            <button className="icon-btn" onClick={() => handleNavigation('Notificações')}>
               <Bell size={20} />
               <span className="notification-dot"></span>
             </button>
@@ -85,42 +114,7 @@ export default function Dashboard() {
 
         {/* Área Dinâmica */}
         <div className="content-area">
-          {activeTab === 'Inicio' && (
-            <>
-              <div className="dashboard-card welcome-card">
-                <h3>Bem-vindo ao Painel, Candidato!</h3>
-                <p>Aqui está o resumo da sua campanha hoje.</p>
-              </div>
-
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <h4>Total de Eleitores</h4>
-                  <div className="stat-value">2.450</div>
-                  <span className="stat-trend positive">+12% essa semana</span>
-                </div>
-                <div className="stat-card">
-                  <h4>Equipe Ativa</h4>
-                  <div className="stat-value">14</div>
-                  <span className="stat-trend">Assessores em campo</span>
-                </div>
-                <div className="stat-card">
-                  <h4>Metas do Dia</h4>
-                  <div className="stat-value">85%</div>
-                  <span className="stat-trend positive">Concluídas</span>
-                </div>
-              </div>
-            </>
-          )}
-
-          {activeTab === 'Minha Equipe' && <Team />}
-          
-          {activeTab === 'Agenda' && <Agenda />}
-          
-          {activeTab === 'Eleitores' && <Voters />}
-          
-          {activeTab === 'Perfil' && <Profile />}
-
-          {activeTab === 'Notificações' && <Notifications />}
+          <Outlet />
         </div>
       </main>
 

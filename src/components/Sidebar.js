@@ -1,4 +1,7 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebaseConfig';
 import { 
   Home, 
   Users, 
@@ -11,6 +14,7 @@ import {
 import Logo from '../assets/logomarca-vertical.png';
 
 export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu }) {
+  const navigate = useNavigate();
   const menuItems = [
     { name: 'Inicio', icon: Home },
     { name: 'Minha Equipe', icon: Users },
@@ -18,6 +22,15 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
     { name: 'Eleitores', icon: Vote },
     { name: 'Perfil', icon: User },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error("Erro ao fazer logout:", error);
+    }
+  };
 
   return (
     <aside className={`dashboard-sidebar ${isOpen ? 'mobile-open' : ''}`}>
@@ -51,7 +64,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
       </nav>
 
       <div className="sidebar-footer">
-        <button className="nav-item logout-btn">
+        <button className="nav-item logout-btn" onClick={handleLogout}>
           <LogOut size={20} />
           <span>Sair</span>
         </button>

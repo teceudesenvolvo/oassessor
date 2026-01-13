@@ -4,6 +4,9 @@ import './App.css';
 
 // Importing Components
 import Footer from './components/Footer';
+import ProtectedRoute from './components/ProtectedRoute';
+import PublicRoute from './components/PublicRoute';
+import AuthTokenHandler from './components/AuthTokenHandler';
 
 // Importing Screens 
 import Home from './screens/out/Home';
@@ -16,20 +19,42 @@ import About from './screens/out/About';
 import Login from './screens/out/Login';
 
 import Dashboard from './screens/in/Dashboard';
+import DashboardHome from './screens/in/DashboardHome';
+import Team from './screens/in/Team';
+import Agenda from './screens/in/Agenda';
+import Voters from './screens/in/Voters';
+import Profile from './screens/in/Profile';
+import Notifications from './screens/in/Notifications';
 
 function App() {
   return (
     <Router>
+      <AuthTokenHandler />
       <div className="main-container">
         <Routes>
           <Route exact path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
           <Route path="/plan/:id" element={<PlanLanding />} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/checkout/:planId" element={<Checkout />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+
+          {/* Rotas públicas que redirecionam se o usuário estiver logado */}
+          <Route element={<PublicRoute />}>
+            <Route path="/login" element={<Login />} />
+          </Route>
+
+          {/* Rotas protegidas que exigem login */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<Dashboard />}>
+              <Route index element={<DashboardHome />} />
+              <Route path="team" element={<Team />} />
+              <Route path="agenda" element={<Agenda />} />
+              <Route path="voters" element={<Voters />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="notifications" element={<Notifications />} />
+            </Route>
+          </Route>
         </Routes>
         <Footer />
       </div>
