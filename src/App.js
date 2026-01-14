@@ -17,6 +17,7 @@ import Plans from './screens/out/Plans';
 import About from './screens/out/About';
 
 import Login from './screens/out/Login';
+import TeamMemberRegistration from './screens/out/TeamMemberRegistration';
 
 import Dashboard from './screens/in/Dashboard';
 import DashboardHome from './screens/in/DashboardHome';
@@ -42,6 +43,7 @@ function App() {
           {/* Rotas públicas que redirecionam se o usuário estiver logado */}
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<Login />} />
+            <Route path="/cadastro-assessor-equipe" element={<TeamMemberRegistration />} />
           </Route>
 
           {/* Rotas protegidas que exigem login */}
