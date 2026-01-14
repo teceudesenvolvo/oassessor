@@ -2,8 +2,14 @@
   "rules": {
     ".read": true,
     ".write": true,
-    "users": {
+    "assessores": {
       ".indexOn": ["email"]
+    },
+    "eleitores": {
+      ".indexOn": ["creatorId"]
+    },
+    "tarefas": {
+      ".indexOn": ["userId"]
     }
   }
 }

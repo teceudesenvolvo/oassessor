@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User, MapPin, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Lock } from 'lucide-react';
-import { auth, db } from '../../firebaseConfig';
+import { auth, database } from '../../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { ref, set } from 'firebase/database';
 import { createSubscription } from '../../pagarme';
 import Logo from '../../assets/logomarca-vertical-azul.png';
 
@@ -63,9 +63,9 @@ export default function Checkout() {
         userUid = "simulated_user_" + Date.now();
       }
 
-      // 2. Salvar dados adicionais no Firestore
+      // 2. Salvar dados adicionais no Realtime Database
       try {
-        await setDoc(doc(db, "users", userUid), {
+        await set(ref(database, 'users/' + userUid), {
             name: formData.name,
             email: formData.email,
             cpf: formData.cpf,
@@ -81,7 +81,7 @@ export default function Checkout() {
             createdAt: new Date()
         });
       } catch (dbError) {
-          console.warn("Firestore falhou (provavelmente falta configuração).", dbError);
+          console.warn("Database falhou (provavelmente falta configuração).", dbError);
       }
 
       // 3. Processar Pagamento no Pagar.me

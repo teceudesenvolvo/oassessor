@@ -24,6 +24,9 @@ import DashboardHome from './screens/in/DashboardHome';
 import Team from './screens/in/Team';
 import Agenda from './screens/in/Agenda';
 import Voters from './screens/in/Voters';
+import NewVoter from './screens/in/NewVoter';
+import VoterMap from './screens/in/VoterMap';
+import VoterDetails from './screens/in/VoterDetails';
 import Profile from './screens/in/Profile';
 import Notifications from './screens/in/Notifications';
 
@@ -53,6 +56,9 @@ function App() {
               <Route path="team" element={<Team />} />
               <Route path="agenda" element={<Agenda />} />
               <Route path="voters" element={<Voters />} />
+              <Route path="voters/new" element={<NewVoter />} />
+              <Route path="voters/map" element={<VoterMap />} />
+              <Route path="voters/:id" element={<VoterDetails />} />
               <Route path="profile" element={<Profile />} />
               <Route path="notifications" element={<Notifications />} />
             </Route>

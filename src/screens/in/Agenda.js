@@ -1,17 +1,38 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin } from 'lucide-react';
+import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { database } from '../../firebaseConfig';
+import { useAuth } from '../../useAuth';
 
 export default function Agenda() {
-  const events = [
-    { id: 1, title: 'Reunião com Lideranças', date: 'Hoje', time: '14:00', location: 'Comitê Central' },
-    { id: 2, title: 'Caminhada no Bairro Centro', date: 'Amanhã', time: '09:00', location: 'Praça da Matriz' },
-    { id: 3, title: 'Entrevista Rádio Local', date: '12/10', time: '08:30', location: 'Estúdio Rádio FM' },
-  ];
+  const { user } = useAuth();
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const tasksRef = ref(database, 'tarefas');
+    const q = query(tasksRef, orderByChild('userId'), equalTo(user.uid));
+    
+    const unsubscribe = onValue(q, (snapshot) => {
+      const data = snapshot.val();
+      const eventsList = data 
+        ? Object.keys(data).map(key => ({ id: key, ...data[key] })) 
+        : [];
+      setEvents(eventsList);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   return (
     <div className="dashboard-card">
       <h3>Agenda de Campanha</h3>
       <div style={{ marginTop: '20px' }}>
+        {loading && <p>Carregando agenda...</p>}
+        {!loading && events.length === 0 && <p style={{color: '#64748b'}}>Nenhum evento agendado.</p>}
         {events.map(event => (
           <div key={event.id} style={{ 
             display: 'flex', 

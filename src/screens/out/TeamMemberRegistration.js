@@ -41,7 +41,7 @@ export default function TeamMemberRegistration() {
             }
 
             // Buscar o nó do usuário no Realtime Database pelo email
-            const usersRef = ref(database, 'users');
+            const usersRef = ref(database, 'assessores');
             const q = query(usersRef, orderByChild('email'), equalTo(email));
             const snapshot = await get(q);
 
@@ -61,8 +61,8 @@ export default function TeamMemberRegistration() {
 
             // Atualiza o nó no Realtime Database com o novo UID
             const updates = {};
-            updates[`/users/${userKey}/userId`] = user.uid;
-            updates[`/users/${userKey}/uid`] = user.uid;
+            updates[`/assessores/${userKey}/userId`] = user.uid;
+            updates[`/assessores/${userKey}/uid`] = user.uid;
             
             console.log("Atualizando usuário:", userKey, "com UID:", user.uid);
             await update(ref(database), updates);

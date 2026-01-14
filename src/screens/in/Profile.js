@@ -1,7 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, Camera } from 'lucide-react';
+import { ref, get } from 'firebase/database';
+import { database } from '../../firebaseConfig';
+import { useAuth } from '../../useAuth';
 
 export default function Profile() {
+  const { user } = useAuth();
+  const [profileData, setProfileData] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
+
+  useEffect(() => {
+    if (user) {
+      const fetchProfile = async () => {
+        const userRef = ref(database, `users/${user.uid}`);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+          setProfileData({ ...snapshot.val(), email: user.email }); // Garante email do Auth
+        }
+      };
+      fetchProfile();
+    }
+  }, [user]);
+
   return (
     <div className="dashboard-card" style={{ maxWidth: '600px', margin: '0 auto' }}>
       <div style={{ textAlign: 'center', marginBottom: '30px' }}>
@@ -32,8 +55,8 @@ export default function Profile() {
             <Camera size={16} />
           </button>
         </div>
-        <h3>Candidato Modelo</h3>
-        <p style={{ color: '#64748b' }}>Partido Exemplo - 99</p>
+        <h3>{profileData.name || 'Usuário'}</h3>
+        <p style={{ color: '#64748b' }}>Perfil de Acesso</p>
       </div>
 
       <form style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -41,21 +64,21 @@ export default function Profile() {
           <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase' }}>Nome Completo</label>
           <div className="input-container">
             <User size={18} className="field-icon-left" />
-            <input type="text" defaultValue="Candidato Modelo" className="custom-input" />
+            <input type="text" value={profileData.name} readOnly className="custom-input" />
           </div>
         </div>
         <div>
           <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase' }}>E-mail</label>
           <div className="input-container">
             <Mail size={18} className="field-icon-left" />
-            <input type="email" defaultValue="candidato@exemplo.com" className="custom-input" />
+            <input type="email" value={profileData.email} readOnly className="custom-input" />
           </div>
         </div>
         <div>
           <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase' }}>Telefone</label>
           <div className="input-container">
             <Phone size={18} className="field-icon-left" />
-            <input type="tel" defaultValue="(11) 99999-9999" className="custom-input" />
+            <input type="tel" value={profileData.phone || ''} readOnly className="custom-input" />
           </div>
         </div>
         <button type="button" className="btn-primary" style={{ marginTop: '10px', width: '100%', justifyContent: 'center' }}>Salvar Alterações</button>
