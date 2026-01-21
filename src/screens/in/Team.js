@@ -12,9 +12,9 @@ export default function Team() {
   useEffect(() => {
     if (!user) return;
 
-    // Busca usuários onde ownerId é igual ao ID do usuário logado
+    // Busca usuários onde adminId é igual ao ID do usuário logado
     const teamRef = ref(database, 'assessores');
-    const q = query(teamRef, orderByChild('ownerId'), equalTo(user.uid));
+    const q = query(teamRef, orderByChild('adminId'), equalTo(user.uid));
 
     const unsubscribe = onValue(q, (snapshot) => {
       const data = snapshot.val();
