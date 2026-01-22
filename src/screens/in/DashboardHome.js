@@ -25,7 +25,7 @@ export default function DashboardHome() {
         // 2. Contar Equipe (Realtime DB)
         // Assumindo que os membros da equipe têm um campo 'ownerId' apontando para o admin
         const teamRef = ref(database, 'assessores');
-        const qTeam = rQuery(teamRef, orderByChild('ownerId'), equalTo(user.uid));
+        const qTeam = rQuery(teamRef, orderByChild('adminId'), equalTo(user.uid));
         const snapshotTeam = await get(qTeam);
         const teamCount = snapshotTeam.exists() ? Object.keys(snapshotTeam.val()).length : 0;
 

@@ -9,7 +9,7 @@
       ".indexOn": ["creatorId"]
     },
     "tarefas": {
-      ".indexOn": ["userId"]
+      ".indexOn": ["creatorId", "adminId"]
     }
   }
 }

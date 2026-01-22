@@ -5,7 +5,7 @@ import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 
 // URL da Cloud Function para envio de e-mail (substitua pela URL real se disponível)
-const CLOUD_FUNCTION_URL = 'https://us-central1-seu-projeto.cloudfunctions.net/sendInviteEmail'; 
+const CLOUD_FUNCTION_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/sendInviteEmail'; 
 
 export default function Team() {
   const { user } = useAuth();
@@ -13,6 +13,7 @@ export default function Team() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [emailFallback, setEmailFallback] = useState(null);
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
@@ -86,18 +87,13 @@ export default function Team() {
     } catch (error) {
       console.warn('Falha no envio automático, usando fallback:', error);
       
-      // Fallback para cliente de e-mail nativo
-      const confirm = window.confirm(
-          `Não foi possível enviar o e-mail automaticamente.\n\nDeseja abrir seu aplicativo de e-mail para enviar o convite manualmente?`
-      );
-      
-      if (confirm) {
-          const subject = "Convite para O Assessor";
-          const inviteLink = `${window.location.origin}/team-register?email=${encodeURIComponent(emailAddress)}`;
-          const body = `Olá ${name},\n\nVocê foi convidado para fazer parte da equipe no aplicativo O Assessor.\n\nPara concluir seu cadastro, clique no link abaixo:\n\n${inviteLink}\n\nAtenciosamente,\nEquipe O Assessor`;
-          
-          window.location.href = `mailto:${emailAddress}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      }
+      // Fallback: Exibe modal para envio manual para evitar bloqueio do navegador
+      const subject = "Convite para O Assessor";
+      const inviteLink = `oassessor.vercel.app/team-register?email=${encodeURIComponent(emailAddress)}`;
+      const body = `Olá ${name},\n\nVocê foi convidado para fazer parte da equipe no aplicativo O Assessor.\n\nPara concluir seu cadastro, clique no link abaixo:\n\n${inviteLink}\n\nAtenciosamente,\nEquipe O Assessor`;
+      const mailto = `mailto:${emailAddress}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+      setEmailFallback(mailto);
     }
   };
 
@@ -250,6 +246,41 @@ export default function Team() {
                 {saving ? 'Enviando...' : 'Enviar Convite'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Fallback de Email */}
+      {emailFallback && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1100,
+          display: 'flex', justifyContent: 'center', alignItems: 'center'
+        }}>
+          <div style={{
+            backgroundColor: 'white', padding: '25px', borderRadius: '12px',
+            width: '90%', maxWidth: '400px', position: 'relative', textAlign: 'center'
+          }}>
+            <button 
+              onClick={() => setEmailFallback(null)}
+              style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              <X size={20} color="#64748b" />
+            </button>
+            
+            <h3 style={{ marginBottom: '15px', color: '#f59e0b' }}>Envio Manual Necessário</h3>
+            <p style={{ marginBottom: '20px', color: '#64748b', fontSize: '0.9rem' }}>
+              O envio automático falhou. Clique abaixo para abrir seu aplicativo de e-mail e enviar o convite.
+            </p>
+            
+            <a 
+              href={emailFallback}
+              className="btn-primary"
+              style={{ display: 'flex', justifyContent: 'center', textDecoration: 'none', alignItems: 'center' }}
+              onClick={() => setEmailFallback(null)}
+            >
+              Abrir E-mail
+            </a>
           </div>
         </div>
       )}
