@@ -89,7 +89,7 @@ export default function Team() {
       
       // Fallback: Exibe modal para envio manual para evitar bloqueio do navegador
       const subject = "Convite para O Assessor";
-      const inviteLink = `oassessor.vercel.app/team-register?email=${encodeURIComponent(emailAddress)}`;
+      const inviteLink = `oassessor.vercel.app/cadastro?email=${encodeURIComponent(emailAddress)}`;
       const body = `Olá ${name},\n\nVocê foi convidado para fazer parte da equipe no aplicativo O Assessor.\n\nPara concluir seu cadastro, clique no link abaixo:\n\n${inviteLink}\n\nAtenciosamente,\nEquipe O Assessor`;
       const mailto = `mailto:${emailAddress}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 

@@ -63,6 +63,7 @@ export default function TeamMemberRegistration() {
             const updates = {};
             updates[`/assessores/${userKey}/userId`] = user.uid;
             updates[`/assessores/${userKey}/uid`] = user.uid;
+            updates[`/assessores/${userKey}/status`] = 'Ativo';
             
             console.log("Atualizando usuário:", userKey, "com UID:", user.uid);
             await update(ref(database), updates);

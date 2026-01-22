@@ -46,7 +46,7 @@ function App() {
           {/* Rotas públicas que redirecionam se o usuário estiver logado */}
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<Login />} />
-            <Route path="/cadastro-assessor-equipe" element={<TeamMemberRegistration />} />
+            <Route path="/cadastro" element={<TeamMemberRegistration />} />
           </Route>
 
           {/* Rotas protegidas que exigem login */}
