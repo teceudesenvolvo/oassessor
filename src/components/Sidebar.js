@@ -17,9 +17,9 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
   const navigate = useNavigate();
   const menuItems = [
     { name: 'Inicio', icon: Home },
+    { name: 'Eleitores', icon: Vote },
     { name: 'Minha Equipe', icon: Users },
     { name: 'Agenda', icon: Calendar },
-    { name: 'Eleitores', icon: Vote },
     { name: 'Perfil', icon: User },
   ];
 

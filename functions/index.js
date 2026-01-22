@@ -157,3 +157,25 @@ exports.generateWebAuthToken = onRequest({ cors: true, invoker: 'public' }, asyn
       res.status(500).send({ error: error.toString() });
     }
 });
+
+exports.deleteUser = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+    if (req.method !== "POST") {
+      return res.status(405).send("Method Not Allowed");
+    }
+
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).send("Missing email");
+    }
+
+    try {
+      const userRecord = await admin.auth().getUserByEmail(email);
+      await admin.auth().deleteUser(userRecord.uid);
+      res.status(200).send({ success: true });
+    } catch (error) {
+      // Se o usuário não existir no Auth (ex: apenas convidado), não é um erro crítico
+      console.log("Info exclusão:", error.code === 'auth/user-not-found' ? 'Usuário não encontrado no Auth' : error);
+      res.status(200).send({ success: true, message: "Processado" });
+    }
+});

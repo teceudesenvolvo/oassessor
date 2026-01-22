@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, MoreVertical, X } from 'lucide-react';
-import { ref, query, orderByChild, equalTo, onValue, push, set } from 'firebase/database';
+import { UserPlus, MoreVertical, X, Edit, Trash } from 'lucide-react';
+import { ref, query, orderByChild, equalTo, onValue, push, set, update, remove } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 
 // URL da Cloud Function para envio de e-mail (substitua pela URL real se disponível)
 const CLOUD_FUNCTION_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/sendInviteEmail'; 
+const DELETE_USER_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/deleteUser';
 
 export default function Team() {
   const { user } = useAuth();
@@ -14,6 +15,9 @@ export default function Team() {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [emailFallback, setEmailFallback] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
@@ -97,7 +101,7 @@ export default function Team() {
     }
   };
 
-  const handleInvite = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user) return;
 
@@ -109,48 +113,110 @@ export default function Team() {
     setSaving(true);
 
     try {
-      const teamRef = ref(database, 'assessores');
-      const newMemberRef = push(teamRef);
-      const newId = newMemberRef.key;
-      
-      // Gera o link de convite
-      const inviteLink = `${window.location.origin}/team-register?email=${encodeURIComponent(formData.email)}`;
+      if (isEditing && selectedMemberId) {
+        // Atualizar membro existente
+        await update(ref(database, `assessores/${selectedMemberId}`), formData);
+        await update(ref(database, `users/${selectedMemberId}`), formData);
+        alert('Membro atualizado com sucesso!');
+      } else {
+        // Criar novo membro
+        const teamRef = ref(database, 'assessores');
+        const newMemberRef = push(teamRef);
+        const newId = newMemberRef.key;
+        
+        // Gera o link de convite
+        const inviteLink = `https://oassessor.vercel.app/cadastro?email=${encodeURIComponent(formData.email)}`;
 
-      const assessorData = {
-        ...formData,
-        adminId: user.uid,
-        creatorId: user.uid,
-        status: 'invited',
-        createdAt: new Date().toISOString(),
-        inviteLink: inviteLink
-      };
+        const assessorData = {
+          ...formData,
+          adminId: user.uid,
+          creatorId: user.uid,
+          status: 'invited',
+          createdAt: new Date().toISOString(),
+          inviteLink: inviteLink
+        };
 
-      // 1. Salvar na coleção 'assessores'
-      await set(newMemberRef, assessorData);
+        // 1. Salvar na coleção 'assessores'
+        await set(newMemberRef, assessorData);
 
-      // 2. Salvar na coleção 'users' (espelhando a lógica do App React Native)
-      // Isso cria o registro do usuário antecipadamente
-      const userRef = ref(database, `users/${newId}`);
-      await set(userRef, assessorData);
+        // 2. Salvar na coleção 'users' (espelhando a lógica do App React Native)
+        // Isso cria o registro do usuário antecipadamente
+        const userRef = ref(database, `users/${newId}`);
+        await set(userRef, assessorData);
 
-      // 3. Enviar E-mail (Automático ou Fallback)
-      await sendInviteEmail(formData.nome, formData.email, inviteLink);
+        // 3. Enviar E-mail (Automático ou Fallback)
+        await sendInviteEmail(formData.nome, formData.email, inviteLink);
+      }
 
       setShowModal(false);
-      setFormData({ nome: '', email: '', cargo: '', cpf: '', telefone: '', tipoUser: 'assessor' });
+      resetForm();
     } catch (error) {
-      console.error("Erro ao cadastrar:", error);
-      alert("Erro ao cadastrar assessor.");
+      console.error("Erro ao salvar:", error);
+      alert("Erro ao salvar dados.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDelete = async (id, email) => {
+    if (window.confirm('Tem certeza que deseja excluir este membro?')) {
+      try {
+        // 1. Tenta excluir do Authentication via Cloud Function (se tiver email)
+        if (email) {
+          const response = await fetch(DELETE_USER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+
+          if (!response.ok) {
+            const errText = await response.text();
+            console.warn(`Aviso: Falha ao excluir do Auth (${response.status}):`, errText);
+          }
+        }
+
+        // 2. Remove do Realtime Database
+        await remove(ref(database, `assessores/${id}`));
+        await remove(ref(database, `users/${id}`));
+        setMenuOpen(null);
+      } catch (error) {
+        console.error("Erro ao excluir:", error);
+        alert("Erro ao excluir membro.");
+      }
+    }
+  };
+
+  const handleEdit = (member) => {
+    setFormData({
+      nome: member.nome || '',
+      email: member.email || '',
+      cargo: member.cargo || '',
+      cpf: member.cpf || '',
+      telefone: member.telefone || '',
+      tipoUser: member.tipoUser || 'assessor'
+    });
+    setSelectedMemberId(member.id);
+    setIsEditing(true);
+    setShowModal(true);
+    setMenuOpen(null);
+  };
+
+  const handleNewMember = () => {
+    resetForm();
+    setIsEditing(false);
+    setSelectedMemberId(null);
+    setShowModal(true);
+  };
+
+  const resetForm = () => {
+    setFormData({ nome: '', email: '', cargo: '', cpf: '', telefone: '', tipoUser: 'assessor' });
   };
 
   return (
     <div className="dashboard-card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h3>Minha Equipe</h3>
-        <button className="btn-primary" onClick={() => setShowModal(true)} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button className="btn-primary" onClick={handleNewMember} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <UserPlus size={16} />
           Novo Membro
         </button>
@@ -186,10 +252,66 @@ export default function Team() {
                   {member.status === 'invited' ? 'Convidado' : 'Ativo'}
                 </span>
               </td>
-              <td style={{ padding: '12px' }}>
-                <button style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+              <td style={{ padding: '12px', position: 'relative' }}>
+                <button 
+                  onClick={() => setMenuOpen(menuOpen === member.id ? null : member.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                >
                   <MoreVertical size={16} color="#64748b" />
                 </button>
+                
+                {menuOpen === member.id && (
+                  <div style={{
+                    position: 'absolute',
+                    right: '0',
+                    top: '40px',
+                    backgroundColor: 'white',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                    borderRadius: '8px',
+                    zIndex: 10,
+                    minWidth: '120px',
+                    overflow: 'hidden',
+                    border: '1px solid #f1f5f9'
+                  }}>
+                    <button 
+                      onClick={() => handleEdit(member)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        width: '100%',
+                        padding: '10px 15px',
+                        border: 'none',
+                        background: 'white',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        fontSize: '0.9rem',
+                        color: '#475569',
+                        borderBottom: '1px solid #f1f5f9'
+                      }}
+                    >
+                      <Edit size={14} /> Editar
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(member.id, member.email)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        width: '100%',
+                        padding: '10px 15px',
+                        border: 'none',
+                        background: 'white',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        fontSize: '0.9rem',
+                        color: '#ef4444'
+                      }}
+                    >
+                      <Trash size={14} /> Excluir
+                    </button>
+                  </div>
+                )}
               </td>
             </tr>
           ))}
@@ -214,9 +336,9 @@ export default function Team() {
               <X size={20} color="#64748b" />
             </button>
             
-            <h3 style={{ marginBottom: '20px' }}>Novo Membro</h3>
+            <h3 style={{ marginBottom: '20px' }}>{isEditing ? 'Editar Membro' : 'Novo Membro'}</h3>
             
-            <form onSubmit={handleInvite} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div className="input-group">
                 <label>Nome</label>
                 <input type="text" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} className="custom-input" required placeholder="Nome do assessor" />
@@ -243,7 +365,7 @@ export default function Team() {
               </div>
 
               <button type="submit" className="btn-primary" disabled={saving} style={{ marginTop: '10px', justifyContent: 'center' }}>
-                {saving ? 'Enviando...' : 'Enviar Convite'}
+                {saving ? 'Salvando...' : (isEditing ? 'Salvar Alterações' : 'Enviar Convite')}
               </button>
             </form>
           </div>
