@@ -160,9 +160,9 @@ export default function Team() {
 
   const handleDelete = async (id, email) => {
     if (window.confirm('Tem certeza que deseja excluir este membro?')) {
-      try {
-        // 1. Tenta excluir do Authentication via Cloud Function (se tiver email)
-        if (email) {
+      // 1. Tenta excluir do Authentication via Cloud Function (se tiver email)
+      if (email) {
+        try {
           const response = await fetch(DELETE_USER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -173,8 +173,12 @@ export default function Team() {
             const errText = await response.text();
             console.warn(`Aviso: Falha ao excluir do Auth (${response.status}):`, errText);
           }
+        } catch (authError) {
+          console.warn("Erro ao chamar Cloud Function de exclusão (ignorando para remover do banco):", authError);
         }
+      }
 
+      try {
         // 2. Remove do Realtime Database
         await remove(ref(database, `assessores/${id}`));
         await remove(ref(database, `users/${id}`));
