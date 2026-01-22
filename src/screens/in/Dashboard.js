@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
   User, 
-  Menu, 
-  Search,
+  Menu,
   Bell
 } from 'lucide-react';
 import Sidebar from '../../components/Sidebar';
@@ -95,13 +94,10 @@ export default function Dashboard() {
           <button className="menu-toggle-btn" onClick={toggleMobileMenu}>
             <Menu size={24} />
           </button>
-          <h2 className="page-title">{activeTab}</h2>
+          <h2 className="page-title"> </h2>
           
           <div className="topbar-actions">
-            <div className="search-box">
-              <Search size={18} />
-              <input type="text" placeholder="Buscar..." />
-            </div>
+            
             <button className="icon-btn" onClick={() => handleNavigation('Notificações')}>
               <Bell size={20} />
               <span className="notification-dot"></span>
