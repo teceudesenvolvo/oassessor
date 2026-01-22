@@ -1,5 +1,4 @@
 const { onRequest } = require("firebase-functions/v2/https");
-const functions = require("firebase-functions/v1");
 // const { onValueCreated } = require("firebase-functions/v2/database");
 const nodemailer = require("nodemailer");
 const admin = require("firebase-admin");
@@ -22,11 +21,13 @@ exports.sendInviteEmail = onRequest({ cors: true, invoker: 'public' }, async (re
       return res.status(405).send("Method Not Allowed");
     }
 
-    const { email, nome } = req.body;
+    const { email, nome, inviteLink } = req.body;
 
     if (!email || !nome) {
       return res.status(400).send("Faltando email ou nome");
     }
+
+    const linkToUse = inviteLink || `https://oassessor.vercel.app/cadastro-assessor-equipe?email=${email}`;
 
     const mailOptions = {
       from: `"O Assessor" <blutecnologiasbr@gmail.com>`, // << USE O MESMO EMAIL AQUI
@@ -38,8 +39,8 @@ exports.sendInviteEmail = onRequest({ cors: true, invoker: 'public' }, async (re
           <p>Olá <strong>${nome}</strong>,</p>
           <p>Você foi convidado para fazer parte da nossa equipe.</p>
           <p>Para concluir seu cadastro e acessar o aplicativo, clique no botão abaixo:</p>
-          <a href="https://oassessor.vercel.app/cadastro-assessor-equipe?email=${email}" style="background-color: #6EE794; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Aceitar Convite</a>
-          <p style="margin-top: 20px; font-size: 12px; color: #999;">Se você não esperava este convite, por favor ignore este email.</p>
+          <a href="${linkToUse}" style="background-color: #6EE794; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Aceitar Convite</a>
+          <p style="margin-top: 20px; font-size: 12px; color: #999;">Ou copie e cole: ${linkToUse}</p>
         </div>
       `,
     };
@@ -53,7 +54,7 @@ exports.sendInviteEmail = onRequest({ cors: true, invoker: 'public' }, async (re
     }
 });
 
-exports.sendPushOnNotification = functions.database.ref("/notificacoes/{notificationId}").onCreate(async (snapshot, context) => {
+exports.sendPushOnNotification = require("firebase-functions/v1").database.ref("/notificacoes/{notificationId}").onCreate(async (snapshot, context) => {
     const notification = snapshot.val();
     console.log("Nova notificação detectada:", context.params.notificationId);
     
