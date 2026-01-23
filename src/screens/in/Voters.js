@@ -18,18 +18,33 @@ export default function Voters() {
     if (!user) return;
 
     const votersRef = ref(database, 'eleitores');
-    const q = query(votersRef, orderByChild('creatorId'), equalTo(user.uid));
+    const qCreator = query(votersRef, orderByChild('creatorId'), equalTo(user.uid));
+    const qAdmin = query(votersRef, orderByChild('adminId'), equalTo(user.uid));
     
-    const unsubscribe = onValue(q, (snapshot) => {
-      const data = snapshot.val();
-      const votersList = data 
-        ? Object.keys(data).map(key => ({ id: key, ...data[key] })) 
-        : [];
+    let votersCreator = {};
+    let votersAdmin = {};
+
+    const updateVoters = () => {
+      const combined = { ...votersCreator, ...votersAdmin };
+      const votersList = Object.keys(combined).map(key => ({ id: key, ...combined[key] }));
       setVoters(votersList);
       setLoading(false);
+    };
+
+    const unsubCreator = onValue(qCreator, (snapshot) => {
+      votersCreator = snapshot.val() || {};
+      updateVoters();
     });
 
-    return () => unsubscribe();
+    const unsubAdmin = onValue(qAdmin, (snapshot) => {
+      votersAdmin = snapshot.val() || {};
+      updateVoters();
+    });
+
+    return () => {
+      unsubCreator();
+      unsubAdmin();
+    };
   }, [user]);
 
   const filteredVoters = voters.filter(voter => {

@@ -6,7 +6,7 @@
       ".indexOn": ["email", "adminId"]
     },
     "eleitores": {
-      ".indexOn": ["creatorId"]
+      ".indexOn": ["creatorId", "adminId"]
     },
     "tarefas": {
       ".indexOn": ["creatorId", "adminId"]
