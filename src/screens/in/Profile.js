@@ -20,6 +20,7 @@ export default function Profile() {
     phone: '',
     cargo: '',
     cpf: '',
+    photoBase64: '',
     cep: '',
     endereco: '',
     numero: '',
@@ -50,6 +51,7 @@ export default function Profile() {
             phone: data.phone || data.telefone || '',
             cargo: data.cargo || '',
             cpf: data.cpf || '',
+            photoBase64: data.photoBase64 || '',
             cep: billing.cep || data.cep || '',
             endereco: billing.endereco || data.endereco || '',
             numero: billing.numero || data.numero || '',
@@ -63,6 +65,28 @@ export default function Profile() {
       fetchProfile();
     }
   }, [user]);
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result;
+        setProfileData(prev => ({ ...prev, photoBase64: base64 }));
+        
+        if (user) {
+            try {
+                const userRef = ref(database, `users/${user.uid}`);
+                await update(userRef, { photoBase64: base64 });
+            } catch (error) {
+                console.error("Erro ao salvar imagem:", error);
+                alert("Erro ao salvar imagem.");
+            }
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSave = async () => {
     if (!user) return;
@@ -85,6 +109,7 @@ export default function Profile() {
         phone: profileData.phone,
         telefone: profileData.phone, // Mantém compatibilidade
         cpf: profileData.cpf,
+        photoBase64: profileData.photoBase64,
         dadosCobranca: [billingInfo]
       });
       alert('Perfil atualizado com sucesso!');
@@ -141,7 +166,7 @@ export default function Profile() {
           />
         );
       case 'subscription':
-        return <ProfileSubscription />;
+        return <ProfileSubscription profileData={profileData} />;
       case 'password':
         return <ProfilePassword />;
       case 'help':
@@ -172,10 +197,17 @@ export default function Profile() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          position: 'relative'
+          position: 'relative',
+          overflow: 'hidden',
+          border: '2px solid #fff',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
         }}>
-          <User size={50} color="#94a3b8" />
-          <button style={{ 
+          {profileData.photoBase64 ? (
+            <img src={profileData.photoBase64} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <User size={50} color="#94a3b8" />
+          )}
+          <label htmlFor="photo-upload" style={{ 
             position: 'absolute', 
             bottom: '0', 
             right: '0', 
@@ -185,10 +217,12 @@ export default function Profile() {
             padding: '8px',
             cursor: 'pointer',
             color: 'white',
-            display: 'flex'
+            display: 'flex',
+            zIndex: 10
           }}>
             <Camera size={16} />
-          </button>
+          </label>
+          <input id="photo-upload" type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
         </div>
         <h3>{profileData.name || 'Usuário'}</h3>
         <p style={{ color: '#64748b' }}>{profileData.cargo || 'Perfil de Acesso'}</p>
