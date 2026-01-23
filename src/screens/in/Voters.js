@@ -246,7 +246,7 @@ export default function Voters() {
         voters.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
             <p style={{ marginBottom: '20px' }}>Nenhum eleitor cadastrado ainda.</p>
-            <button className="btn-primary">Importar Lista de Contatos</button>
+            
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
