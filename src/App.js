@@ -29,6 +29,7 @@ import VoterMap from './screens/in/VoterMap';
 import VoterDetails from './screens/in/VoterDetails';
 import Profile from './screens/in/Profile';
 import Notifications from './screens/in/Notifications';
+import EleitorForm from './screens/out/EleitorForm';
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/checkout/:planId" element={<Checkout />} />
+          <Route path="/eleitor-form" element={<EleitorForm />} />
 
           {/* Rotas públicas que redirecionam se o usuário estiver logado */}
           <Route element={<PublicRoute />}>

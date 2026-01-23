@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Eye, Map, FileDown, UserPlus } from 'lucide-react';
+import { Search, Eye, Map, FileDown, UserPlus, Link as LinkIcon } from 'lucide-react';
 import { ref, query, orderByChild, equalTo, onValue, get } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
@@ -185,6 +185,16 @@ export default function Voters() {
     doc.save('lista_eleitores.pdf');
   };
 
+  const copyVoterFormLink = () => {
+    if (!user) return;
+    const link = `${window.location.origin}/eleitor-form?userId=${user.uid}&email=${encodeURIComponent(user.email)}`;
+    navigator.clipboard.writeText(link).then(() => {
+      alert('Link copiado para a área de transferência!');
+    }).catch(err => {
+      console.error('Erro ao copiar link:', err);
+    });
+  };
+
   return (
     <div className="dashboard-card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
@@ -215,6 +225,9 @@ export default function Voters() {
             </select>
           )}
 
+          <button className="icon-btn" onClick={copyVoterFormLink} title="Link de Cadastro" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px', width: 'auto', height: 'auto', backgroundColor: '#f8fafc' }}>
+            <LinkIcon size={20} color="#64748b" />
+          </button>
           <button className="icon-btn" onClick={() => navigate('/dashboard/voters/new')} title="Novo Eleitor" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px', width: 'auto', height: 'auto', backgroundColor: '#dcfce7', color: '#166534' }}>
             <UserPlus size={20} />
           </button>
