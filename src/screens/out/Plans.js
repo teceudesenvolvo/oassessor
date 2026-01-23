@@ -29,6 +29,7 @@ export default function Plans() {
       ideal: "Campanhas em crescimento que precisam de inteligência.",
       team: "Até 1500 Cadastros.",
       database: "Base de Eleitores Ilimitada.",
+      recommended: true,
     },
     {
       id: "prata",
@@ -61,7 +62,30 @@ export default function Plans() {
         <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
             <div className="team-grid">
             {plans.map((plan, index) => (
-              <div key={index} className="team-card" style={{ textAlign: 'left', alignItems: 'flex-start', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div key={index} className="team-card" style={{ 
+                textAlign: 'left', 
+                alignItems: 'flex-start', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '10px',
+                position: 'relative',
+                border: plan.recommended ? '2px solid #2563eb' : '2px solid transparent',
+                transform: plan.recommended ? 'scale(1.05)' : 'none',
+                zIndex: plan.recommended ? 1 : 'auto'
+              }}>
+                {plan.recommended && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '-15px',
+                    right: '20px',
+                    backgroundColor: '#2563eb',
+                    color: 'white',
+                    padding: '4px 12px',
+                    borderRadius: '99px',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold'
+                  }}>Recomendado</div>
+                )}
                 <h4 style={{ margin: 0, color: '#2563eb' }}>{plan.title}</h4>
                 <span style={{ fontSize: '0.9em', fontWeight: 'bold', color: '#555' }}>{plan.subtitle}</span>
                 

@@ -54,6 +54,7 @@ export default function TeamMemberRegistration() {
             // No Realtime DB, o resultado é um objeto onde as chaves são os IDs
             const data = snapshot.val();
             const userKey = Object.keys(data)[0]; // Pega a primeira chave encontrada
+            const assessorData = data[userKey];
 
             // Se o convite é válido, cria o usuário na autenticação
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -64,6 +65,14 @@ export default function TeamMemberRegistration() {
             updates[`/assessores/${userKey}/userId`] = user.uid;
             updates[`/assessores/${userKey}/uid`] = user.uid;
             updates[`/assessores/${userKey}/status`] = 'Ativo';
+            
+            // Cria/Atualiza o registro na coleção 'users' com o UID correto da autenticação
+            updates[`/users/${user.uid}`] = {
+                ...assessorData,
+                userId: user.uid,
+                uid: user.uid,
+                tipoUser: 'assessor'
+            };
             
             console.log("Atualizando usuário:", userKey, "com UID:", user.uid);
             await update(ref(database), updates);

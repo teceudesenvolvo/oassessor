@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Eye, Map, FileDown, UserPlus } from 'lucide-react';
-import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { ref, query, orderByChild, equalTo, onValue, get } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 import jsPDF from 'jspdf';
@@ -13,47 +13,143 @@ export default function Voters() {
   const [voters, setVoters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [assessors, setAssessors] = useState([]);
+  const [filterOwner, setFilterOwner] = useState('all');
 
   useEffect(() => {
     if (!user) return;
 
-    const votersRef = ref(database, 'eleitores');
-    const qCreator = query(votersRef, orderByChild('creatorId'), equalTo(user.uid));
-    const qAdmin = query(votersRef, orderByChild('adminId'), equalTo(user.uid));
-    
-    let votersCreator = {};
-    let votersAdmin = {};
+    let unsubscribes = [];
 
-    const updateVoters = () => {
-      const combined = { ...votersCreator, ...votersAdmin };
-      const votersList = Object.keys(combined).map(key => ({ id: key, ...combined[key] }));
-      setVoters(votersList);
-      setLoading(false);
+    const fetchData = async () => {
+      try {
+        // 1. Verificar se o usuário é admin na coleção 'users'
+        const usersRef = ref(database, 'users');
+        const qUser = query(usersRef, orderByChild('userId'), equalTo(user.uid));
+        const userSnapshot = await get(qUser);
+        
+        let isUserAdmin = false;
+        if (userSnapshot.exists()) {
+          const userData = Object.values(userSnapshot.val())[0];
+          if (userData.tipoUser === 'admin') {
+            isUserAdmin = true;
+          }
+        }
+        setIsAdmin(isUserAdmin);
+
+        const votersRef = ref(database, 'eleitores');
+
+        if (isUserAdmin) {
+          // 2. Se admin, buscar assessores vinculados pelo adminId
+          const assessoresRef = ref(database, 'assessores');
+          const qAssessors = query(assessoresRef, orderByChild('adminId'), equalTo(user.uid));
+          const assessorsSnapshot = await get(qAssessors);
+          
+          const idsToFilter = new Set();
+          const emailsToFilter = new Set();
+          idsToFilter.add(user.uid); // Inclui o próprio admin
+
+          if (assessorsSnapshot.exists()) {
+            const assessorsData = assessorsSnapshot.val();
+            const assessorsList = [];
+            Object.keys(assessorsData).forEach(key => {
+              const assessor = { id: key, ...assessorsData[key] };
+              assessorsList.push(assessor);
+              
+              if (assessor.userId) {
+                idsToFilter.add(assessor.userId);
+              } else if (assessor.email) {
+                // Fallback: Se não tiver userId, usa o email
+                emailsToFilter.add(assessor.email);
+              }
+            });
+            setAssessors(assessorsList);
+          }
+
+          // 3. Filtrar eleitores pelos IDs encontrados (creatorId)
+          let votersMap = {};
+
+          const updateVotersList = () => {
+            let allVoters = {};
+            Object.values(votersMap).forEach(group => {
+              Object.assign(allVoters, group);
+            });
+            const list = Object.keys(allVoters).map(key => ({ id: key, ...allVoters[key] }));
+            setVoters(list);
+            setLoading(false);
+          };
+
+          if (idsToFilter.size === 0 && emailsToFilter.size === 0) {
+             setVoters([]);
+             setLoading(false);
+          }
+
+          idsToFilter.forEach(id => {
+            const qVoter = query(votersRef, orderByChild('creatorId'), equalTo(id));
+            const unsub = onValue(qVoter, (snapshot) => {
+              const data = snapshot.val() || {};
+              votersMap[`id_${id}`] = data;
+              updateVotersList();
+            });
+            unsubscribes.push(unsub);
+          });
+
+          // Busca também por email (para assessores sem userId vinculado ou legados)
+          emailsToFilter.forEach(email => {
+            const qVoter = query(votersRef, orderByChild('creatorEmail'), equalTo(email));
+            const unsub = onValue(qVoter, (snapshot) => {
+              const data = snapshot.val() || {};
+              votersMap[`email_${email}`] = data;
+              updateVotersList();
+            });
+            unsubscribes.push(unsub);
+          });
+
+        } else {
+          // Se não for admin (assessor), busca apenas os seus criados pelo creatorId
+          const qCreator = query(votersRef, orderByChild('creatorId'), equalTo(user.uid));
+          const unsub = onValue(qCreator, (snapshot) => {
+            const data = snapshot.val();
+            const list = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            setVoters(list);
+            setLoading(false);
+          });
+          unsubscribes.push(unsub);
+        }
+
+      } catch (error) {
+        console.error("Erro ao buscar dados:", error);
+        setLoading(false);
+      }
     };
 
-    const unsubCreator = onValue(qCreator, (snapshot) => {
-      votersCreator = snapshot.val() || {};
-      updateVoters();
-    });
-
-    const unsubAdmin = onValue(qAdmin, (snapshot) => {
-      votersAdmin = snapshot.val() || {};
-      updateVoters();
-    });
+    fetchData();
 
     return () => {
-      unsubCreator();
-      unsubAdmin();
+      unsubscribes.forEach(unsub => unsub());
     };
   }, [user]);
 
   const filteredVoters = voters.filter(voter => {
     const term = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       (voter.nome && voter.nome.toLowerCase().includes(term)) ||
       (voter.email && voter.email.toLowerCase().includes(term)) ||
       (voter.telefone && voter.telefone.includes(term))
     );
+
+    let matchesOwner = true;
+    if (isAdmin) {
+      if (filterOwner === 'me') {
+        matchesOwner = voter.creatorId === user.uid;
+      } else if (filterOwner !== 'all') {
+        // Verifica tanto ID quanto Email para garantir compatibilidade
+        matchesOwner = voter.creatorId === filterOwner || voter.creatorEmail === filterOwner;
+      }
+    }
+
+    return matchesSearch && matchesOwner;
   });
 
   const generatePdf = () => {
@@ -103,6 +199,22 @@ export default function Voters() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          
+          {isAdmin && (
+            <select 
+              className="custom-input" 
+              style={{ width: 'auto', padding: '8px', height: '40px' }}
+              value={filterOwner}
+              onChange={(e) => setFilterOwner(e.target.value)}
+            >
+              <option value="all">Todos os Cadastros</option>
+              <option value="me">Meus Cadastros</option>
+              {assessors.map(assessor => (
+                <option key={assessor.id} value={assessor.userId || assessor.email}>{assessor.nome || assessor.email}</option>
+              ))}
+            </select>
+          )}
+
           <button className="icon-btn" onClick={() => navigate('/dashboard/voters/new')} title="Novo Eleitor" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px', width: 'auto', height: 'auto', backgroundColor: '#dcfce7', color: '#166534' }}>
             <UserPlus size={20} />
           </button>

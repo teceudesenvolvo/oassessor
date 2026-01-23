@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { auth } from '../firebaseConfig';
+import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
+import { auth, database } from '../firebaseConfig';
+import { useAuth } from '../useAuth';
 import { 
   Home, 
   Users, 
@@ -15,6 +17,8 @@ import Logo from '../assets/logomarca-vertical.png';
 
 export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [userType, setUserType] = useState(null);
   const menuItems = [
     { name: 'Inicio', icon: Home },
     { name: 'Eleitores', icon: Vote },
@@ -22,6 +26,54 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
     { name: 'Agenda', icon: Calendar },
     { name: 'Perfil', icon: User },
   ];
+
+  useEffect(() => {
+    if (user) {
+      const fetchUserType = async () => {
+        try {
+          // Verifica se o email está na coleção 'assessores'
+          if (user.email) {
+            const assessoresRef = ref(database, 'assessores');
+            const qEmail = query(assessoresRef, orderByChild('email'), equalTo(user.email));
+            const snapshotEmail = await get(qEmail);
+
+            if (snapshotEmail.exists()) {
+              setUserType('assessor');
+              return;
+            }
+          }
+
+          const usersRef = ref(database, 'users');
+          const qUser = query(usersRef, orderByChild('userId'), equalTo(user.uid));
+          const snapshot = await get(qUser);
+          
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            const firstKey = Object.keys(data)[0];
+            setUserType(data[firstKey].tipoUser);
+          } else {
+            // Fallback: Se não achar em 'users', busca em 'assessores' pelo userId
+            const assessoresRef = ref(database, 'assessores');
+            const q = query(assessoresRef, orderByChild('userId'), equalTo(user.uid));
+            const snapshotAssessor = await get(q);
+
+            if (snapshotAssessor.exists()) {
+              const data = snapshotAssessor.val();
+              const firstKey = Object.keys(data)[0];
+              setUserType(data[firstKey].tipoUser || 'assessor');
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao buscar tipo de usuário:", error);
+        }
+      };
+      fetchUserType();
+    }
+  }, [user]);
+
+  const filteredMenuItems = menuItems.filter(item => {
+    return !(userType === 'assessor' && item.name === 'Minha Equipe');
+  });
 
   const handleLogout = async () => {
     try {
@@ -43,7 +95,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
 
       <nav className="sidebar-nav">
         <ul>
-          {menuItems.map((item) => (
+          {filteredMenuItems.map((item) => (
             <li key={item.name}>
               <button 
                 className={`nav-item ${activeTab === item.name ? 'active' : ''}`}

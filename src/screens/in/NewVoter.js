@@ -31,6 +31,31 @@ export default function NewVoter() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleMaskedChange = (e) => {
+    const { name, value } = e.target;
+    let val = value;
+
+    if (name === 'cpf') {
+      val = val.replace(/\D/g, '').slice(0, 11)
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})/, '$1-$2');
+    } else if (name === 'telefone') {
+      val = val.replace(/\D/g, '').slice(0, 11);
+      val = val.replace(/^(\d{2})(\d)/g, '($1) $2');
+      val = val.replace(/(\d)(\d{4})$/, '$1-$2');
+    } else if (name === 'cep') {
+      val = val.replace(/\D/g, '').slice(0, 8);
+      val = val.replace(/^(\d{5})(\d)/, '$1-$2');
+    } else if (name === 'titulo') {
+      val = val.replace(/\D/g, '').slice(0, 12);
+    } else if (name === 'zonaSecao') {
+      val = val.replace(/\D/g, '').slice(0, 7);
+      if (val.length > 3) val = val.slice(0, 3) + '/' + val.slice(3);
+    }
+    setFormData(prev => ({ ...prev, [name]: val }));
+  };
+
   const checkCep = async (e) => {
     const cep = e.target.value.replace(/\D/g, '');
     if (cep.length === 8) {
@@ -64,6 +89,7 @@ export default function NewVoter() {
       await set(newVoterRef, {
         ...formData,
         creatorId: user.uid,
+        creatorEmail: user.email,
         createdAt: new Date().toISOString()
       });
       alert('Eleitor cadastrado com sucesso!');
@@ -93,11 +119,11 @@ export default function NewVoter() {
       <form onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
         <div className="input-group"> <label>Nome Completo</label> <input type="text" name="nome" value={formData.nome} onChange={handleChange} className="custom-input" required /> </div>
         <div className="input-group"> <label>E-mail</label> <input type="email" name="email" value={formData.email} onChange={handleChange} className="custom-input" /> </div>
-        <div className="input-group"> <label>Telefone</label> <input type="text" name="telefone" value={formData.telefone} onChange={handleChange} className="custom-input" /> </div>
-        <div className="input-group"> <label>CPF</label> <input type="text" name="cpf" value={formData.cpf} onChange={handleChange} className="custom-input" /> </div>
+        <div className="input-group"> <label>Telefone</label> <input type="text" name="telefone" value={formData.telefone} onChange={handleMaskedChange} className="custom-input" placeholder="(00) 00000-0000" /> </div>
+        <div className="input-group"> <label>CPF</label> <input type="text" name="cpf" value={formData.cpf} onChange={handleMaskedChange} className="custom-input" placeholder="000.000.000-00" /> </div>
         <div className="input-group"> <label>Data de Nascimento</label> <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} className="custom-input" /> </div>
-        <div className="input-group"> <label>Título de Eleitor</label> <input type="text" name="titulo" value={formData.titulo} onChange={handleChange} className="custom-input" /> </div>
-        <div className="input-group"> <label>Zona / Seção</label> <input type="text" name="zonaSecao" value={formData.zonaSecao} onChange={handleChange} className="custom-input" /> </div>
+        <div className="input-group"> <label>Título de Eleitor</label> <input type="text" name="titulo" value={formData.titulo} onChange={handleMaskedChange} className="custom-input" placeholder="Apenas números" /> </div>
+        <div className="input-group"> <label>Zona / Seção</label> <input type="text" name="zonaSecao" value={formData.zonaSecao} onChange={handleMaskedChange} className="custom-input" placeholder="000/0000" /> </div>
         
         <h4 style={{ gridColumn: '1 / -1', marginTop: '10px', marginBottom: '5px', borderBottom: '1px solid #eee', paddingBottom: '5px', color: '#64748b' }}>Endereço</h4>
         
@@ -105,7 +131,7 @@ export default function NewVoter() {
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             CEP {cepLoading && <span style={{ fontSize: '0.75rem', color: '#3b82f6' }}>(Buscando...)</span>}
           </label>
-          <input type="text" name="cep" value={formData.cep} onChange={handleChange} onBlur={checkCep} className="custom-input" placeholder="00000-000" />
+          <input type="text" name="cep" value={formData.cep} onChange={handleMaskedChange} onBlur={checkCep} className="custom-input" placeholder="00000-000" />
         </div>
         <div className="input-group"> <label>Endereço</label> <input type="text" name="endereco" value={formData.endereco} onChange={handleChange} className="custom-input" /> </div>
         <div className="input-group"> <label>Número</label> <input type="text" name="numero" value={formData.numero} onChange={handleChange} className="custom-input" /> </div>
