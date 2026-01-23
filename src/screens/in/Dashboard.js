@@ -14,7 +14,7 @@ export default function Dashboard() {
   const [showTransition, setShowTransition] = useState(() => {
     return !sessionStorage.getItem('dashboard_welcome_shown');
   });
-  
+   
   const navigate = useNavigate();
   const location = useLocation();
 
