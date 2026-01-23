@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Phone, Camera, Briefcase, FileText, CreditCard, Shield, HelpCircle, Key } from 'lucide-react';
+import { User, Camera } from 'lucide-react';
 import { ref, get, update } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
+
+import ProfilePersonal from '../../components/Profile/ProfilePersonal';
+import ProfilePayment from '../../components/Profile/ProfilePayment';
+import ProfileSubscription from '../../components/Profile/ProfileSubscription';
+import ProfilePassword from '../../components/Profile/ProfilePassword';
+import ProfileHelp from '../../components/Profile/ProfileHelp';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -13,7 +19,14 @@ export default function Profile() {
     email: '',
     phone: '',
     cargo: '',
-    cpf: ''
+    cpf: '',
+    cep: '',
+    endereco: '',
+    numero: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
+    cards: []
   });
 
   useEffect(() => {
@@ -23,6 +36,12 @@ export default function Profile() {
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
           const data = snapshot.val();
+          
+          let billing = {};
+          if (data.dadosCobranca && data.dadosCobranca.length > 0) {
+            billing = data.dadosCobranca[0];
+          }
+
           // Mapeia campos para garantir compatibilidade (name/nome, phone/telefone)
           setProfileData({ 
             ...data, 
@@ -30,7 +49,14 @@ export default function Profile() {
             email: user.email,
             phone: data.phone || data.telefone || '',
             cargo: data.cargo || '',
-            cpf: data.cpf || ''
+            cpf: data.cpf || '',
+            cep: billing.cep || data.cep || '',
+            endereco: billing.endereco || data.endereco || '',
+            numero: billing.numero || data.numero || '',
+            bairro: billing.bairro || data.bairro || '',
+            cidade: billing.cidade || data.cidade || '',
+            estado: billing.estado || data.estado || '',
+            cards: data.cards || []
           }); 
         }
       };
@@ -43,12 +69,23 @@ export default function Profile() {
     setLoading(true);
     try {
       const userRef = ref(database, `users/${user.uid}`);
+      
+      const billingInfo = {
+        cep: profileData.cep,
+        endereco: profileData.endereco,
+        numero: profileData.numero,
+        bairro: profileData.bairro,
+        cidade: profileData.cidade,
+        estado: profileData.estado
+      };
+
       await update(userRef, {
         name: profileData.name,
         nome: profileData.name, // Mantém compatibilidade com diferentes partes do sistema
         phone: profileData.phone,
         telefone: profileData.phone, // Mantém compatibilidade
-        cpf: profileData.cpf
+        cpf: profileData.cpf,
+        dadosCobranca: [billingInfo]
       });
       alert('Perfil atualizado com sucesso!');
     } catch (error) {
@@ -59,116 +96,72 @@ export default function Profile() {
     }
   };
 
+  const handleMaskedInput = (e) => {
+    const { name, value } = e.target;
+    let val = value;
+
+    if (name === 'cpf') {
+      val = val.replace(/\D/g, '').slice(0, 11)
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})/, '$1-$2');
+    } else if (name === 'phone') {
+      val = val.replace(/\D/g, '').slice(0, 11);
+      val = val.replace(/^(\d{2})(\d)/g, '($1) $2');
+      val = val.replace(/(\d)(\d{4})$/, '$1-$2');
+    } else if (name === 'cep') {
+      val = val.replace(/\D/g, '').slice(0, 8);
+      val = val.replace(/^(\d{5})(\d)/, '$1-$2');
+    }
+
+    setProfileData(prev => ({ ...prev, [name]: val }));
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'personal':
         return (
-          <form style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase' }}>Nome Completo</label>
-              <div className="input-container">
-                <User size={18} className="field-icon-left" />
-                <input 
-                  type="text" 
-                  value={profileData.name} 
-                  onChange={(e) => setProfileData({...profileData, name: e.target.value})} 
-                  className="custom-input" 
-                  placeholder="Seu nome"
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase' }}>Cargo</label>
-                <div className="input-container">
-                  <Briefcase size={18} className="field-icon-left" />
-                  <input type="text" value={profileData.cargo} readOnly className="custom-input" style={{ backgroundColor: '#f1f5f9', color: '#64748b' }} />
-                </div>
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase' }}>CPF</label>
-                <div className="input-container">
-                  <FileText size={18} className="field-icon-left" />
-                  <input 
-                    type="text" 
-                    value={profileData.cpf} 
-                    onChange={(e) => setProfileData({...profileData, cpf: e.target.value})} 
-                    className="custom-input" 
-                    placeholder="000.000.000-00"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase' }}>E-mail</label>
-              <div className="input-container">
-                <Mail size={18} className="field-icon-left" />
-                <input type="email" value={profileData.email} readOnly className="custom-input" style={{ backgroundColor: '#f1f5f9', color: '#64748b' }} />
-              </div>
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase' }}>Telefone</label>
-              <div className="input-container">
-                <Phone size={18} className="field-icon-left" />
-                <input 
-                  type="tel" 
-                  value={profileData.phone} 
-                  onChange={(e) => setProfileData({...profileData, phone: e.target.value})} 
-                  className="custom-input" 
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
-            </div>
-            <button type="button" onClick={handleSave} disabled={loading} className="btn-primary" style={{ marginTop: '10px', width: '100%', justifyContent: 'center' }}>
-              {loading ? 'Salvando...' : 'Salvar Alterações'}
-            </button>
-          </form>
+          <ProfilePersonal 
+            profileData={profileData} 
+            setProfileData={setProfileData} 
+            handleSave={handleSave} 
+            loading={loading} 
+            handleMaskedInput={handleMaskedInput} 
+          />
         );
       case 'payment':
         return (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
-                <CreditCard size={48} style={{ marginBottom: '15px', opacity: 0.5 }} />
-                <h3>Dados de Pagamento</h3>
-                <p>Gerencie seus cartões e métodos de pagamento aqui.</p>
-                <p style={{ fontSize: '0.9rem', marginTop: '10px', fontStyle: 'italic' }}>Em breve.</p>
-            </div>
+          <ProfilePayment 
+            user={user} 
+            profileData={profileData} 
+            setProfileData={setProfileData} 
+            handleSave={handleSave} 
+            loading={loading} 
+            handleMaskedInput={handleMaskedInput} 
+          />
         );
       case 'subscription':
-        return (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
-                <Shield size={48} style={{ marginBottom: '15px', opacity: 0.5 }} />
-                <h3>Minha Assinatura</h3>
-                <p>Visualize detalhes do seu plano e faturas.</p>
-                <p style={{ fontSize: '0.9rem', marginTop: '10px', fontStyle: 'italic' }}>Em breve.</p>
-            </div>
-        );
+        return <ProfileSubscription />;
       case 'password':
-        return (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
-                <Key size={48} style={{ marginBottom: '15px', opacity: 0.5 }} />
-                <h3>Alterar Senha</h3>
-                <p>Atualize sua senha de acesso.</p>
-                <p style={{ fontSize: '0.9rem', marginTop: '10px', fontStyle: 'italic' }}>Em breve.</p>
-            </div>
-        );
+        return <ProfilePassword />;
       case 'help':
-        return (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
-                <HelpCircle size={48} style={{ marginBottom: '15px', opacity: 0.5 }} />
-                <h3>Ajuda</h3>
-                <p>Precisa de suporte? Entre em contato conosco.</p>
-                <button className="btn-primary" style={{ marginTop: '20px', margin: '20px auto 0' }}>Falar com Suporte</button>
-            </div>
-        );
+        return <ProfileHelp />;
       default:
         return null;
     }
   };
 
   return (
-    <div className="dashboard-card" style={{ maxWidth: '800px', margin: '0 auto' }}>
+    <div className="dashboard-card" style={{ maxWidth: '800px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+      <style>{`
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
       <div style={{ textAlign: 'center', marginBottom: '30px' }}>
         <div style={{ 
           width: '100px', 
@@ -201,7 +194,7 @@ export default function Profile() {
         <p style={{ color: '#64748b' }}>{profileData.cargo || 'Perfil de Acesso'}</p>
       </div>
 
-      <div style={{ 
+      <div className="hide-scrollbar" style={{ 
         display: 'flex', 
         gap: '10px', 
         marginBottom: '30px', 

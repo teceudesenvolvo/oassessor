@@ -283,7 +283,7 @@ export default function Agenda() {
         }}>
           <div style={{
             backgroundColor: 'white', padding: '25px', borderRadius: '12px',
-            width: '90%', maxWidth: '500px', position: 'relative'
+            width: '80%', maxWidth: '500px', position: 'relative'
           }}>
             <button 
               onClick={() => setShowModal(false)}

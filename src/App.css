@@ -633,6 +633,7 @@
   margin-left: 260px; /* Width of sidebar */
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 /* Topbar */
