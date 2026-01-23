@@ -77,7 +77,7 @@ export default function Voters() {
   return (
     <div className="dashboard-card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-        <h3>Base de Eleitores</h3>
+        <h3>Base ({filteredVoters.length} eleitores)</h3>
         <div style={{ display: 'flex', gap: '10px' }}>
           <div className="search-box" style={{ display: 'flex' }}>
             <Search size={18} />

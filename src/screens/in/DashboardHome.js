@@ -9,7 +9,7 @@ export default function DashboardHome() {
   const [stats, setStats] = useState({
     voters: 0,
     team: 0,
-    goals: 85 // Meta estática por enquanto
+    pendingTasks: 0
   });
   const [birthdays, setBirthdays] = useState([]);
 
@@ -56,10 +56,43 @@ export default function DashboardHome() {
         const snapshotTeam = await get(qTeam);
         const teamCount = snapshotTeam.exists() ? Object.keys(snapshotTeam.val()).length : 0;
 
+        // 3. Contar Tarefas Pendentes
+        const tasksRef = ref(database, 'tarefas');
+        const qTasksUser = rQuery(tasksRef, orderByChild('creatorId'), equalTo(user.uid));
+        const qTasksAdmin = rQuery(tasksRef, orderByChild('adminId'), equalTo(user.uid));
+
+        const [snapUser, snapAdmin] = await Promise.all([
+            get(qTasksUser),
+            get(qTasksAdmin)
+        ]);
+
+        let pendingCount = 0;
+        const processedTaskIds = new Set();
+
+        const countPending = (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                Object.keys(data).forEach(key => {
+                    if (!processedTaskIds.has(key)) {
+                        processedTaskIds.add(key);
+                        // Verifica se status é 'pending' ou se não tem status (assume pending)
+                        const status = data[key].status || 'pending';
+                        if (status === 'pending') {
+                            pendingCount++;
+                        }
+                    }
+                });
+            }
+        };
+
+        countPending(snapUser);
+        countPending(snapAdmin);
+
         setStats(prev => ({
           ...prev,
           voters: votersCount,
-          team: teamCount
+          team: teamCount,
+          pendingTasks: pendingCount
         }));
         setBirthdays(todaysBirthdays);
       } catch (error) {
@@ -101,9 +134,9 @@ export default function DashboardHome() {
           <span className="stat-trend">Assessores em campo</span>
         </div>
         <div className="stat-card">
-          <h4>Metas da Campanha</h4>
-          <div className="stat-value">{stats.goals}%</div>
-          <span className="stat-trend positive">Concluídas</span>
+          <h4>Tarefas Pendentes</h4>
+          <div className="stat-value">{stats.pendingTasks}</div>
+          <span className="stat-trend">Aguardando conclusão</span>
         </div>
       </div>
 

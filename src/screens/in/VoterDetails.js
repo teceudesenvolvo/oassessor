@@ -32,7 +32,13 @@ export default function VoterDetails() {
         const voterRef = ref(database, `eleitores/${id}`);
         const snapshot = await get(voterRef);
         if (snapshot.exists()) {
-          setFormData(snapshot.val());
+          const data = snapshot.val();
+          // Se a data vier no formato BR (DD/MM/YYYY), converte para ISO (YYYY-MM-DD) para o input exibir corretamente
+          if (data.nascimento && data.nascimento.includes('/')) {
+            const [day, month, year] = data.nascimento.split('/');
+            data.nascimento = `${year}-${month}-${day}`;
+          }
+          setFormData(data);
         } else {
           alert('Eleitor não encontrado');
           navigate('/dashboard/voters');
