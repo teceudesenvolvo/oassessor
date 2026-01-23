@@ -303,17 +303,17 @@ export default function Agenda() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div className="input-group">
                   <label>Data</label>
-                  <input type="date" value={formData.data} onChange={e => setFormData({...formData, data: e.target.value})} className="custom-input" required />
+                  <input type="date" value={formData.data} onChange={e => setFormData({...formData, data: e.target.value})} className="custom-input" style={{ width: '60%' }} required />
                 </div>
                 <div className="input-group">
                   <label>Hora</label>
-                  <input type="time" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} className="custom-input" required />
+                  <input type="time" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} className="custom-input" style={{ width: '60%' }}  required />
                 </div>
               </div>
 
               <div className="input-group">
-                <label>Tipo</label>
-                <select value={formData.tipo} onChange={e => setFormData({...formData, tipo: e.target.value})} className="custom-input">
+                <label>Tipo</label><br />
+                <select value={formData.tipo} onChange={e => setFormData({...formData, tipo: e.target.value})} className="custom-input" style={{ width: '100%', height: '60px' }} >
                   <option value="general">Geral</option>
                   <option value="meeting">Reunião</option>
                   <option value="visit">Visita</option>
