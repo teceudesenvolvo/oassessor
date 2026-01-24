@@ -14,12 +14,34 @@ export default function DashboardHome() {
   });
   const [birthdays, setBirthdays] = useState([]);
   const [chartData, setChartData] = useState([]);
+  const [userType, setUserType] = useState(null);
 
   useEffect(() => {
     if (!user) return;
 
     const fetchStats = async () => {
       try {
+        // Busca o tipo de usuário para renderização condicional
+        let currentUserType = null;
+        if (user.email) {
+          const assessoresRef = ref(database, 'assessores');
+          const qEmail = rQuery(assessoresRef, orderByChild('email'), equalTo(user.email));
+          const snapshotEmail = await get(qEmail);
+          if (snapshotEmail.exists()) {
+            currentUserType = 'assessor';
+          }
+        }
+        if (!currentUserType) {
+            const usersRef = ref(database, 'users');
+            const qUser = rQuery(usersRef, orderByChild('userId'), equalTo(user.uid));
+            const userSnapshot = await get(qUser);
+            if (userSnapshot.exists()) {
+                const userData = Object.values(userSnapshot.val())[0];
+                currentUserType = userData.tipoUser;
+            }
+        }
+        setUserType(currentUserType);
+
         // 1. Contar Eleitores (Realtime DB)
         const votersRef = ref(database, 'eleitores');
         const qVotersCreator = rQuery(votersRef, orderByChild('creatorId'), equalTo(user.uid));
@@ -203,11 +225,13 @@ export default function DashboardHome() {
           <div className="stat-value">{stats.voters}</div>
           <span className="stat-trend positive">Cadastrados</span>
         </div>
-        <div className="stat-card">
-          <h4>Equipe Ativa</h4>
-          <div className="stat-value">{stats.team}</div>
-          <span className="stat-trend">Assessores em campo</span>
-        </div>
+        {userType !== 'assessor' && (
+          <div className="stat-card">
+            <h4>Equipe Ativa</h4>
+            <div className="stat-value">{stats.team}</div>
+            <span className="stat-trend">Assessores em campo</span>
+          </div>
+        )}
         <div className="stat-card">
           <h4>Tarefas Pendentes</h4>
           <div className="stat-value">{stats.pendingTasks}</div>
