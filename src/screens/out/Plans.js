@@ -13,6 +13,8 @@ export default function Plans() {
       ideal: "Grandes campanhas que precisam altos números",
       team: "Cadastros Ilimitados.",
       database: "Base de Eleitores Ilimitada.",
+      price: "R$ 499,90",
+      amount: 49990,
     },
      {
       id: "diamante",
@@ -21,6 +23,8 @@ export default function Plans() {
       ideal: "Campanhas competitivas com grande volume de dados.",
       team: "Até 2000 Cadastros.",
       database: "Base de Eleitores Ilimitada.",
+      price: "R$ 799,90",
+      amount: 79990,
     },
    {
       id: "ouro",
@@ -30,6 +34,8 @@ export default function Plans() {
       team: "Até 1500 Cadastros.",
       database: "Base de Eleitores Ilimitada.",
       recommended: true,
+      price: "R$ 999,90",
+      amount: 99990,
     },
     {
       id: "prata",
@@ -38,6 +44,8 @@ export default function Plans() {
       ideal: "Campanhas que precisam de mais estrutura.",
       team: "Até 1000 Cadastros.",
       database: "Base de Eleitores Ilimitada.",
+      price: "R$ 1299,90",
+      amount: 129990,
     },
     {
       id: "bronze",
@@ -46,6 +54,8 @@ export default function Plans() {
       ideal: "Pequenas campanhas e lideranças locais.",
       team: "Até 500 Cadastros.",
       database: "Base de Eleitores Ilimitada.",
+      price: "R$ 1.999,90",
+      amount: 199990,
     },
   ];
 
@@ -92,12 +102,18 @@ export default function Plans() {
                 <p style={{ fontSize: '0.95em', margin: '10px 0' }}><strong>Ideal para:</strong> {plan.ideal}</p>
                 
                 <p style={{ margin: 0 }}><strong>Eleitores:</strong> {plan.team}</p>
+                
+                <div style={{ marginTop: '15px', marginBottom: '5px' }}>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0f172a' }}>{plan.price}</span>
+                  <span style={{ color: '#64748b', fontSize: '0.9rem' }}>/mês</span>
+                </div>
+
                 <input 
                   type='button' 
                   value='Selecionar Plano' 
                   className='btn-primary' 
-                  style={{ marginTop: '30px' }} 
-                  onClick={() => navigate(`/plan/${plan.id}`)}
+                  style={{ marginTop: '15px' }} 
+                  onClick={() => navigate(`/checkout/${plan.id}`, { state: { plan } })}
                 />
               </div>
             ))}

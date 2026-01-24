@@ -6,7 +6,8 @@ const pagarme = require('pagarme');
 // const { defineSecret } = require('firebase-functions/v2/params');
 
 // Defina sua chave de API do Pagar.me
-const pagarmeApiKey = 'sk_6f45fa07486f49068bde5f4aef9f951e';
+// const pagarmeApiKey = 'sk_6f45fa07486f49068bde5f4aef9f951e';
+const pagarmeApiKey = 'sk_test_9fd7fc9c963641fba4b39c9c97b15af5';
 
 admin.initializeApp();
 
@@ -186,24 +187,27 @@ exports.deleteUser = onRequest({ cors: true, invoker: 'public' }, async (req, re
 });
 
 exports.createTransaction = onRequest(
-  { cors: true }, 
+  { cors: true },
   async (req, res) => {
     if (req.method !== "POST") {
       return res.status(405).send("Method Not Allowed");
     }
 
-    const { amount, card_hash, customer, items } = req.body;
+    const { amount, card_hash, customer, items, payment_method } = req.body;
 
-    if (!amount || !card_hash || !customer || !items) {
+    if (!amount || !customer || !items || !payment_method) {
       return res.status(400).send("Dados da transação incompletos.");
+    }
+
+    if (payment_method === 'credit_card' && !card_hash) {
+      return res.status(400).send("Card hash é obrigatório para pagamento com cartão.");
     }
 
     try {
       const client = await pagarme.client.connect({ api_key: pagarmeApiKey });
 
-      const transaction = await client.transactions.create({
+      const transactionPayload = {
         amount: amount,
-        card_hash: card_hash,
         customer: {
           external_id: customer.external_id,
           name: customer.name,
@@ -237,10 +241,16 @@ exports.createTransaction = onRequest(
           quantity: item.quantity,
           tangible: item.tangible
         })),
-        payment_method: 'credit_card',
+        payment_method: payment_method,
         async: false
-      });
+      };
 
+      if (payment_method === 'credit_card') {
+        transactionPayload.card_hash = card_hash;
+      }
+
+      const transaction = await client.transactions.create(transactionPayload);
+      
       if (transaction.status === 'authorized' || transaction.status === 'paid') {
         res.status(200).send({ success: true, transactionId: transaction.id, status: transaction.status });
       } else {
@@ -252,3 +262,94 @@ exports.createTransaction = onRequest(
     }
   }
 );
+
+exports.saveUserCard = onRequest({ cors: true }, async (req, res) => {
+    if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+    const { userId, cardData, userEmail, userName, userPhone, userDocument } = req.body;
+
+    try {
+        const client = await pagarme.client.connect({ api_key: pagarmeApiKey });
+        
+        // 1. Check/Create Customer
+        const userRef = admin.database().ref(`users/${userId}`);
+        const userSnap = await userRef.once('value');
+        const userData = userSnap.val() || {};
+        
+        let customerId = userData.pagarmeCustomerId;
+
+        if (!customerId) {
+            const customer = await client.customers.create({
+                external_id: userId,
+                name: userName,
+                email: userEmail,
+                type: 'individual',
+                country: 'br',
+                documents: [{ type: 'cpf', number: userDocument.replace(/\D/g, '') }],
+                phone_numbers: [userPhone.replace(/\D/g, '')]
+            });
+            customerId = customer.id;
+            await userRef.update({ pagarmeCustomerId: customerId });
+        }
+
+        // 2. Create Card
+        const card = await client.cards.create({
+            ...cardData,
+            customer_id: customerId
+        });
+
+        // 3. Save Card to Firebase (Masked)
+        const newCard = {
+            id: card.id,
+            last4: card.last_four_digits,
+            brand: card.brand,
+            holder_name: card.holder_name,
+            exp: `${card.expiration_date.slice(0,2)}/${card.expiration_date.slice(2)}`
+        };
+
+        const currentCards = userData.cards || [];
+        currentCards.push(newCard);
+        await userRef.update({ cards: currentCards });
+
+        res.status(200).send({ success: true, card: newCard });
+
+    } catch (error) {
+        console.error("Erro ao salvar cartão:", error);
+        res.status(500).send({ error: error.message });
+    }
+});
+
+exports.getSubscriptionDetails = onRequest({ cors: true }, async (req, res) => {
+    const userId = req.query.userId || req.body.userId;
+    if (!userId) return res.status(400).send("Missing userId");
+
+    try {
+        const client = await pagarme.client.connect({ api_key: pagarmeApiKey });
+        const userSnap = await admin.database().ref(`users/${userId}`).once('value');
+        const userData = userSnap.val();
+
+        if (!userData || !userData.subscriptionId) {
+            return res.status(200).send({ subscription: null, invoices: [] });
+        }
+
+        const subscription = await client.subscriptions.find({ id: userData.subscriptionId });
+        
+        const transactions = await client.transactions.all({
+            subscription_id: userData.subscriptionId,
+            count: 10
+        });
+
+        const invoices = transactions.map(t => ({
+            id: t.id,
+            date: new Date(t.date_created).toLocaleDateString('pt-BR'),
+            amount: (t.amount / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+            status: t.status,
+            boleto_url: t.boleto_url
+        }));
+
+        res.status(200).send({ subscription, invoices });
+
+    } catch (error) {
+        console.error("Erro ao buscar assinatura:", error);
+        res.status(500).send({ error: error.message });
+    }
+});

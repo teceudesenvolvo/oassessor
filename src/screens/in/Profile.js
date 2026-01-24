@@ -194,7 +194,7 @@ export default function Profile() {
           />
         );
       case 'subscription':
-        return <ProfileSubscription profileData={profileData} />;
+        return <ProfileSubscription profileData={profileData} user={user} />;
       case 'password':
         return <ProfilePassword />;
       case 'help':

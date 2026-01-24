@@ -1,14 +1,38 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Shield, FileText, Download, Barcode, CreditCard } from 'lucide-react';
 
-export default function ProfileSubscription({ profileData }) {
-  // Mock de faturas (em produção viria do backend/Pagar.me)
-  const invoices = [
-    { id: 1, date: '10/01/2026', amount: 'R$ 199,90', status: 'paid' },
-    { id: 2, date: '10/02/2026', amount: 'R$ 199,90', status: 'pending' },
-  ];
+const GET_SUBSCRIPTION_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/getSubscriptionDetails';
+
+export default function ProfileSubscription({ profileData, user }) {
+  const [subscription, setSubscription] = useState(null);
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const planName = profileData?.planId ? profileData.planId.charAt(0).toUpperCase() + profileData.planId.slice(1) : 'Gratuito';
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchSubscription = async () => {
+        try {
+            const response = await fetch(`${GET_SUBSCRIPTION_URL}?userId=${user.uid}`);
+            const data = await response.json();
+            
+            if (data.subscription) {
+                setSubscription(data.subscription);
+                setInvoices(data.invoices || []);
+            }
+        } catch (error) {
+            console.error("Erro ao carregar assinatura:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    fetchSubscription();
+  }, [user]);
+
+  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>Carregando assinatura...</div>;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
@@ -37,19 +61,21 @@ export default function ProfileSubscription({ profileData }) {
             <h4 style={{ margin: '0 0 5px 0', color: '#0f172a' }}>Plano {planName}</h4>
             <span style={{ 
               fontSize: '0.8rem', 
-              backgroundColor: '#dcfce7', 
-              color: '#166534', 
+              backgroundColor: subscription?.status === 'paid' ? '#dcfce7' : '#fee2e2', 
+              color: subscription?.status === 'paid' ? '#166534' : '#991b1b', 
               padding: '2px 8px', 
               borderRadius: '12px',
               fontWeight: '600'
             }}>
-              Ativo
+              {subscription?.status === 'paid' ? 'Ativo' : (subscription?.status || 'Inativo')}
             </span>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <p style={{ margin: '0 0 5px 0', fontSize: '0.9rem', color: '#64748b' }}>Próxima cobrança</p>
-          <strong style={{ color: '#0f172a' }}>10/03/2026</strong>
+          <strong style={{ color: '#0f172a' }}>
+            {subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString('pt-BR') : '-'}
+          </strong>
         </div>
       </div>
 
@@ -59,6 +85,10 @@ export default function ProfileSubscription({ profileData }) {
           <FileText size={20} /> Histórico de Faturas
         </h4>
         
+        {invoices.length === 0 && (
+            <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Nenhuma fatura encontrada.</p>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {invoices.map(invoice => (
             <div key={invoice.id} style={{ 
@@ -101,10 +131,11 @@ export default function ProfileSubscription({ profileData }) {
                       <Barcode size={16} /> Boleto
                     </button>
                   </div>
-                ) : (
-                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }} title="Baixar Recibo">
-                    <Download size={18} />
-                  </button>
+                ) : (invoice.boleto_url && (
+                    <a href={invoice.boleto_url} target="_blank" rel="noopener noreferrer" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }} title="Baixar Boleto/Recibo">
+                        <Download size={18} />
+                    </a>
+                  )
                 )}
               </div>
             </div>
