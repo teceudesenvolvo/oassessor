@@ -145,6 +145,8 @@ export default function Checkout() {
             zip: formData.zip
             },
             planId: planId,
+            tipoUser: "admin",
+            cargo: "Administrador",
             createdAt: new Date()
         });
       } catch (dbError) {
