@@ -10,6 +10,9 @@
     },
     "tarefas": {
       ".indexOn": ["creatorId", "adminId"]
+    },
+    "notificacoes": {
+      ".indexOn": ["userId", "adminId"]
     }
   }
 }

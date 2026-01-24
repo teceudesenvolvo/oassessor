@@ -6,18 +6,23 @@ import {
   Bell
 } from 'lucide-react';
 import Sidebar from '../../components/Sidebar';
+import { useAuth } from '../../useAuth';
+import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { database } from '../../firebaseConfig';
 
  
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('Inicio');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
   const [showTransition, setShowTransition] = useState(() => {
     return !sessionStorage.getItem('dashboard_welcome_shown');
   });
    
   const navigate = useNavigate();
   const location = useLocation();
-
+  const { user } = useAuth();
+ 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
   useEffect(() => {
@@ -41,6 +46,40 @@ export default function Dashboard() {
     else if (path.includes('/notifications')) setActiveTab('Notificações');
     else setActiveTab('Inicio');
   }, [location]);
+
+  // Busca a contagem de notificações não lidas
+  useEffect(() => {
+    if (!user) return;
+
+    const notifRef = ref(database, 'notificacoes');
+    const qUser = query(notifRef, orderByChild('userId'), equalTo(user.uid));
+    const qAdmin = query(notifRef, orderByChild('adminId'), equalTo(user.uid));
+
+    let notifsByUser = {};
+    let notifsByAdmin = {};
+
+    const updateCount = () => {
+      const combined = { ...notifsByUser, ...notifsByAdmin };
+      // Conta notificações que não possuem a propriedade 'read: true'
+      const unreadCount = Object.values(combined).filter(n => !n.read).length;
+      setNotificationCount(unreadCount);
+    };
+
+    const unsubUser = onValue(qUser, (snapshot) => {
+      notifsByUser = snapshot.val() || {};
+      updateCount();
+    });
+
+    const unsubAdmin = onValue(qAdmin, (snapshot) => {
+      notifsByAdmin = snapshot.val() || {};
+      updateCount();
+    });
+
+    return () => {
+      unsubUser();
+      unsubAdmin();
+    };
+  }, [user]);
 
   // Função para navegar quando clicar no Sidebar
   const handleNavigation = (tabName) => {
@@ -75,6 +114,25 @@ export default function Dashboard() {
               0% { transform: translate(-50%, -50%) scale(250); }
               100% { transform: translate(-50%, -50%) scale(0); }
             }
+            .topbar-actions .icon-btn {
+                position: relative;
+            }
+            .notification-dot {
+                position: absolute;
+                top: -5px;
+                right: -5px;
+                background-color: #ef4444;
+                color: white;
+                border-radius: 50%;
+                width: 18px;
+                height: 18px;
+                font-size: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                border: 2px solid white;
+            }
           `}</style>
         </div>
       )}
@@ -100,7 +158,11 @@ export default function Dashboard() {
             
             <button className="icon-btn" onClick={() => handleNavigation('Notificações')}>
               <Bell size={20} />
-              <span className="notification-dot"></span>
+              {notificationCount > 0 && (
+                <span className="notification-dot">
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </span>
+              )}
             </button>
             <div className="user-avatar-sm">
               <User size={20} />
