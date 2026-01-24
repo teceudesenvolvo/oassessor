@@ -1,20 +1,28 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true,
     "assessores": {
-      ".indexOn": ["email", "adminId"]
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["email", "adminId", "userId"]
     },
     "eleitores": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["creatorId", "adminId", "creatorEmail"]
     },
     "tarefas": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["creatorId", "adminId"]
     },
     "notificacoes": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["userId", "adminId"]
     },
     "users": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["userId", "tipoUser"]
     }
   }

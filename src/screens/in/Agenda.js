@@ -23,65 +23,49 @@ export default function Agenda() {
 
   useEffect(() => {
     if (!user) return;
-
+ 
     let activeUnsubscribe = null;
     let isMounted = true;
 
     const fetchTasks = async () => {
       try {
-        // 1. Buscar dados do usuário para determinar o adminId
-        let adminId = user.uid;
-        let name = 'Usuário';
-        let found = false;
+        // 1. Determina o adminId correto para consultar as tarefas.
+        // Por padrão, é o UID do próprio usuário (caso seja um admin).
+        let adminIdForTasks = user.uid;
+        let userNameForCreation = 'Usuário';
 
-        // Tenta buscar direto pelo UID em 'users'
-        const userRef = ref(database, `users/${user.uid}`);
-        const userSnap = await get(userRef);
+        // Verifica se o usuário logado é um assessor para obter o ID do seu administrador.
+        const assessoresRef = ref(database, 'users');
+        const q = query(assessoresRef, orderByChild('userId'), equalTo(user.uid));
+        const assessorSnap = await get(q);
 
-        if (userSnap.exists()) {
-          const userData = userSnap.val();
-          if (userData.adminId) adminId = userData.adminId;
-          name = userData.name || userData.nome || 'Usuário';
-          found = true;
-        }
-
-        // Se não achou, tenta query por userId em 'users'
-        if (!found) {
-            const usersQuery = query(ref(database, 'users'), orderByChild('userId'), equalTo(user.uid));
-            const querySnap = await get(usersQuery);
-            if (querySnap.exists()) {
-                const data = querySnap.val();
-                const key = Object.keys(data)[0];
-                const userData = data[key];
-                if (userData.adminId) adminId = userData.adminId;
-                name = userData.name || userData.nome || 'Usuário';
-                found = true;
-            }
-        }
-
-        // Fallback: Tenta em 'assessores'
-        if (!found) {
-          const assessoresQuery = query(ref(database, 'assessores'), orderByChild('userId'), equalTo(user.uid));
-          const assessorSnap = await get(assessoresQuery);
-          if (assessorSnap.exists()) {
-            const data = assessorSnap.val();
-            const key = Object.keys(data)[0];
-            const userData = data[key];
-            if (userData.adminId) adminId = userData.adminId;
-            name = userData.name || userData.nome || 'Usuário';
+        if (assessorSnap.exists()) {
+          // Se encontrou, o usuário é um assessor.
+          const assessorData = Object.values(assessorSnap.val())[0];
+          if (assessorData.adminId) {
+            adminIdForTasks = assessorData.adminId;
+          }
+          userNameForCreation = assessorData.name || assessorData.nome || 'Assessor';
+        } else {
+          // Se não, é provável que seja o admin. Busca o nome dele na coleção 'users'.
+          const userRef = ref(database, `users/${user.uid}`);
+          const userSnap = await get(userRef);
+          if (userSnap.exists()) {
+            const userData = userSnap.val();
+            userNameForCreation = userData.name || userData.nome || 'Admin';
           }
         }
-
+        
         if (!isMounted) return;
 
-        setTargetAdminId(adminId);
-        setUserName(name);
+        setTargetAdminId(adminIdForTasks);
+        setUserName(userNameForCreation);
 
         // 2. Filtrar tarefas pelo adminId
         const tasksRef = ref(database, 'tarefas');
-        const q = query(tasksRef, orderByChild('adminId'), equalTo(adminId));
+        const tasksQuery = query(tasksRef, orderByChild('adminId'), equalTo(adminIdForTasks)); 
 
-        const unsub = onValue(q, (snapshot) => {
+        const unsub = onValue(tasksQuery, (snapshot) => {
           if (!isMounted) return;
           const data = snapshot.val();
           const tasksList = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
@@ -97,6 +81,9 @@ export default function Agenda() {
 
           setTasks(tasksList);
           setLoading(false);
+        }, (error) => {
+            console.error("Erro no listener:", error);
+            if (isMounted) setLoading(false);
         });
         
         activeUnsubscribe = unsub;
