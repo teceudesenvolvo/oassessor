@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AlignLeft, CheckCircle, Circle, Clock, Plus, X, Edit2, User } from 'lucide-react';
-import { ref, query, orderByChild, equalTo, onValue, update, push, set, get } from 'firebase/database';
+import { AlignLeft, CheckCircle, Circle, Clock, Plus, X, Edit2, User, Trash } from 'lucide-react';
+import { ref, query, orderByChild, equalTo, onValue, update, push, set, get, remove } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 
@@ -210,6 +210,19 @@ export default function Agenda() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!currentTask) return;
+    if (window.confirm('Tem certeza que deseja excluir esta tarefa?')) {
+      try {
+        await remove(ref(database, `tarefas/${currentTask.id}`));
+        setShowModal(false);
+      } catch (error) {
+        console.error("Erro ao excluir:", error);
+        alert("Erro ao excluir tarefa.");
+      }
+    }
+  };
+
   return (
     <div className="dashboard-card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -383,9 +396,17 @@ export default function Agenda() {
                 <textarea value={formData.descricao} onChange={e => setFormData({...formData, descricao: e.target.value})} className="custom-input" rows="3" />
               </div>
 
-              <button type="submit" className="btn-primary" style={{ marginTop: '10px' }}>
-                {currentTask ? 'Salvar Alterações' : 'Criar Tarefa'}
-              </button>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                {currentTask && (
+                  <button type="button" onClick={handleDelete} className="btn-secondary" style={{ flex: 1, color: '#ef4444', borderColor: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                    <Trash size={16} />
+                    Excluir
+                  </button>
+                )}
+                <button type="submit" className="btn-primary" style={{ flex: 2 }}>
+                  {currentTask ? 'Salvar Alterações' : 'Criar Tarefa'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
