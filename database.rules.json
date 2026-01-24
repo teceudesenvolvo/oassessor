@@ -15,7 +15,7 @@
       ".indexOn": ["userId", "adminId"]
     },
     "users": {
-      ".indexOn": ["userId"]
+      ".indexOn": ["userId", "tipoUser"]
     }
   }
 }
