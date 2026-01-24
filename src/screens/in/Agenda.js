@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AlignLeft, CheckCircle, Circle, Clock, Plus, X, Edit2 } from 'lucide-react';
-import { ref, query, orderByChild, equalTo, onValue, update, push, set } from 'firebase/database';
+import { AlignLeft, CheckCircle, Circle, Clock, Plus, X, Edit2, User } from 'lucide-react';
+import { ref, query, orderByChild, equalTo, onValue, update, push, set, get } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 
@@ -11,6 +11,8 @@ export default function Agenda() {
   const [filterStatus, setFilterStatus] = useState('pending');
   const [showModal, setShowModal] = useState(false);
   const [currentTask, setCurrentTask] = useState(null);
+  const [targetAdminId, setTargetAdminId] = useState(null);
+  const [userName, setUserName] = useState('');
   const [formData, setFormData] = useState({
     titulo: '',
     descricao: '',
@@ -22,48 +24,93 @@ export default function Agenda() {
   useEffect(() => {
     if (!user) return;
 
-    const tasksRef = ref(database, 'tarefas');
-    
-    // Queries para buscar tarefas onde o usuário é o responsável (userId) ou o administrador (adminId)
-    // Alinhado com o App: creatorId para assessores, adminId para políticos
-    const qUser = query(tasksRef, orderByChild('creatorId'), equalTo(user.uid));
-    const qAdmin = query(tasksRef, orderByChild('adminId'), equalTo(user.uid));
-    
-    let tasksByUser = {};
-    let tasksByAdmin = {};
+    let activeUnsubscribe = null;
+    let isMounted = true;
 
-    const updateEvents = () => {
-      const combinedTasks = { ...tasksByUser, ...tasksByAdmin };
-      const tasksList = Object.keys(combinedTasks).map(key => ({ id: key, ...combinedTasks[key] }));
-      
-      // Ordenar cronologicamente por Data e Hora
-      tasksList.sort((a, b) => {
-        if (a.fullDate && b.fullDate) {
-          return new Date(a.fullDate) - new Date(b.fullDate);
+    const fetchTasks = async () => {
+      try {
+        // 1. Buscar dados do usuário para determinar o adminId
+        let adminId = user.uid;
+        let name = 'Usuário';
+        let found = false;
+
+        // Tenta buscar direto pelo UID em 'users'
+        const userRef = ref(database, `users/${user.uid}`);
+        const userSnap = await get(userRef);
+
+        if (userSnap.exists()) {
+          const userData = userSnap.val();
+          if (userData.adminId) adminId = userData.adminId;
+          name = userData.name || userData.nome || 'Usuário';
+          found = true;
         }
-        // Fallback para conversão de DD/MM/YYYY para YYYY-MM-DD se fullDate não existir
-        const dateA = a.data ? new Date(`${a.data.split('/').reverse().join('-')}T${a.time || '00:00'}`) : new Date(0);
-        const dateB = b.data ? new Date(`${b.data.split('/').reverse().join('-')}T${b.time || '00:00'}`) : new Date(0);
-        return dateA - dateB;
-      });
 
-      setTasks(tasksList);
-      setLoading(false);
+        // Se não achou, tenta query por userId em 'users'
+        if (!found) {
+            const usersQuery = query(ref(database, 'users'), orderByChild('userId'), equalTo(user.uid));
+            const querySnap = await get(usersQuery);
+            if (querySnap.exists()) {
+                const data = querySnap.val();
+                const key = Object.keys(data)[0];
+                const userData = data[key];
+                if (userData.adminId) adminId = userData.adminId;
+                name = userData.name || userData.nome || 'Usuário';
+                found = true;
+            }
+        }
+
+        // Fallback: Tenta em 'assessores'
+        if (!found) {
+          const assessoresQuery = query(ref(database, 'assessores'), orderByChild('userId'), equalTo(user.uid));
+          const assessorSnap = await get(assessoresQuery);
+          if (assessorSnap.exists()) {
+            const data = assessorSnap.val();
+            const key = Object.keys(data)[0];
+            const userData = data[key];
+            if (userData.adminId) adminId = userData.adminId;
+            name = userData.name || userData.nome || 'Usuário';
+          }
+        }
+
+        if (!isMounted) return;
+
+        setTargetAdminId(adminId);
+        setUserName(name);
+
+        // 2. Filtrar tarefas pelo adminId
+        const tasksRef = ref(database, 'tarefas');
+        const q = query(tasksRef, orderByChild('adminId'), equalTo(adminId));
+
+        const unsub = onValue(q, (snapshot) => {
+          if (!isMounted) return;
+          const data = snapshot.val();
+          const tasksList = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+          
+          tasksList.sort((a, b) => {
+            if (a.fullDate && b.fullDate) {
+              return new Date(a.fullDate) - new Date(b.fullDate);
+            }
+            const dateA = a.data ? new Date(`${a.data.split('/').reverse().join('-')}T${a.time || '00:00'}`) : new Date(0);
+            const dateB = b.data ? new Date(`${b.data.split('/').reverse().join('-')}T${b.time || '00:00'}`) : new Date(0);
+            return dateA - dateB;
+          });
+
+          setTasks(tasksList);
+          setLoading(false);
+        });
+        
+        activeUnsubscribe = unsub;
+      } catch (error) {
+        console.error("Erro ao carregar agenda:", error);
+        if (isMounted) setLoading(false);
+      }
     };
 
-    const unsubscribeUser = onValue(qUser, (snapshot) => {
-      tasksByUser = snapshot.val() || {};
-      updateEvents();
-    });
-
-    const unsubscribeAdmin = onValue(qAdmin, (snapshot) => {
-      tasksByAdmin = snapshot.val() || {};
-      updateEvents();
-    });
+    fetchTasks();
 
     return () => {
-      unsubscribeUser();
-      unsubscribeAdmin();
+      isMounted = false;
+      if (activeUnsubscribe) activeUnsubscribe();
     };
   }, [user]);
 
@@ -149,6 +196,9 @@ export default function Agenda() {
         await set(newTaskRef, {
           ...taskData,
           creatorId: user.uid,
+          creatorName: userName,
+          creatorEmail: user.email,
+          adminId: targetAdminId,
           createdAt: new Date().toISOString(),
           status: 'pending'
         });
@@ -243,6 +293,12 @@ export default function Agenda() {
                   <Clock size={14} />
                   {task.data} • {task.time}
                 </span>
+                {task.creatorName && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', backgroundColor: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
+                    <User size={12} />
+                    Criada por: {task.creatorId === user.uid ? 'Você' : task.creatorName}
+                  </span>
+                )}
                 {task.descricao && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <AlignLeft size={14} />
@@ -299,7 +355,7 @@ export default function Agenda() {
                 <label>Título</label>
                 <input type="text" value={formData.titulo} onChange={e => setFormData({...formData, titulo: e.target.value})} className="custom-input" required />
               </div>
-              
+               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div className="input-group">
                   <label>Data</label>
