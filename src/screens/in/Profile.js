@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Camera } from 'lucide-react';
-import { ref, get, update } from 'firebase/database';
+import { ref, get, update, query, orderByChild, equalTo } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 
@@ -14,6 +14,7 @@ export default function Profile() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('personal');
   const [loading, setLoading] = useState(false);
+  const [userType, setUserType] = useState(null);
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
@@ -33,10 +34,16 @@ export default function Profile() {
   useEffect(() => {
     if (user) {
       const fetchProfile = async () => {
+        let type = null;
+        
+        // Tenta buscar direto pelo UID em 'users'
         const userRef = ref(database, `users/${user.uid}`);
         const snapshot = await get(userRef);
+        
         if (snapshot.exists()) {
           const data = snapshot.val();
+          type = data.tipoUser;
+          setUserType(type);
           
           let billing = {};
           if (data.dadosCobranca && data.dadosCobranca.length > 0) {
@@ -60,6 +67,36 @@ export default function Profile() {
             estado: billing.estado || data.estado || '',
             cards: data.cards || []
           }); 
+        } else {
+            // Fallback: Se não achar em 'users' pelo UID direto, tenta buscar em 'assessores'
+            // Isso é útil se o assessor não tiver sido copiado corretamente para 'users'
+            const assessoresRef = ref(database, 'users');
+            const q = query(assessoresRef, orderByChild('userId'), equalTo(user.uid));
+            const snapshotAssessor = await get(q);
+
+            if (snapshotAssessor.exists()) {
+                const data = snapshotAssessor.val();
+                const firstKey = Object.keys(data)[0];
+                const assessorData = data[firstKey] || {};
+                setUserType(assessorData.tipoUser || 'assessor');
+                setProfileData({
+                  ...assessorData,
+                  name: assessorData.name || assessorData.nome || '',
+                  email: user.email,
+                  phone: assessorData.phone || assessorData.telefone || '',
+                  cargo: assessorData.cargo || '',
+                  cpf: assessorData.cpf || '',
+                  photoBase64: assessorData.photoBase64 || '',
+                  // Assessores não tem dados de cobrança, então inicializa vazio
+                  cep: '',
+                  endereco: '',
+                  numero: '',
+                  bairro: '',
+                  cidade: '',
+                  estado: '',
+                  cards: []
+                });
+            }
         }
       };
       fetchProfile();
@@ -236,13 +273,17 @@ export default function Profile() {
         paddingBottom: '5px',
         borderBottom: '1px solid #e2e8f0'
       }}>
-        {[
+        {([
             { id: 'personal', label: 'Dados Pessoais' },
             { id: 'payment', label: 'Dados de Pagamento' },
             { id: 'subscription', label: 'Minha Assinatura' },
             { id: 'password', label: 'Alterar Senha' },
             { id: 'help', label: 'Ajuda' }
-        ].map(tab => (
+        ].filter(tab => {
+            if (userType === 'assessor' && (tab.id === 'payment' || tab.id === 'subscription')) return false;
+            return true;
+        }))
+        .map(tab => (
             <button 
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
