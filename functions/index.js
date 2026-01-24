@@ -2,6 +2,11 @@ const { onRequest } = require("firebase-functions/v2/https");
 // const { onValueCreated } = require("firebase-functions/v2/database");
 const nodemailer = require("nodemailer");
 const admin = require("firebase-admin");
+const pagarme = require('pagarme');
+// const { defineSecret } = require('firebase-functions/v2/params');
+
+// Defina sua chave de API do Pagar.me
+const pagarmeApiKey = 'sk_6f45fa07486f49068bde5f4aef9f951e';
 
 admin.initializeApp();
 
@@ -179,3 +184,71 @@ exports.deleteUser = onRequest({ cors: true, invoker: 'public' }, async (req, re
       res.status(200).send({ success: true, message: "Processado" });
     }
 });
+
+exports.createTransaction = onRequest(
+  { cors: true }, 
+  async (req, res) => {
+    if (req.method !== "POST") {
+      return res.status(405).send("Method Not Allowed");
+    }
+
+    const { amount, card_hash, customer, items } = req.body;
+
+    if (!amount || !card_hash || !customer || !items) {
+      return res.status(400).send("Dados da transação incompletos.");
+    }
+
+    try {
+      const client = await pagarme.client.connect({ api_key: pagarmeApiKey });
+
+      const transaction = await client.transactions.create({
+        amount: amount,
+        card_hash: card_hash,
+        customer: {
+          external_id: customer.external_id,
+          name: customer.name,
+          email: customer.email,
+          type: 'individual',
+          country: 'br',
+          documents: [
+            {
+              type: 'cpf',
+              number: customer.cpf.replace(/\D/g, '')
+            }
+          ],
+          phone_numbers: [customer.phone.replace(/\D/g, '')]
+        },
+        billing: {
+          name: customer.name,
+          address: {
+            country: 'br',
+            street: customer.address.street,
+            street_number: customer.address.street_number,
+            state: customer.address.state,
+            city: customer.address.city,
+            neighborhood: customer.address.neighborhood,
+            zipcode: customer.address.zipcode.replace(/\D/g, '')
+          }
+        },
+        items: items.map(item => ({
+          id: item.id,
+          title: item.title,
+          unit_price: item.unit_price,
+          quantity: item.quantity,
+          tangible: item.tangible
+        })),
+        payment_method: 'credit_card',
+        async: false
+      });
+
+      if (transaction.status === 'authorized' || transaction.status === 'paid') {
+        res.status(200).send({ success: true, transactionId: transaction.id, status: transaction.status });
+      } else {
+        res.status(400).send({ success: false, message: `Transação não autorizada: ${transaction.status_reason}` });
+      }
+    } catch (error) {
+      console.error("Erro na transação Pagar.me:", error.response ? error.response.data : error);
+      res.status(500).send({ success: false, error: "Falha ao processar pagamento." });
+    }
+  }
+);
