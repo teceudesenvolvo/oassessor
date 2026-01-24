@@ -39,64 +39,55 @@ export default function Profile() {
         // Tenta buscar direto pelo UID em 'users'
         const userRef = ref(database, `users/${user.uid}`);
         const snapshot = await get(userRef);
+        let userData = {};
         
         if (snapshot.exists()) {
-          const data = snapshot.val();
-          type = data.tipoUser;
-          setUserType(type);
-          
-          let billing = {};
-          if (data.dadosCobranca && data.dadosCobranca.length > 0) {
-            billing = data.dadosCobranca[0];
-          }
+          userData = snapshot.val();
+          type = userData.tipoUser;
+        }
 
-          // Mapeia campos para garantir compatibilidade (name/nome, phone/telefone)
-          setProfileData({ 
-            ...data, 
-            name: data.name || data.nome || '',
-            email: user.email,
-            phone: data.phone || data.telefone || '',
-            cargo: data.cargo || '',
-            cpf: data.cpf || '',
-            photoBase64: data.photoBase64 || '',
-            cep: billing.cep || data.cep || '',
-            endereco: billing.endereco || data.endereco || '',
-            numero: billing.numero || data.numero || '',
-            bairro: billing.bairro || data.bairro || '',
-            cidade: billing.cidade || data.cidade || '',
-            estado: billing.estado || data.estado || '',
-            cards: data.cards || []
-          }); 
-        } else {
-            // Fallback: Se não achar em 'users' pelo UID direto, tenta buscar em 'assessores'
-            // Isso é útil se o assessor não tiver sido copiado corretamente para 'users'
+        // Se não achou dados completos em 'users' (ex: nome vazio), tenta buscar em 'assessores' para complementar
+        if (!userData.nome && !userData.name) {
             const assessoresRef = ref(database, 'users');
             const q = query(assessoresRef, orderByChild('userId'), equalTo(user.uid));
             const snapshotAssessor = await get(q);
 
             if (snapshotAssessor.exists()) {
-                const data = snapshotAssessor.val();
-                const firstKey = Object.keys(data)[0];
-                const assessorData = data[firstKey] || {};
-                setUserType(assessorData.tipoUser || 'assessor');
-                setProfileData({
-                  ...assessorData,
-                  name: assessorData.name || assessorData.nome || '',
-                  email: user.email,
-                  phone: assessorData.phone || assessorData.telefone || '',
-                  cargo: assessorData.cargo || '',
-                  cpf: assessorData.cpf || '',
-                  photoBase64: assessorData.photoBase64 || '',
-                  // Assessores não tem dados de cobrança, então inicializa vazio
-                  cep: '',
-                  endereco: '',
-                  numero: '',
-                  bairro: '',
-                  cidade: '',
-                  estado: '',
-                  cards: []
-                });
+                const assessorDataFull = snapshotAssessor.val();
+                const firstKey = Object.keys(assessorDataFull)[0];
+                const assessorData = assessorDataFull[firstKey];
+                
+                // Mescla os dados encontrados em assessores com o que já temos
+                userData = { ...assessorData, ...userData };
+                if (!type) type = assessorData.tipoUser || 'assessor';
             }
+        }
+
+        if (userData && Object.keys(userData).length > 0) {
+          setUserType(type);
+          
+          let billing = {};
+          if (userData.dadosCobranca && userData.dadosCobranca.length > 0) {
+            billing = userData.dadosCobranca[0];
+          }
+
+          // Mapeia campos para garantir compatibilidade (name/nome, phone/telefone)
+          setProfileData({ 
+            ...userData, 
+            name: userData.name || userData.nome || '',
+            email: user.email,
+            phone: userData.phone || userData.telefone || '',
+            cargo: userData.cargo || '',
+            cpf: userData.cpf || '',
+            photoBase64: userData.photoBase64 || '',
+            cep: billing.cep || userData.cep || '',
+            endereco: billing.endereco || userData.endereco || '',
+            numero: billing.numero || userData.numero || '',
+            bairro: billing.bairro || userData.bairro || '',
+            cidade: billing.cidade || userData.cidade || '',
+            estado: billing.estado || userData.estado || '',
+            cards: userData.cards || []
+          }); 
         }
       };
       fetchProfile();

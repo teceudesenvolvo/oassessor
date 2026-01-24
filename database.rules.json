@@ -13,6 +13,9 @@
     },
     "notificacoes": {
       ".indexOn": ["userId", "adminId"]
+    },
+    "users": {
+      ".indexOn": ["userId"]
     }
   }
 }
