@@ -2,12 +2,20 @@ const { onRequest } = require("firebase-functions/v2/https");
 // const { onValueCreated } = require("firebase-functions/v2/database");
 const nodemailer = require("nodemailer");
 const admin = require("firebase-admin");
-const pagarme = require('pagarme');
 // const { defineSecret } = require('firebase-functions/v2/params');
 
 // Defina sua chave de API do Pagar.me
 // const pagarmeApiKey = 'sk_6f45fa07486f49068bde5f4aef9f951e';
 const pagarmeApiKey = 'sk_test_9fd7fc9c963641fba4b39c9c97b15af5';
+const PAGARME_URL = 'https://api.pagar.me/core/v5';
+
+const getPagarmeHeaders = () => {
+    const auth = Buffer.from(`${pagarmeApiKey}:`).toString('base64');
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${auth}`
+    };
+};
 
 admin.initializeApp();
 
@@ -186,90 +194,188 @@ exports.deleteUser = onRequest({ cors: true, invoker: 'public' }, async (req, re
     }
 });
 
-exports.createTransaction = onRequest(
-  { cors: true },
+exports.createSubscription = onRequest(
+  { cors: true, invoker: 'public' },
   async (req, res) => {
     if (req.method !== "POST") {
       return res.status(405).send("Method Not Allowed");
     }
 
-    const { amount, card_hash, customer, items, payment_method } = req.body;
+    const { planId, card, customer, payment_method, userId } = req.body;
 
-    if (!amount || !customer || !items || !payment_method) {
+    if (!planId || !customer || !payment_method || !userId) {
       return res.status(400).send("Dados da transação incompletos.");
     }
 
-    if (payment_method === 'credit_card' && !card_hash) {
-      return res.status(400).send("Card hash é obrigatório para pagamento com cartão.");
+    if (payment_method === 'credit_card' && !card) {
+      return res.status(400).send("Dados do cartão são obrigatórios.");
     }
 
     try {
-      const client = await pagarme.client.connect({ api_key: pagarmeApiKey });
+      // Busca o plano no Pagar.me usando o 'planId' do app (ex: "ouro") como um filtro de metadados.
+      // Isso requer que os planos no Pagar.me tenham um metadado `app_id` correspondente.
+      const plansResponse = await fetch(`${PAGARME_URL}/plans?metadata[app_id]=${planId}&status=active`, {
+          headers: getPagarmeHeaders()
+      });
+      const plansData = await plansResponse.json();
+      const pagarmePlan = plansData.data && plansData.data.length > 0 ? plansData.data[0] : null;
 
-      const transactionPayload = {
-        amount: amount,
+      if (!pagarmePlan) {
+        return res.status(400).send({ success: false, error: `Plano '${planId}' não encontrado ou inativo no Pagar.me.` });
+      }
+
+      const subscriptionPayload = {
+        plan_id: pagarmePlan.id,
         customer: {
-          external_id: customer.external_id,
           name: customer.name,
           email: customer.email,
+          code: userId, // V5 usa 'code'
+          document: customer.cpf.replace(/\D/g, ''), // V5 usa 'document'
           type: 'individual',
-          country: 'br',
-          documents: [
-            {
-              type: 'cpf',
-              number: customer.cpf.replace(/\D/g, '')
+          phones: {
+            mobile_phone: {
+              country_code: '55',
+              area_code: customer.phone.replace(/\D/g, '').substring(0, 2),
+              number: customer.phone.replace(/\D/g, '').substring(2)
             }
-          ],
-          phone_numbers: [customer.phone.replace(/\D/g, '')]
-        },
-        billing: {
-          name: customer.name,
-          address: {
-            country: 'br',
-            street: customer.address.street,
-            street_number: customer.address.street_number,
-            state: customer.address.state,
-            city: customer.address.city,
-            neighborhood: customer.address.neighborhood,
-            zipcode: customer.address.zipcode.replace(/\D/g, '')
           }
         },
-        items: items.map(item => ({
-          id: item.id,
-          title: item.title,
-          unit_price: item.unit_price,
-          quantity: item.quantity,
-          tangible: item.tangible
-        })),
         payment_method: payment_method,
         async: false
       };
 
       if (payment_method === 'credit_card') {
-        transactionPayload.card_hash = card_hash;
+        subscriptionPayload.card = card;
       }
 
-      const transaction = await client.transactions.create(transactionPayload);
+      const subResponse = await fetch(`${PAGARME_URL}/subscriptions`, {
+          method: 'POST',
+          headers: getPagarmeHeaders(),
+          body: JSON.stringify(subscriptionPayload)
+      });
+      const subscription = await subResponse.json();
       
-      if (transaction.status === 'authorized' || transaction.status === 'paid') {
-        res.status(200).send({ success: true, transactionId: transaction.id, status: transaction.status });
+      if (subResponse.ok && (subscription.status === 'active' || subscription.status === 'paid' || subscription.status === 'pending_payment')) {
+        // Salva o ID da assinatura e do cliente no perfil do usuário no Firebase
+        const userRef = admin.database().ref(`users/${userId}`);
+        await userRef.update({
+          subscriptionId: subscription.id,
+          pagarmeCustomerId: subscription.customer.id,
+          planId: planId, // Salva o ID do plano do nosso app
+        });
+
+        res.status(200).send({ success: true, subscriptionId: subscription.id, status: subscription.status });
       } else {
-        res.status(400).send({ success: false, message: `Transação não autorizada: ${transaction.status_reason}` });
+        const errorMsg = subscription.message || (subscription.errors ? JSON.stringify(subscription.errors) : 'Erro desconhecido');
+        res.status(400).send({ success: false, message: `Assinatura não pôde ser criada: ${errorMsg}` });
       }
     } catch (error) {
-      console.error("Erro na transação Pagar.me:", error.response ? error.response.data : error);
-      res.status(500).send({ success: false, error: "Falha ao processar pagamento." });
+      console.error("Erro na transação Pagar.me:", error);
+      const errorMessage = error.message || "Falha ao processar pagamento.";
+      res.status(500).send({ success: false, error: errorMessage });
     }
   }
 );
 
-exports.saveUserCard = onRequest({ cors: true }, async (req, res) => {
+exports.createPagarmePlan = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+    if (req.method !== "POST") {
+      return res.status(405).send("Method Not Allowed");
+    }
+
+    // Based on Pagar.me v5 API for creating plans
+    const { name, description, amount, interval, interval_count, metadata } = req.body;
+
+    if (!name || !amount || !interval || !interval_count) {
+        return res.status(400).send({ success: false, error: "Dados do plano incompletos. 'name', 'amount', 'interval', 'interval_count' são obrigatórios." });
+    }
+
+    try {
+        const planPayload = {
+            name: name,
+            description: description,
+            payment_methods: ["credit_card", "boleto"],
+            interval: interval, // e.g., "month"
+            interval_count: interval_count, // e.g., 1
+            billing_type: "prepaid",
+            items: [
+                {
+                    name: name,
+                    quantity: 1,
+                    pricing_scheme: {
+                        scheme_type: "unit",
+                        price: amount // amount in cents
+                    }
+                }
+            ],
+            metadata: metadata || {}
+        };
+
+        const response = await fetch(`${PAGARME_URL}/plans`, {
+            method: 'POST',
+            headers: getPagarmeHeaders(),
+            body: JSON.stringify(planPayload)
+        });
+        const plan = await response.json();
+
+        if (!response.ok) {
+             throw { response: { data: plan } };
+        }
+
+        res.status(200).send({ success: true, plan: plan });
+
+    } catch (error) {
+        console.error("Erro ao criar plano no Pagar.me:", error.response ? error.response.data : error);
+        const errorMessage = error.response && error.response.data && error.response.data.errors
+            ? JSON.stringify(error.response.data.errors)
+            : "Falha ao criar plano.";
+        res.status(500).send({ success: false, error: errorMessage });
+    }
+});
+
+exports.getAppPlans = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+    try {
+        const response = await fetch(`${PAGARME_URL}/plans?status=active`, {
+            method: 'GET',
+            headers: getPagarmeHeaders()
+        });
+        const responseData = await response.json();
+        const pagarmePlans = responseData.data || [];
+
+        // Format plans to match the structure expected by the frontend
+        const appPlans = pagarmePlans.map(plan => {
+            const metadata = plan.metadata || {};
+            const price = plan.items[0]?.pricing_scheme?.price || 0;
+
+            return {
+                id: metadata.app_id || plan.id, // Use a custom ID from metadata if available
+                title: plan.name,
+                subtitle: metadata.subtitle || '',
+                ideal: metadata.ideal || '',
+                team: metadata.team || '',
+                database: metadata.database || '',
+                recommended: metadata.recommended === 'true',
+                price: (price / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+                amount: price,
+                pagarmeId: plan.id // Keep the original Pagar.me ID
+            };
+        });
+
+        // Sort plans by amount
+        appPlans.sort((a, b) => b.amount - a.amount);
+
+        res.status(200).send({ success: true, plans: appPlans });
+
+    } catch (error) {
+        console.error("Erro ao buscar planos do Pagar.me:", error);
+        res.status(500).send({ success: false, error: "Falha ao buscar planos." });
+    }
+});
+
+exports.saveUserCard = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
     if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
     const { userId, cardData, userEmail, userName, userPhone, userDocument } = req.body;
 
     try {
-        const client = await pagarme.client.connect({ api_key: pagarmeApiKey });
-        
         // 1. Check/Create Customer
         const userRef = admin.database().ref(`users/${userId}`);
         const userSnap = await userRef.once('value');
@@ -278,24 +384,38 @@ exports.saveUserCard = onRequest({ cors: true }, async (req, res) => {
         let customerId = userData.pagarmeCustomerId;
 
         if (!customerId) {
-            const customer = await client.customers.create({
-                external_id: userId,
-                name: userName,
-                email: userEmail,
-                type: 'individual',
-                country: 'br',
-                documents: [{ type: 'cpf', number: userDocument.replace(/\D/g, '') }],
-                phone_numbers: [userPhone.replace(/\D/g, '')]
+            const custResponse = await fetch(`${PAGARME_URL}/customers`, {
+                method: 'POST',
+                headers: getPagarmeHeaders(),
+                body: JSON.stringify({
+                    code: userId, // external_id in V5 is 'code'
+                    name: userName,
+                    email: userEmail,
+                    type: 'individual',
+                    document: userDocument.replace(/\D/g, ''),
+                    phones: {
+                        mobile_phone: {
+                            country_code: '55',
+                            area_code: userPhone.replace(/\D/g, '').substring(0, 2),
+                            number: userPhone.replace(/\D/g, '').substring(2)
+                        }
+                    }
+                })
             });
+            const customer = await custResponse.json();
+            if (!custResponse.ok) throw new Error(JSON.stringify(customer));
             customerId = customer.id;
             await userRef.update({ pagarmeCustomerId: customerId });
         }
 
         // 2. Create Card
-        const card = await client.cards.create({
-            ...cardData,
-            customer_id: customerId
+        const cardResponse = await fetch(`${PAGARME_URL}/customers/${customerId}/cards`, {
+            method: 'POST',
+            headers: getPagarmeHeaders(),
+            body: JSON.stringify(cardData)
         });
+        const card = await cardResponse.json();
+        if (!cardResponse.ok) throw new Error(JSON.stringify(card));
 
         // 3. Save Card to Firebase (Masked)
         const newCard = {
@@ -318,12 +438,11 @@ exports.saveUserCard = onRequest({ cors: true }, async (req, res) => {
     }
 });
 
-exports.getSubscriptionDetails = onRequest({ cors: true }, async (req, res) => {
+exports.getSubscriptionDetails = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
     const userId = req.query.userId || req.body.userId;
     if (!userId) return res.status(400).send("Missing userId");
 
     try {
-        const client = await pagarme.client.connect({ api_key: pagarmeApiKey });
         const userSnap = await admin.database().ref(`users/${userId}`).once('value');
         const userData = userSnap.val();
 
@@ -331,19 +450,23 @@ exports.getSubscriptionDetails = onRequest({ cors: true }, async (req, res) => {
             return res.status(200).send({ subscription: null, invoices: [] });
         }
 
-        const subscription = await client.subscriptions.find({ id: userData.subscriptionId });
-        
-        const transactions = await client.transactions.all({
-            subscription_id: userData.subscriptionId,
-            count: 10
+        const subResponse = await fetch(`${PAGARME_URL}/subscriptions/${userData.subscriptionId}`, {
+            headers: getPagarmeHeaders()
         });
+        const subscription = await subResponse.json();
+        
+        const invoicesResponse = await fetch(`${PAGARME_URL}/invoices?subscription_id=${userData.subscriptionId}&count=10`, {
+            headers: getPagarmeHeaders()
+        });
+        const invoicesData = await invoicesResponse.json();
+        const invoicesList = invoicesData.data || [];
 
-        const invoices = transactions.map(t => ({
+        const invoices = invoicesList.map(t => ({
             id: t.id,
-            date: new Date(t.date_created).toLocaleDateString('pt-BR'),
+            date: new Date(t.created_at).toLocaleDateString('pt-BR'),
             amount: (t.amount / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
             status: t.status,
-            boleto_url: t.boleto_url
+            boleto_url: t.charge?.last_transaction?.url // V5 structure
         }));
 
         res.status(200).send({ subscription, invoices });

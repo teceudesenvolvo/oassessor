@@ -1,5 +1,9 @@
 {
   "rules": {
+    "registros_temporarios": {
+      ".read": true,
+      ".write": true
+    },
     "assessores": {
       ".read": "auth != null",
       ".write": "auth != null",

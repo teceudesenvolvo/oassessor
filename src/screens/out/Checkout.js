@@ -3,10 +3,10 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { User, MapPin, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Lock } from 'lucide-react';
 import { auth, database } from '../../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { ref, set } from 'firebase/database';
+import { ref, set, push, update, get, remove } from 'firebase/database';
 import Logo from '../../assets/logomarca-vertical-azul.png';
 
-const CREATE_TRANSACTION_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/createTransaction';
+const CREATE_SUBSCRIPTION_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/createSubscription';
 
 export default function Checkout() {
   const { planId } = useParams();
@@ -14,6 +14,7 @@ export default function Checkout() {
   const location = useLocation();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [tempId, setTempId] = useState(null);
 
   const [formData, setFormData] = useState({
     // Dados Pessoais
@@ -97,8 +98,34 @@ export default function Checkout() {
     }
   };
 
-  const handleNext = (e) => {
+  const handleNext = async (e) => {
     e.preventDefault();
+    
+    // Salvar dados parciais no Firebase (registros_temporarios)
+    try {
+      const dataToSave = { ...formData };
+      // Removemos dados sensíveis ou desnecessários para o registro temporário
+      delete dataToSave.password;
+      delete dataToSave.cardNumber;
+      delete dataToSave.cardCvc;
+      delete dataToSave.cardExpiry;
+
+      let currentId = tempId;
+      if (!currentId) {
+        const newRef = push(ref(database, 'registros_temporarios'));
+        currentId = newRef.key;
+        setTempId(currentId);
+      }
+
+      await update(ref(database, `registros_temporarios/${currentId}`), {
+        ...dataToSave,
+        etapa: String(step),
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Erro ao salvar progresso:", error);
+    }
+
     setStep(step + 1);
   };
 
@@ -117,48 +144,36 @@ export default function Checkout() {
     }
 
     try {
-      // 1. Criar usuário no Firebase Auth
-      // Nota: Em um ambiente real sem configuração válida do Firebase, isso falhará.
-      // Adicionei um try/catch interno para permitir testar o fluxo visualmente mesmo sem chaves reais.
-      let userUid;
-      try {
-        const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-        userUid = userCredential.user.uid;
-      } catch (authError) {
-        console.warn("Firebase Auth falhou (provavelmente falta configuração), usando ID simulado.", authError);
-        userUid = "simulated_user_" + Date.now();
+      // Atualiza etapa para 3 antes de processar
+      if (tempId) {
+        await update(ref(database, `registros_temporarios/${tempId}`), { etapa: '3' });
       }
 
-      // 2. Salvar dados adicionais no Realtime Database
-      try {
-        await set(ref(database, 'users/' + userUid), {
-            name: formData.name,
-            email: formData.email,
-            cpf: formData.cpf,
-            phone: formData.phone,
-            address: {
-            street: formData.street,
-            number: formData.number,
-            neighborhood: formData.neighborhood,
-            city: formData.city,
-            state: formData.state,
-            zip: formData.zip
-            },
-            planId: planId,
-            tipoUser: "admin",
-            cargo: "Administrador",
-            createdAt: new Date()
-        });
-      } catch (dbError) {
-          console.warn("Database falhou (provavelmente falta configuração).", dbError);
+      // 1. Processar Pagamento no Pagar.me
+      let cardData = null;
+      if (formData.paymentMethod === 'credit_card') {
+        const cleanNumber = formData.cardNumber.replace(/\D/g, '');
+        const cleanExpiry = formData.cardExpiry.replace(/\D/g, '');
+        const expMonth = parseInt(cleanExpiry.substring(0, 2));
+        const expYear = parseInt(cleanExpiry.substring(2));
+        cardData = {
+          number: cleanNumber,
+          holder_name: formData.cardName,
+          exp_month: expMonth,
+          exp_year: expYear + (expYear < 100 ? 2000 : 0), // Garante ano com 4 dígitos
+          cvv: formData.cardCvc
+        };
       }
 
-      // 3. Processar Pagamento no Pagar.me
-      const transactionData = {
-        amount: plan.amount,
+      // Usamos o tempId como ID temporário para o Pagar.me
+      const transactionUserId = tempId || `temp_${Date.now()}`;
+
+      const subscriptionData = {
+        planId: plan.id,
         payment_method: formData.paymentMethod,
+        userId: transactionUserId,
+        card: cardData, // será null para boleto
         customer: {
-          external_id: userUid,
           name: formData.name,
           email: formData.email,
           cpf: formData.cpf,
@@ -172,19 +187,14 @@ export default function Checkout() {
             zipcode: formData.zip
           }
         },
-        items: [{
-          id: plan.id,
-          title: plan.title,
-          unit_price: plan.amount,
-          quantity: 1,
-          tangible: false
-        }]
       };
 
-      const response = await fetch(CREATE_TRANSACTION_URL, {
+      console.log("Enviando payload para createSubscription:", subscriptionData);
+
+      const response = await fetch(CREATE_SUBSCRIPTION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(transactionData)
+        body: JSON.stringify(subscriptionData)
       });
 
       if (!response.ok) {
@@ -196,13 +206,64 @@ export default function Checkout() {
 
       if (!result.success) throw new Error(result.message || 'Falha na transação');
 
+      // 2. Criar usuário no Firebase Auth (APÓS sucesso no pagamento)
+      let userUid;
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+        userUid = userCredential.user.uid;
+      } catch (authError) {
+        if (authError.code === 'auth/email-already-in-use') {
+           throw new Error("Pagamento aprovado, mas o e-mail já está em uso. Entre em contato com o suporte.");
+        }
+        throw authError;
+      }
+
+      // Recuperar dados extras salvos pela Cloud Function no nó temporário (como pagarmeCustomerId)
+      let pagarmeCustomerId = null;
+      try {
+        const tempUserSnap = await get(ref(database, `users/${transactionUserId}`));
+        if (tempUserSnap.exists()) {
+          pagarmeCustomerId = tempUserSnap.val().pagarmeCustomerId;
+          // Remove o registro temporário criado pela Cloud Function em 'users'
+          await remove(ref(database, `users/${transactionUserId}`));
+        }
+      } catch (err) {
+        console.warn("Erro ao recuperar dados do usuário temporário:", err);
+      }
+
+      // 3. Salvar dados definitivos no Realtime Database
+      await set(ref(database, 'users/' + userUid), {
+            name: formData.name,
+            email: formData.email,
+            cpf: formData.cpf,
+            phone: formData.phone,
+            address: {
+              street: formData.street,
+              number: formData.number,
+              neighborhood: formData.neighborhood,
+              city: formData.city,
+              state: formData.state,
+              zip: formData.zip
+            },
+            planId: planId,
+            subscriptionId: result.subscriptionId,
+            pagarmeCustomerId: pagarmeCustomerId,
+            tipoUser: "admin",
+            cargo: "Administrador",
+            createdAt: new Date()
+      });
+
+      // Limpar registro temporário de progresso
+      if (tempId) {
+        await remove(ref(database, `registros_temporarios/${tempId}`));
+      }
+
       alert("Contratação realizada com sucesso! Verifique seu e-mail para o boleto, se aplicável.");
       navigate('/login');
 
     } catch (error) {
       console.error("Erro no checkout:", error);
-      // Tenta extrair uma mensagem mais amigável se for um erro JSON da Cloud Function
-      alert("Erro ao processar pagamento. Tente novamente ou contate o suporte.");
+      alert(`Erro ao processar: ${error.message}`);
     } finally {
       setLoading(false);
     }

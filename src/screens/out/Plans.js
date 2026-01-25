@@ -1,63 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 
+const GET_PLANS_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/getAppPlans';
+
 export default function Plans() {
   const navigate = useNavigate();
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const plans = [
-    {
-      id: "livre",
-      title: "PLANO SEM LIMITES",
-      subtitle: "(Majoritária)",
-      ideal: "Grandes campanhas que precisam altos números",
-      team: "Cadastros Ilimitados.",
-      database: "Base de Eleitores Ilimitada.",
-      price: "R$ 499,90",
-      amount: 49990,
-    },
-     {
-      id: "diamante",
-      title: "PLANO DIAMANTE",
-      subtitle: "(Expansão)",
-      ideal: "Campanhas competitivas com grande volume de dados.",
-      team: "Até 2000 Cadastros.",
-      database: "Base de Eleitores Ilimitada.",
-      price: "R$ 799,90",
-      amount: 79990,
-    },
-   {
-      id: "ouro",
-      title: "PLANO OURO",
-      subtitle: "(Crescimento)",
-      ideal: "Campanhas em crescimento que precisam de inteligência.",
-      team: "Até 1500 Cadastros.",
-      database: "Base de Eleitores Ilimitada.",
-      recommended: true,
-      price: "R$ 999,90",
-      amount: 99990,
-    },
-    {
-      id: "prata",
-      title: "PLANO PRATA",
-      subtitle: "(Intermediário)",
-      ideal: "Campanhas que precisam de mais estrutura.",
-      team: "Até 1000 Cadastros.",
-      database: "Base de Eleitores Ilimitada.",
-      price: "R$ 1299,90",
-      amount: 129990,
-    },
-    {
-      id: "bronze",
-      title: "PLANO BRONZE",
-      subtitle: "(Inicial)",
-      ideal: "Pequenas campanhas e lideranças locais.",
-      team: "Até 500 Cadastros.",
-      database: "Base de Eleitores Ilimitada.",
-      price: "R$ 1.999,90",
-      amount: 199990,
-    },
-  ];
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const response = await fetch(GET_PLANS_URL);
+        const data = await response.json();
+        if (data.success) {
+          setPlans(data.plans);
+        } else {
+          console.error("Erro ao buscar planos:", data.error);
+        }
+      } catch (error) {
+        console.error("Falha na requisição dos planos:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPlans();
+  }, []);
 
   return (
     <>
@@ -70,6 +39,10 @@ export default function Plans() {
       </header>
       <main className="content" style={{ marginTop: '40px', paddingBottom: '80px' }}>
         <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
+            {loading && <div style={{ textAlign: 'center', padding: '40px' }}>Carregando planos...</div>}
+            {!loading && plans.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px' }}>Nenhum plano disponível no momento.</div>
+            )}
             <div className="team-grid">
             {plans.map((plan, index) => (
               <div key={index} className="team-card" style={{ 
