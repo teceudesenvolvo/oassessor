@@ -336,7 +336,7 @@
 }
 
 .custom-input {
-  width: 87%; /* Ajustado para preencher o container corretamente */
+  width: 95%; /* Ajustado para preencher o container corretamente */
   padding: 16px 16px 16px 48px;
   background-color: #f1f5f9;
   border: 2px solid transparent;
@@ -356,6 +356,30 @@
 }
 
 .custom-input:focus + .field-icon-left {
+  color: var(--primary);
+}
+
+.custom-input-voter {
+  width: 85%; /* Ajustado para preencher o container corretamente */
+  padding: 16px 16px 16px 48px;
+  background-color: #f1f5f9;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  color: var(--text-dark);
+  font-weight: 500;
+  outline: none;
+  transition: all 0.2s ease;
+  margin: 5px;
+}
+
+.custom-input-voter:focus {
+  background-color: var(--white);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.08);
+}
+
+.custom-input-voter:focus + .field-icon-left {
   color: var(--primary);
 }
 

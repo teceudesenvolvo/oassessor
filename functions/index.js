@@ -501,3 +501,32 @@ exports.getSubscriptionDetails = onRequest({ cors: true, invoker: 'public' }, as
         res.status(500).send({ error: error.message });
     }
 });
+
+exports.getPollingPlace = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+    const { zone, section, uf } = req.query;
+
+    if (!zone || !section) {
+        return res.status(400).send({ error: "Zona e Seção são obrigatórios." });
+    }
+
+    try {
+        // Como não há API pública nacional, consultamos nossa base interna importada do TSE.
+        // Estrutura esperada: locais_votacao/{UF}/{ZONA}/{SECAO}
+        let dbPath = 'locais_votacao';
+        
+        if (uf) {
+            dbPath += `/${uf.toUpperCase()}`;
+        }
+        
+        dbPath += `/${zone}/${section}`;
+        
+        const snapshot = await admin.database().ref(dbPath).once('value');
+        const localData = snapshot.val();
+        
+        res.status(200).send({ success: true, local: localData || null });
+
+    } catch (error) {
+        console.error("Erro ao buscar local de votação:", error);
+        res.status(500).send({ error: "Falha ao buscar local de votação." });
+    }
+});

@@ -5,8 +5,12 @@ import { Splide, SplideSlide } from '@splidejs/react-splide';
 import '@splidejs/react-splide/css';
 import { BarChart3, Users, ShieldCheck, Trophy, Zap } from 'lucide-react';
 
+const GET_PLANS_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/getAppPlans';
+
 export default function Home() {
   const navigate = useNavigate();
+  const [plans, setPlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
   
   const items = [
     { 
@@ -73,48 +77,24 @@ export default function Home() {
     return () => clearTimeout(timeoutId);
   }, []);
 
-  const plans = [
-    {
-      id: "livre",
-      title: "PLANO SEM LIMITES",
-      subtitle: "(Majoritária / Comitê Central)",
-      ideal: "Grandes comitês e partidos que precisam de liberdade total.",
-      team: "Usuários Ilimitados.",
-      database: "Base de Eleitores Ilimitada.",
-    },
-     {
-      id: "diamante",
-      title: "PLANO DIAMANTE",
-      subtitle: "(Expansão)",
-      ideal: "Campanhas competitivas com grande volume de dados.",
-      team: "Até 2000 Usuários.",
-      database: "Base de Eleitores Ilimitada.",
-    },
-   {
-      id: "ouro",
-      title: "PLANO OURO",
-      subtitle: "(Crescimento)",
-      ideal: "Campanhas em crescimento que precisam de inteligência.",
-      team: "Até 1500 Usuários.",
-      database: "Base de Eleitores Ilimitada.",
-    },
-    {
-      id: "prata",
-      title: "PLANO PRATA",
-      subtitle: "(Intermediário)",
-      ideal: "Campanhas que precisam de mais estrutura.",
-      team: "Até 1000 Usuários.",
-      database: "Base de Eleitores Ilimitada.",
-    },
-    {
-      id: "bronze",
-      title: "PLANO BRONZE",
-      subtitle: "(Vereador / Inicial)",
-      ideal: "Pequenas campanhas e lideranças locais.",
-      team: "Até 500 Usuários.",
-      database: "Base de Eleitores Ilimitada.",
-    },
-  ];
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const response = await fetch(GET_PLANS_URL);
+        const data = await response.json();
+        if (data.success) {
+          setPlans(data.plans);
+        } else {
+          console.error("Erro ao buscar planos:", data.error);
+        }
+      } catch (error) {
+        console.error("Falha na requisição dos planos:", error);
+      } finally {
+        setLoadingPlans(false);
+      }
+    };
+    fetchPlans();
+  }, []);
 
   return (
     <>
@@ -210,6 +190,10 @@ export default function Home() {
 
           <h3 className="section-title">Nossos Planos</h3>
           <div style={{ marginBottom: '100px' }}>
+            {loadingPlans && <div style={{ textAlign: 'center', padding: '40px' }}>Carregando planos...</div>}
+            {!loadingPlans && plans.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px' }}>Nenhum plano disponível no momento.</div>
+            )}
             <Splide options={{
               perPage: 3,
               gap: '2rem',

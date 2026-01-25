@@ -5,6 +5,8 @@ import { ref, push, set } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 
+const GET_POLLING_PLACE_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/getPollingPlace';
+
 export default function NewVoter() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -23,7 +25,8 @@ export default function NewVoter() {
     zonaSecao: '',
     endereco: '',
     numero: '',
-    cep: ''
+    cep: '',
+    localVotacao: ''
   });
 
   const handleChange = (e) => {
@@ -79,6 +82,82 @@ export default function NewVoter() {
     }
   };
 
+  const isValidTitulo = (titulo) => {
+    if (!titulo) return false;
+    const cleanTitulo = titulo.replace(/\D/g, '');
+    if (cleanTitulo.length !== 12) return false;
+    
+    const digits = cleanTitulo.split('').map(Number);
+    const uf = digits[8] * 10 + digits[9];
+    if (uf < 1 || uf > 28) return false;
+
+    // Cálculo do 1º Dígito Verificador
+    let sum = 0;
+    for (let i = 0; i < 8; i++) sum += digits[i] * (i + 2);
+    let rest = sum % 11;
+    let dv1 = rest;
+    if (rest === 0) {
+        if (uf === 1 || uf === 2) dv1 = 1; else dv1 = 0;
+    } else if (rest === 10) {
+        dv1 = 0;
+    }
+    if (digits[10] !== dv1) return false;
+
+    // Cálculo do 2º Dígito Verificador
+    sum = 0;
+    sum += digits[8] * 7 + digits[9] * 8 + dv1 * 9;
+    rest = sum % 11;
+    let dv2 = rest;
+    if (rest === 0) {
+        if (uf === 1 || uf === 2) dv2 = 1; else dv2 = 0;
+    } else if (rest === 10) {
+        dv2 = 0;
+    }
+    if (digits[11] !== dv2) return false;
+
+    return true;
+  };
+
+  const checkTitulo = async (e) => {
+    const titulo = e.target.value.replace(/\D/g, '');
+    if (titulo.length === 12) {
+      if (!isValidTitulo(titulo)) {
+        alert("Título de eleitor inválido.");
+        return;
+      }
+      // Aqui você pode inserir a chamada para sua API de consulta de Título
+      // setTituloLoading(true);
+      // try { const res = await fetch(...); ... } finally { setTituloLoading(false); }
+      // Como não há API pública aberta, mantemos apenas a validação por enquanto.
+      console.log("Título válido:", titulo);
+    }
+  };
+
+  const checkZonaSecao = async (e) => {
+    const val = e.target.value;
+    if (val.includes('/') && val.length >= 7) {
+      const [zona, secao] = val.split('/');
+      if (zona && secao) {
+        try {
+          const ufParam = formData.estado ? `&uf=${formData.estado}` : '';
+          const response = await fetch(`${GET_POLLING_PLACE_URL}?zone=${zona}&section=${secao}${ufParam}`);
+          const data = await response.json();
+          if (data.success && data.local) {
+            setFormData(prev => ({
+              ...prev,
+              localVotacao: `${data.local.nome || ''} - ${data.local.endereco || ''}`
+            }));
+          } else {
+             // Se não encontrar (ex: fora do RJ), não faz nada ou limpa
+             console.log("Local não encontrado na base do TRE-RJ");
+          }
+        } catch (error) {
+          console.error("Erro ao buscar local de votação:", error);
+        }
+      }
+    }
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     if (!user) return;
@@ -117,13 +196,21 @@ export default function NewVoter() {
       </div>
 
       <form onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-        <div className="input-group"> <label>Nome Completo</label> <input type="text" name="nome" value={formData.nome} onChange={handleChange} className="custom-input" required /> </div>
-        <div className="input-group"> <label>E-mail</label> <input type="email" name="email" value={formData.email} onChange={handleChange} className="custom-input" /> </div>
-        <div className="input-group"> <label>Telefone</label> <input type="text" name="telefone" value={formData.telefone} onChange={handleMaskedChange} className="custom-input" placeholder="(00) 00000-0000" /> </div>
-        <div className="input-group"> <label>CPF</label> <input type="text" name="cpf" value={formData.cpf} onChange={handleMaskedChange} className="custom-input" placeholder="000.000.000-00" /> </div>
-        <div className="input-group"> <label>Data de Nascimento</label> <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} className="custom-input" /> </div>
-        <div className="input-group"> <label>Título de Eleitor</label> <input type="text" name="titulo" value={formData.titulo} onChange={handleMaskedChange} className="custom-input" placeholder="Apenas números" /> </div>
-        <div className="input-group"> <label>Zona / Seção</label> <input type="text" name="zonaSecao" value={formData.zonaSecao} onChange={handleMaskedChange} className="custom-input" placeholder="000/0000" /> </div>
+        <div className="input-group"> <label>Nome Completo</label> <input type="text" name="nome" value={formData.nome} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} required /> </div>
+        <div className="input-group"> <label>E-mail</label> <input type="email" name="email" value={formData.email} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
+        <div className="input-group"> <label>Telefone</label> <input type="text" name="telefone" value={formData.telefone} onChange={handleMaskedChange} className="custom-input-voter" style={{ width: '86%' }} placeholder="(00) 00000-0000" /> </div>
+        <div className="input-group"> <label>CPF</label> <input type="text" name="cpf" value={formData.cpf} onChange={handleMaskedChange} className="custom-input-voter" style={{ width: '86%' }} placeholder="000.000.000-00" /> </div>
+        <div className="input-group"> <label>Data de Nascimento</label> <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
+        <div className="input-group"> 
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Título de Eleitor
+          </label>
+          <input type="text" name="titulo" value={formData.titulo} onChange={handleMaskedChange} onBlur={checkTitulo} className="custom-input-voter" style={{ width: '86%' }} placeholder="Apenas números" /> 
+        </div>
+        <div className="input-group"> 
+            <label>Zona / Seção</label> 
+            <input type="text" name="zonaSecao" value={formData.zonaSecao} onChange={handleMaskedChange} onBlur={checkZonaSecao} className="custom-input-voter" style={{ width: '86%' }} placeholder="000/0000" /> 
+        </div>
         
         <h4 style={{ gridColumn: '1 / -1', marginTop: '10px', marginBottom: '5px', borderBottom: '1px solid #eee', paddingBottom: '5px', color: '#64748b' }}>Endereço</h4>
         
@@ -131,13 +218,14 @@ export default function NewVoter() {
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             CEP {cepLoading && <span style={{ fontSize: '0.75rem', color: '#3b82f6' }}>(Buscando...)</span>}
           </label>
-          <input type="text" name="cep" value={formData.cep} onChange={handleMaskedChange} onBlur={checkCep} className="custom-input" placeholder="00000-000" />
+          <input type="text" name="cep" value={formData.cep} onChange={handleMaskedChange} onBlur={checkCep} className="custom-input-voter" style={{ width: '86%' }} placeholder="00000-000" />
         </div>
-        <div className="input-group"> <label>Endereço</label> <input type="text" name="endereco" value={formData.endereco} onChange={handleChange} className="custom-input" /> </div>
-        <div className="input-group"> <label>Número</label> <input type="text" name="numero" value={formData.numero} onChange={handleChange} className="custom-input" /> </div>
-        <div className="input-group"> <label>Bairro</label> <input type="text" name="bairro" value={formData.bairro} onChange={handleChange} className="custom-input" /> </div>
-        <div className="input-group"> <label>Cidade</label> <input type="text" name="cidade" value={formData.cidade} onChange={handleChange} className="custom-input" /> </div>
-        <div className="input-group"> <label>Estado</label> <input type="text" name="estado" value={formData.estado} onChange={handleChange} className="custom-input" /> </div>
+        <div className="input-group"> <label>Endereço</label> <input type="text" name="endereco" value={formData.endereco} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
+        <div className="input-group"> <label>Número</label> <input type="text" name="numero" value={formData.numero} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
+        <div className="input-group"> <label>Bairro</label> <input type="text" name="bairro" value={formData.bairro} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
+        <div className="input-group"> <label>Cidade</label> <input type="text" name="cidade" value={formData.cidade} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
+        <div className="input-group"> <label>Estado</label> <input type="text" name="estado" value={formData.estado} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
+        <div className="input-group" style={{ gridColumn: '1 / -1' }}> <label>Local de Votação</label> <input type="text" name="localVotacao" value={formData.localVotacao} onChange={handleChange} className="custom-input-voter" style={{ width: '93%' }} placeholder="Preenchido automaticamente (RJ)" /> </div>
       </form>
     </div>
   );

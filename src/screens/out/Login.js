@@ -142,12 +142,12 @@ export default function Login() {
           </form>
 
           {/* Rodapé de Registro */}
-          <footer className="register-footer">
+          {/* <footer className="register-footer">
             <p className="no-account-text">Ainda não tem acesso?</p>
             <button className="create-account-btn">
               Criar Conta
             </button>
-          </footer>
+          </footer> */}
         </main>
 
         {/* Selos de Segurança */}

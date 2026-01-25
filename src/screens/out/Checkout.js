@@ -16,6 +16,7 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const [tempId, setTempId] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const [formData, setFormData] = useState({
     // Dados Pessoais
@@ -44,6 +45,9 @@ export default function Checkout() {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (errors[e.target.name]) {
+      setErrors({ ...errors, [e.target.name]: null });
+    }
   };
 
   const handleMaskedChange = (e) => {
@@ -77,6 +81,9 @@ export default function Checkout() {
     }
 
     setFormData(prev => ({ ...prev, [name]: val }));
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: null });
+    }
   };
 
   const checkCep = async (e) => {
@@ -128,31 +135,46 @@ export default function Checkout() {
   };
 
   const validateCurrentStep = () => {
+    const newErrors = {};
+    let isValid = true;
+
     if (step === 1) {
-      if (!formData.name || !formData.email || !formData.password || !formData.cpf || !formData.phone) {
-        alert("Por favor, preencha todos os campos obrigatórios.");
-        return false;
+      if (!formData.name) newErrors.name = "Nome completo é obrigatório.";
+      if (!formData.email) newErrors.email = "E-mail é obrigatório.";
+      if (!formData.phone) newErrors.phone = "Telefone é obrigatório.";
+      
+      if (!formData.cpf) {
+        newErrors.cpf = "CPF é obrigatório.";
+      } else if (!isValidCPF(formData.cpf)) {
+        newErrors.cpf = "CPF inválido.";
       }
-      if (!isValidCPF(formData.cpf)) {
-        alert("CPF inválido. Por favor, verifique os dados.");
-        return false;
+
+      if (!formData.password) {
+        newErrors.password = "Senha é obrigatória.";
+      } else if (formData.password.length < 6) {
+        newErrors.password = "A senha deve ter pelo menos 6 caracteres.";
       }
-      if (formData.password.length < 6) {
-        alert("A senha deve ter pelo menos 6 caracteres.");
-        return false;
-      }
+
       if (formData.password !== formData.confirmPassword) {
-        alert("As senhas não coincidem.");
-        return false;
+        newErrors.confirmPassword = "As senhas não coincidem.";
       }
     }
+
     if (step === 2) {
-      if (!formData.zip || !formData.city || !formData.street || !formData.neighborhood || !formData.number || !formData.state) {
-        alert("Por favor, preencha todos os campos de endereço.");
-        return false;
-      }
+      if (!formData.zip) newErrors.zip = "CEP é obrigatório.";
+      if (!formData.city) newErrors.city = "Cidade é obrigatória.";
+      if (!formData.street) newErrors.street = "Rua é obrigatória.";
+      if (!formData.neighborhood) newErrors.neighborhood = "Bairro é obrigatório.";
+      if (!formData.number) newErrors.number = "Número é obrigatório.";
+      if (!formData.state) newErrors.state = "Estado é obrigatório.";
     }
-    return true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      isValid = false;
+    }
+
+    return isValid;
   };
 
   const handleNext = async (e) => {
@@ -197,8 +219,14 @@ export default function Checkout() {
     e.preventDefault();
     setLoading(true);
 
+    const newErrors = {};
     if (formData.paymentMethod === 'credit_card' && (!formData.cardNumber || !formData.cardName || !formData.cardExpiry || !formData.cardCvc)) {
-      alert("Por favor, preencha todos os dados do cartão.");
+      if (!formData.cardNumber) newErrors.cardNumber = "Número do cartão é obrigatório.";
+      if (!formData.cardName) newErrors.cardName = "Nome no cartão é obrigatório.";
+      if (!formData.cardExpiry) newErrors.cardExpiry = "Validade é obrigatória.";
+      if (!formData.cardCvc) newErrors.cardCvc = "CVC é obrigatório.";
+      
+      setErrors(newErrors);
       setLoading(false);
       return;
     }
@@ -306,6 +334,8 @@ export default function Checkout() {
               zip: formData.zip
             },
             planId: planId,
+            nomePlano: plan.title,
+            limiteEleitores: plan.team,
             subscriptionId: result.subscriptionId,
             pagarmeCustomerId: pagarmeCustomerId,
             tipoUser: "admin",
@@ -354,12 +384,15 @@ export default function Checkout() {
             <div className="form-step fade-in">
               <h3><User size={20} /> Dados Pessoais</h3>
               <div className="input-group">
+                {errors.name && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.name}</span>}
                 <input type="text" name="name" placeholder="Nome Completo" value={formData.name} onChange={handleChange} required className="custom-input" />
               </div>
               <div className="input-group">
+                {errors.email && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.email}</span>}
                 <input type="email" name="email" placeholder="E-mail" value={formData.email} onChange={handleChange} required className="custom-input" />
               </div>
               <div className="input-group" style={{ position: 'relative' }}>
+                {errors.password && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.password}</span>}
                 <input 
                   type={showPassword ? "text" : "password"} 
                   name="password" 
@@ -378,11 +411,18 @@ export default function Checkout() {
                 </button>
               </div>
               <div className="input-group">
+                {errors.confirmPassword && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.confirmPassword}</span>}
                 <input type={showPassword ? "text" : "password"} name="confirmPassword" placeholder="Confirmar Senha" value={formData.confirmPassword} onChange={handleChange} required className="custom-input" />
               </div>
               <div className="row-inputs">
-                <input type="text" name="cpf" placeholder="CPF" value={formData.cpf} onChange={handleMaskedChange} required className="custom-input" />
-                <input type="text" name="phone" placeholder="Telefone" value={formData.phone} onChange={handleMaskedChange} required className="custom-input" />
+                <div style={{flex: 1}}>
+                  {errors.cpf && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.cpf}</span>}
+                  <input type="text" name="cpf" placeholder="CPF" value={formData.cpf} onChange={handleMaskedChange} required className="custom-input" style={{width: '70%'}} />
+                </div>
+                <div style={{flex: 1}}>
+                  {errors.phone && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.phone}</span>}
+                  <input type="text" name="phone" placeholder="Telefone" value={formData.phone} onChange={handleMaskedChange} required className="custom-input" style={{width: '70%'}}/>
+                </div>
               </div>
             </div>
           )}
@@ -392,16 +432,32 @@ export default function Checkout() {
             <div className="form-step fade-in">
               <h3><MapPin size={20} /> Endereço</h3>
               <div className="row-inputs">
-                <input type="text" name="zip" placeholder="CEP" value={formData.zip} onChange={handleMaskedChange} onBlur={checkCep} required className="custom-input" />
-                <input type="text" name="city" placeholder="Cidade" value={formData.city} onChange={handleChange} required className="custom-input" />
+                <div style={{flex: 1}}>
+                  {errors.zip && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.zip}</span>}
+                  <input type="text" name="zip" placeholder="CEP" value={formData.zip} onChange={handleMaskedChange} onBlur={checkCep} required className="custom-input" />
+                </div>
+                <div style={{flex: 1}}>
+                  {errors.city && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.city}</span>}
+                  <input type="text" name="city" placeholder="Cidade" value={formData.city} onChange={handleChange} required className="custom-input" />
+                </div>
               </div>
               <div className="input-group">
+                {errors.street && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.street}</span>}
                 <input type="text" name="street" placeholder="Rua" value={formData.street} onChange={handleChange} required className="custom-input" />
               </div>
               <div className="row-inputs">
-                <input type="text" name="neighborhood" placeholder="Bairro" value={formData.neighborhood} onChange={handleChange} required className="custom-input" />
-                <input type="text" name="number" placeholder="Número" value={formData.number} onChange={handleChange} required className="custom-input" />
-                <input type="text" name="state" placeholder="Estado" value={formData.state} onChange={handleChange} required className="custom-input" />
+                <div style={{flex: 1}}>
+                  {errors.neighborhood && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.neighborhood}</span>}
+                  <input type="text" name="neighborhood" placeholder="Bairro" value={formData.neighborhood} onChange={handleChange} required className="custom-input" />
+                </div>
+                <div style={{flex: 1}}>
+                  {errors.number && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.number}</span>}
+                  <input type="text" name="number" placeholder="Número" value={formData.number} onChange={handleChange} required className="custom-input" />
+                </div>
+                <div style={{flex: 1}}>
+                  {errors.state && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.state}</span>}
+                  <input type="text" name="state" placeholder="Estado" value={formData.state} onChange={handleChange} required className="custom-input" />
+                </div>
               </div>
             </div>
           )}
@@ -418,14 +474,22 @@ export default function Checkout() {
               {formData.paymentMethod === 'credit_card' && (
                 <div className="fade-in">
                   <div className="input-group">
+                    {errors.cardNumber && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.cardNumber}</span>}
                     <input type="text" name="cardNumber" placeholder="Número do Cartão" value={formData.cardNumber} onChange={handleMaskedChange} required className="custom-input" />
                   </div>
                   <div className="input-group">
+                    {errors.cardName && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.cardName}</span>}
                     <input type="text" name="cardName" placeholder="Nome no Cartão" value={formData.cardName} onChange={handleMaskedChange} required className="custom-input" />
                   </div>
                   <div className="row-inputs">
-                    <input type="text" name="cardExpiry" placeholder="MM/AA" value={formData.cardExpiry} onChange={handleMaskedChange} required className="custom-input" />
-                    <input type="text" name="cardCvc" placeholder="CVC" value={formData.cardCvc} onChange={handleMaskedChange} required className="custom-input" />
+                    <div style={{flex: 1}}>
+                      {errors.cardExpiry && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.cardExpiry}</span>}
+                      <input type="text" name="cardExpiry" placeholder="MM/AA" value={formData.cardExpiry} onChange={handleMaskedChange} required className="custom-input" />
+                    </div>
+                    <div style={{flex: 1}}>
+                      {errors.cardCvc && <span className="error-label" style={{color: '#ef4444', fontSize: '0.8rem', display: 'block', marginBottom: '4px'}}>{errors.cardCvc}</span>}
+                      <input type="text" name="cardCvc" placeholder="CVC" value={formData.cardCvc} onChange={handleMaskedChange} required className="custom-input" />
+                    </div>
                   </div>
                 </div>
               )}
