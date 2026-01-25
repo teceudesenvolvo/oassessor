@@ -212,13 +212,16 @@ exports.createSubscription = onRequest(
     }
 
     try {
-      // Busca o plano no Pagar.me usando o 'planId' do app (ex: "ouro") como um filtro de metadados.
-      // Isso requer que os planos no Pagar.me tenham um metadado `app_id` correspondente.
-      const plansResponse = await fetch(`${PAGARME_URL}/plans?metadata[app_id]=${planId}&status=active`, {
+      // Busca todos os planos ativos e filtra em memória para garantir que pegamos o correto.
+      // A filtragem via query param por metadados pode falhar dependendo da API.
+      const plansResponse = await fetch(`${PAGARME_URL}/plans?status=active&count=100`, {
           headers: getPagarmeHeaders()
       });
       const plansData = await plansResponse.json();
-      const pagarmePlan = plansData.data && plansData.data.length > 0 ? plansData.data[0] : null;
+      
+      const pagarmePlan = plansData.data 
+        ? plansData.data.find(p => (p.metadata && p.metadata.app_id === planId) || p.id === planId) 
+        : null;
 
       if (!pagarmePlan) {
         return res.status(400).send({ success: false, error: `Plano '${planId}' não encontrado ou inativo no Pagar.me.` });
@@ -238,6 +241,14 @@ exports.createSubscription = onRequest(
               area_code: customer.phone.replace(/\D/g, '').substring(0, 2),
               number: customer.phone.replace(/\D/g, '').substring(2)
             }
+          },
+          address: {
+            country: 'BR',
+            state: customer.address.state,
+            city: customer.address.city,
+            zip_code: customer.address.zipcode.replace(/\D/g, ''),
+            line_1: `${customer.address.street}, ${customer.address.street_number}, ${customer.address.neighborhood}`,
+            line_2: '' // Complemento se houver
           }
         },
         payment_method: payment_method,
@@ -247,6 +258,9 @@ exports.createSubscription = onRequest(
       if (payment_method === 'credit_card') {
         subscriptionPayload.card = card;
       }
+
+      // Log para debug no console do Firebase
+      console.log("Enviando payload para Pagar.me:", JSON.stringify(subscriptionPayload, null, 2));
 
       const subResponse = await fetch(`${PAGARME_URL}/subscriptions`, {
           method: 'POST',
@@ -266,7 +280,18 @@ exports.createSubscription = onRequest(
 
         res.status(200).send({ success: true, subscriptionId: subscription.id, status: subscription.status });
       } else {
-        const errorMsg = subscription.message || (subscription.errors ? JSON.stringify(subscription.errors) : 'Erro desconhecido');
+        console.error("Erro Pagar.me:", JSON.stringify(subscription, null, 2));
+        
+        let errorMsg = subscription.message || (subscription.errors ? JSON.stringify(subscription.errors) : null);
+        
+        if (!errorMsg && subscription.status === 'failed') {
+            errorMsg = "Pagamento recusado ou dados inválidos (Verifique CPF e Cartão).";
+        }
+        
+        if (!errorMsg) {
+             errorMsg = "Erro desconhecido na operadora.";
+        }
+
         res.status(400).send({ success: false, message: `Assinatura não pôde ser criada: ${errorMsg}` });
       }
     } catch (error) {

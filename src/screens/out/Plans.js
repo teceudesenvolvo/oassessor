@@ -86,7 +86,7 @@ export default function Plans() {
                   value='Selecionar Plano' 
                   className='btn-primary' 
                   style={{ marginTop: '15px' }} 
-                  onClick={() => navigate(`/checkout/${plan.id}`, { state: { plan } })}
+                  onClick={() => navigate(`/plan/${plan.id}`, { state: { plan } })}
                 />
               </div>
             ))}

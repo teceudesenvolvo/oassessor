@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { User, MapPin, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Lock } from 'lucide-react';
+import { User, MapPin, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react';
 import { auth, database } from '../../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { ref, set, push, update, get, remove } from 'firebase/database';
@@ -15,12 +15,14 @@ export default function Checkout() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [tempId, setTempId] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     // Dados Pessoais
     name: '',
     email: '',
     password: '',
+    confirmPassword: '',
     cpf: '',
     phone: '',
     // Endereço
@@ -98,14 +100,72 @@ export default function Checkout() {
     }
   };
 
+  const isValidCPF = (cpf) => {
+    if (!cpf) return false;
+    const cleanCPF = cpf.replace(/[^\d]+/g, '');
+    if (cleanCPF.length !== 11) return false;
+    if (/^(\d)\1+$/.test(cleanCPF)) return false; // Verifica se todos os dígitos são iguais
+
+    let sum = 0;
+    let remainder;
+
+    for (let i = 1; i <= 9; i++) 
+      sum = sum + parseInt(cleanCPF.substring(i - 1, i)) * (11 - i);
+    
+    remainder = (sum * 10) % 11;
+    if ((remainder === 10) || (remainder === 11)) remainder = 0;
+    if (remainder !== parseInt(cleanCPF.substring(9, 10))) return false;
+
+    sum = 0;
+    for (let i = 1; i <= 10; i++) 
+      sum = sum + parseInt(cleanCPF.substring(i - 1, i)) * (12 - i);
+    
+    remainder = (sum * 10) % 11;
+    if ((remainder === 10) || (remainder === 11)) remainder = 0;
+    if (remainder !== parseInt(cleanCPF.substring(10, 11))) return false;
+
+    return true;
+  };
+
+  const validateCurrentStep = () => {
+    if (step === 1) {
+      if (!formData.name || !formData.email || !formData.password || !formData.cpf || !formData.phone) {
+        alert("Por favor, preencha todos os campos obrigatórios.");
+        return false;
+      }
+      if (!isValidCPF(formData.cpf)) {
+        alert("CPF inválido. Por favor, verifique os dados.");
+        return false;
+      }
+      if (formData.password.length < 6) {
+        alert("A senha deve ter pelo menos 6 caracteres.");
+        return false;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        alert("As senhas não coincidem.");
+        return false;
+      }
+    }
+    if (step === 2) {
+      if (!formData.zip || !formData.city || !formData.street || !formData.neighborhood || !formData.number || !formData.state) {
+        alert("Por favor, preencha todos os campos de endereço.");
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handleNext = async (e) => {
     e.preventDefault();
+    
+    if (!validateCurrentStep()) return;
     
     // Salvar dados parciais no Firebase (registros_temporarios)
     try {
       const dataToSave = { ...formData };
       // Removemos dados sensíveis ou desnecessários para o registro temporário
       delete dataToSave.password;
+      delete dataToSave.confirmPassword;
       delete dataToSave.cardNumber;
       delete dataToSave.cardCvc;
       delete dataToSave.cardExpiry;
@@ -299,8 +359,26 @@ export default function Checkout() {
               <div className="input-group">
                 <input type="email" name="email" placeholder="E-mail" value={formData.email} onChange={handleChange} required className="custom-input" />
               </div>
+              <div className="input-group" style={{ position: 'relative' }}>
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  name="password" 
+                  placeholder="Senha" 
+                  value={formData.password} 
+                  onChange={handleChange} 
+                  required 
+                  className="custom-input" 
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
               <div className="input-group">
-                <input type="password" name="password" placeholder="Senha" value={formData.password} onChange={handleChange} required className="custom-input" />
+                <input type={showPassword ? "text" : "password"} name="confirmPassword" placeholder="Confirmar Senha" value={formData.confirmPassword} onChange={handleChange} required className="custom-input" />
               </div>
               <div className="row-inputs">
                 <input type="text" name="cpf" placeholder="CPF" value={formData.cpf} onChange={handleMaskedChange} required className="custom-input" />

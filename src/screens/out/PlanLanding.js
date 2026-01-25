@@ -1,136 +1,114 @@
-import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { CheckCircle, ArrowLeft } from 'lucide-react';
 import Navbar from '../../components/Navbar';
+
+const GET_PLANS_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/getAppPlans';
 
 export default function PlanLanding() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [plan, setPlan] = useState(location.state?.plan || null);
+  const [loading, setLoading] = useState(!plan);
 
-  const plansData = {
-    bronze: {
-      title: "PLANO BRONZE",
-      subtitle: "(Vereador / Inicial)",
-      price: "R$ 499,99/mês",
-      description: "Até 500 cadastros. Ideal para pequenas campanhas e lideranças locais.",
-      features: [
-        "Até 500 Cadastros",
-        "Equipe com 5 Usuários",
-        "Mapa simples (visualização de pontos)",
-        "Gestão de Equipe Básica",
-        "Suporte via E-mail"
-      ]
-    },
-    prata: {
-      title: "PLANO PRATA",
-      subtitle: "(Prefeito / Crescimento)",
-      price: "R$ 799,99/mês",
-      description: "Até 1000 cadastros. Para campanhas que precisam de mais estrutura e inteligência.",
-      features: [
-        "Até 1000 Cadastros",
-        "Equipe com 10 Usuários",
-        "Agenda de atividades diárias",
-        "Segmentação Avançada",
-        "Relatórios de Eleitores",
-        "Mapa de Eleitores"
-      ]
-    },
-    ouro: {
-      title: "PLANO OURO",
-      subtitle: "(Expansão)",
-      price: "R$ 999,99/mês",
-      description: "Até 1500 cadastros. Ideal para campanhas competitivas com grande volume de dados.",
-      features: [
-        "Até 1500 Cadastros",
-        "Equipe com 20 Usuários",
-        "Agenda de atividades diárias",
-        "Segmentação Avançada",
-        "Relatórios de Eleitores",
-        "Mapa de Eleitores"
-      ]
-    },
-    
-    diamante: {
-      title: "PLANO DIAMANTE",
-      subtitle: "(Alta Performance)",
-      price: "R$ 1.299,99/mês",
-      description: "Até 2000 Cadastros. Para campanhas de grande porte.",
-      features: [
-        "Até 2000 Cadastros",
-        "Equipe com 30 Usuários",
-        "Agenda de atividades diárias",
-        "Segmentação Avançada",
-        "Relatórios de Eleitores",
-        "Mapa de Eleitores"
-      ]
-    },
-    livre: {
-      title: "PLANO SEM LIMITES",
-      subtitle: "(Majoritária / Comitê Central)",
-      price: "R$ 1.999,99/mês",
-      description: "Plano livre. A solução definitiva para grandes comitês e partidos.",
-      features: [
-        "Cadastros Ilimitados",
-        "Equipe com Usuários Ilimitados",
-        "Agenda de atividades diárias",
-        "Segmentação Avançada",
-        "Relatórios de Eleitores",
-        "Mapa de Eleitores"
-      ]
+  useEffect(() => {
+    if (!plan) {
+      const fetchPlan = async () => {
+        try {
+          const response = await fetch(GET_PLANS_URL);
+          const data = await response.json();
+          if (data.success) {
+            const foundPlan = data.plans.find(p => p.id === id);
+            if (foundPlan) {
+              setPlan(foundPlan);
+            } else {
+              console.warn("Plano não encontrado, redirecionando.");
+              navigate('/plans');
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao buscar detalhes do plano:", error);
+          navigate('/plans');
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchPlan();
     }
-  };
+  }, [id, plan, navigate]);
 
-  const plan = plansData[id];
-
-  if (!plan) {
+  if (loading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-        <h2>Plano não encontrado</h2>
-        <button className="btn-primary" onClick={() => navigate('/')} style={{ marginTop: '20px' }}>Voltar para o Início</button>
-      </div>
+        <>
+            <header className="hero-section" style={{ minHeight: 'auto', paddingBottom: '20px' }}>
+                <Navbar />
+            </header>
+            <div style={{ textAlign: 'center', padding: '60px' }}>Carregando detalhes do plano...</div>
+        </>
     );
   }
 
+  if (!plan) return null;
+
   return (
-    <div className="plan-landing-wrapper">
-      <Navbar />
-      <header className="hero-section" style={{ height: '50vh', minHeight: '400px', position: 'relative' }}>
-        
-        <div className="logo-container">
-        </div>
-        <div className="hero-content">
-          <h1 style={{ fontSize: '3rem', marginBottom: '10px' }}>{plan.title}</h1>
-          <p className="subtitle" style={{ fontSize: '1.2rem', opacity: 0.9 }}>{plan.subtitle}</p>
-        </div>
+    <>
+      <header className="hero-section" style={{ minHeight: 'auto', paddingBottom: '40px' }}>
+        <Navbar />
       </header>
+      
+      <div className="container" style={{ maxWidth: '1000px', margin: '40px auto', padding: '0 20px' }}>
+        <button onClick={() => navigate('/plans')} className="btn-secondary" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <ArrowLeft size={18} /> Voltar para Planos
+        </button>
 
-      <main className="content" style={{ position: 'relative', zIndex: 10, marginTop: '-80px', paddingBottom: '60px' }}>
-        <div className="dashboard-card" style={{ maxWidth: '800px', margin: '0 auto', padding: '50px', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
-          <h2 style={{ color: '#0f172a', fontSize: '2.5rem', marginBottom: '15px' }}>{plan.price}</h2>
-          <p style={{ color: '#64748b', fontSize: '1.1rem', marginBottom: '40px', lineHeight: '1.6' }}>{plan.description}</p>
-          
-          <div style={{ textAlign: 'left', display: 'inline-block', background: '#f8fafc', padding: '30px', borderRadius: '16px', width: '80%', marginBottom: '40px' }}>
-            <h3 style={{ fontSize: '1.1rem', color: '#334155', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>O que está incluído:</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '0px' }}>
-                {plan.features.map((feature, index) => (
-                <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#475569', height: '60px' }}>
-                    <CheckCircle2 size={20} color="#10b981" style={{ flexShrink: 0 }} />
-                    <span style={{ fontWeight: '500' }}>{feature}</span>
-                </div>
-                ))}
+        <div className="dashboard-card" style={{ display: 'flex', flexDirection: 'column', gap: '30px', padding: '40px' }}>
+            <div style={{ textAlign: 'center' }}>
+                <h1 style={{ color: '#0f172a', marginBottom: '10px' }}>{plan.title}</h1>
+                <p style={{ fontSize: '1.2rem', color: '#64748b' }}>{plan.subtitle}</p>
             </div>
-          </div>
 
-          <button 
-            className="btn-primary" 
-            style={{ margin: '0 auto', width: '100%', maxWidth: '200px', padding: '10px', fontSize: '15px', borderRadius: '12px' }}
-            onClick={() => navigate(`/checkout/${id}`)}
-          >
-            Contratar Agora
-          </button>
-          <p style={{ marginTop: '15px', fontSize: '0.9rem', color: '#94a3b8' }}>Garantia de 7 dias ou seu dinheiro de volta.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '40px', alignItems: 'center' }}>
+                <div>
+                    <h3 style={{ marginBottom: '20px', color: '#334155' }}>O que está incluído:</h3>
+                    <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                        <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <CheckCircle size={20} color="#16a34a" />
+                            <span>{plan.ideal}</span>
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <CheckCircle size={20} color="#16a34a" />
+                            <span>{plan.team}</span>
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <CheckCircle size={20} color="#16a34a" />
+                            <span>{plan.database}</span>
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <CheckCircle size={20} color="#16a34a" />
+                            <span>Suporte Prioritário</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '16px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+                    <p style={{ color: '#64748b', marginBottom: '10px' }}>Valor Mensal</p>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#0f172a', marginBottom: '5px' }}>
+                        {plan.price}
+                    </div>
+                    <p style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '30px' }}>Cancele quando quiser</p>
+                    
+                    <button 
+                        className="btn-primary" 
+                        style={{ width: '100%', justifyContent: 'center', padding: '15px', fontSize: '1.1rem' }}
+                        onClick={() => navigate(`/checkout/${plan.id}`, { state: { plan } })}
+                    >
+                        Contratar Agora
+                    </button>
+                </div>
+            </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
