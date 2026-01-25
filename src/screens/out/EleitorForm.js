@@ -5,7 +5,6 @@ import { database } from '../../firebaseConfig';
 import { CheckCircle } from 'lucide-react';
 import Navbar from '../../components/Navbar';
 
-const GET_POLLING_PLACE_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/getPollingPlace';
 
 export default function EleitorForm() {
   const location = useLocation();
@@ -145,29 +144,7 @@ export default function EleitorForm() {
     }
   };
 
-  const checkZonaSecao = async (e) => {
-    const val = e.target.value;
-    if (val.includes('/') && val.length >= 7) {
-      const [zona, secao] = val.split('/');
-      if (zona && secao) {
-        try {
-          const ufParam = formData.estado ? `&uf=${formData.estado}` : '';
-          const response = await fetch(`${GET_POLLING_PLACE_URL}?zone=${zona}&section=${secao}${ufParam}`);
-          const data = await response.json();
-          if (data.success && data.local) {
-            setFormData(prev => ({
-              ...prev,
-              localVotacao: `${data.local.nome || ''} - ${data.local.endereco || ''}`
-            }));
-          } else {
-             console.log("Local não encontrado na base do TRE-RJ");
-          }
-        } catch (error) {
-          console.error("Erro ao buscar local de votação:", error);
-        }
-      }
-    }
-  };
+  
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -239,7 +216,7 @@ export default function EleitorForm() {
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       Título de Eleitor
                     </label>
-                    <input type="text" name="titulo" value={formData.titulo} onChange={handleMaskedChange} onBlur={checkTitulo} className="custom-input" placeholder="Apenas números" /> 
+                    <input type="text" name="titulo" value={formData.titulo} onChange={handleMaskedChange} onBlur={checkTitulo} className="custom-input-voter" placeholder="Apenas números" /> 
                   </div>
                   <div className="input-group"> <label>Zona / Seção</label> <input type="text" name="zonaSecao" value={formData.zonaSecao} onChange={handleMaskedChange} className="custom-input-voter " placeholder="000/0000" /> </div>
                   
@@ -249,7 +226,7 @@ export default function EleitorForm() {
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       CEP {cepLoading && <span style={{ fontSize: '0.75rem', color: '#3b82f6' }}>(Buscando...)</span>}
                   </label>
-                  <input type="text" name="cep" value={formData.cep} onChange={handleMaskedChange} onBlur={checkCep} className="custom-input" placeholder="00000-000" />
+                  <input type="text" name="cep" value={formData.cep} onChange={handleMaskedChange} onBlur={checkCep} className="custom-input-voter" placeholder="00000-000" />
                   </div>
                   <div className="input-group"> <label>Endereço</label> <input type="text" name="endereco" value={formData.endereco} onChange={handleChange} className="custom-input-voter" /> </div>
                   <div className="input-group"> <label>Número</label> <input type="text" name="numero" value={formData.numero} onChange={handleChange} className="custom-input-voter" /> </div>
