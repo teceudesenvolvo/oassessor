@@ -14,6 +14,8 @@ export default function NewVoter() {
   const [cepLoading, setCepLoading] = useState(false);
   const [formData, setFormData] = useState({
     nome: '',
+    apelido: '',
+    instagram: '',
     email: '',
     telefone: '',
     bairro: '',
@@ -197,8 +199,10 @@ export default function NewVoter() {
 
       <form onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
         <div className="input-group"> <label>Nome Completo</label> <input type="text" name="nome" value={formData.nome} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} required /> </div>
+        <div className="input-group"> <label>Apelido</label> <input type="text" name="apelido" value={formData.apelido} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
         <div className="input-group"> <label>E-mail</label> <input type="email" name="email" value={formData.email} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
         <div className="input-group"> <label>Telefone</label> <input type="text" name="telefone" value={formData.telefone} onChange={handleMaskedChange} className="custom-input-voter" style={{ width: '86%' }} placeholder="(00) 00000-0000" /> </div>
+        <div className="input-group"> <label>Instagram</label> <input type="text" name="instagram" value={formData.instagram} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} placeholder="@usuario" /> </div>
         <div className="input-group"> <label>CPF</label> <input type="text" name="cpf" value={formData.cpf} onChange={handleMaskedChange} className="custom-input-voter" style={{ width: '86%' }} placeholder="000.000.000-00" /> </div>
         <div className="input-group"> <label>Data de Nascimento</label> <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
         <div className="input-group"> 
