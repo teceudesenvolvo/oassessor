@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // ATENÇÃO: Em produção, a Chave Secreta deve ficar protegida no Backend.
-const API_KEY = 'sk_test_9c8d4e53ccab40089b562c837724f04e';
+const API_KEY = 'sk_67110f6d40cd4720b56c7403a026f6aa';
 
 export const createSubscription = async (userData, cardData, planId) => {
   try {
