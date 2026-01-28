@@ -362,6 +362,7 @@
 
 .custom-input-voter {
   width: 85%; /* Ajustado para preencher o container corretamente */
+  height: 20px !important;
   padding: 16px 16px 16px 48px;
   background-color: #f1f5f9;
   border: 2px solid transparent;
@@ -373,6 +374,10 @@
   transition: all 0.2s ease;
   margin: 5px;
 }
+
+.custom-input-voter-select{
+  height: 60px !important;
+} 
 
 .custom-input-voter:focus {
   background-color: var(--white);
@@ -712,6 +717,9 @@
   position: relative;
   color: #64748b;
 }
+
+
+
 
 .notification-dot {
   position: absolute;

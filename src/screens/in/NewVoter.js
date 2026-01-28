@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
-import { ref, push, set } from 'firebase/database';
+import { ref, push, set, get } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 
-const GET_POLLING_PLACE_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/getPollingPlace';
 
 export default function NewVoter() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const [localVotacaoLoading, setLocalVotacaoLoading] = useState(false);
+  const [localVotacaoOptions, setLocalVotacaoOptions] = useState([]);
   const [formData, setFormData] = useState({
     nome: '',
     apelido: '',
@@ -24,7 +25,8 @@ export default function NewVoter() {
     cpf: '',
     nascimento: '',
     titulo: '',
-    zonaSecao: '',
+    zona: '',
+    secao: '',
     endereco: '',
     numero: '',
     cep: '',
@@ -54,9 +56,10 @@ export default function NewVoter() {
       val = val.replace(/^(\d{5})(\d)/, '$1-$2');
     } else if (name === 'titulo') {
       val = val.replace(/\D/g, '').slice(0, 12);
-    } else if (name === 'zonaSecao') {
-      val = val.replace(/\D/g, '').slice(0, 7);
-      if (val.length > 3) val = val.slice(0, 3) + '/' + val.slice(3);
+    } else if (name === 'zona') {
+      val = val.replace(/\D/g, '').slice(0, 3);
+    } else if (name === 'secao') {
+      val = val.replace(/\D/g, '').slice(0, 4);
     }
     setFormData(prev => ({ ...prev, [name]: val }));
   };
@@ -135,27 +138,35 @@ export default function NewVoter() {
     }
   };
 
-  const checkZonaSecao = async (e) => {
-    const val = e.target.value;
-    if (val.includes('/') && val.length >= 7) {
-      const [zona, secao] = val.split('/');
-      if (zona && secao) {
-        try {
-          const ufParam = formData.estado ? `&uf=${formData.estado}` : '';
-          const response = await fetch(`${GET_POLLING_PLACE_URL}?zone=${zona}&section=${secao}${ufParam}`);
-          const data = await response.json();
-          if (data.success && data.local) {
-            setFormData(prev => ({
-              ...prev,
-              localVotacao: `${data.local.nome || ''} - ${data.local.endereco || ''}`
-            }));
-          } else {
-             // Se não encontrar (ex: fora do RJ), não faz nada ou limpa
-             console.log("Local não encontrado na base do TRE-RJ");
+  const checkLocalVotacao = async () => {
+    const { zona } = formData;
+    
+    setLocalVotacaoOptions([]);
+    setFormData(prev => ({ ...prev, localVotacao: '' }));
+
+    if (zona) {
+      setLocalVotacaoLoading(true);
+      try {
+        const placesRef = ref(database, 'localvotacao');
+        const snapshot = await get(placesRef);
+        
+        if (snapshot.exists()) {
+          const allData = snapshot.val();
+          let matchedPlaces = [];
+          
+          Object.values(allData).forEach(cityPlaces => {
+            const places = Object.values(cityPlaces).filter(p => p.zona === zona);
+            matchedPlaces = [...matchedPlaces, ...places];
+          });
+          
+          if (matchedPlaces.length > 0) {
+            setLocalVotacaoOptions(matchedPlaces);
           }
-        } catch (error) {
-          console.error("Erro ao buscar local de votação:", error);
         }
+      } catch (error) {
+        console.error("Erro ao buscar local de votação:", error);
+      } finally {
+        setLocalVotacaoLoading(false);
       }
     }
   };
@@ -211,9 +222,34 @@ export default function NewVoter() {
           </label>
           <input type="text" name="titulo" value={formData.titulo} onChange={handleMaskedChange} onBlur={checkTitulo} className="custom-input-voter" style={{ width: '86%' }} placeholder="Apenas números" /> 
         </div>
-        <div className="input-group"> 
-            <label>Zona / Seção</label> 
-            <input type="text" name="zonaSecao" value={formData.zonaSecao} onChange={handleMaskedChange} onBlur={checkZonaSecao} className="custom-input-voter" style={{ width: '86%' }} placeholder="000/0000" /> 
+        <div className="input-group" style={{ display: 'flex', gap: '10px' }}> 
+            <div style={{ flex: 1 }}> <label>Zona</label> <input type="text" name="zona" value={formData.zona} onChange={handleMaskedChange} onBlur={checkLocalVotacao} className="custom-input-voter" style={{ width: '30%' }} placeholder="000" /> </div>
+            <div style={{ flex: 1 }}> <label>Seção</label> <input type="text" name="secao" value={formData.secao} onChange={handleMaskedChange} className="custom-input-voter" style={{ width: '86%' }} placeholder="0000" /> </div>
+        </div>
+        
+        <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                Local de Votação {localVotacaoLoading && <span style={{ fontSize: '0.75rem', color: '#3b82f6' }}>(Buscando...)</span>}
+            </label>
+            {localVotacaoOptions.length > 0 ? (
+                <select name="localVotacao" value={formData.localVotacao} onChange={handleChange} className="custom-input-voter custom-input-voter-select" style={{ width: '93%' }} required>
+                    <option value="">Selecione um local</option>
+                    {localVotacaoOptions.map((place, index) => (
+                        <option key={index} value={`${place.local || ''} - ${place.endereco || ''}`}>
+                            {place.local}
+                        </option>
+                    ))}
+                </select>
+            ) : (
+                <input 
+                    type="text" 
+                    name="localVotacao" 
+                    value={formData.localVotacao} 
+                    onChange={handleChange} 
+                    className="custom-input-voter" 
+                    style={{ width: '93%' }} 
+                    placeholder="Preenchido automaticamente após informar Zona" />
+            )}
         </div>
         
         <h4 style={{ gridColumn: '1 / -1', marginTop: '10px', marginBottom: '5px', borderBottom: '1px solid #eee', paddingBottom: '5px', color: '#64748b' }}>Endereço</h4>
@@ -229,7 +265,6 @@ export default function NewVoter() {
         <div className="input-group"> <label>Bairro</label> <input type="text" name="bairro" value={formData.bairro} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
         <div className="input-group"> <label>Cidade</label> <input type="text" name="cidade" value={formData.cidade} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
         <div className="input-group"> <label>Estado</label> <input type="text" name="estado" value={formData.estado} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
-        <div className="input-group" style={{ gridColumn: '1 / -1' }}> <label>Local de Votação</label> <input type="text" name="localVotacao" value={formData.localVotacao} onChange={handleChange} className="custom-input-voter" style={{ width: '93%' }} placeholder="Preenchido automaticamente (RJ)" /> </div>
       </form>
     </div>
   );

@@ -8,6 +8,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import AuthTokenHandler from './components/AuthTokenHandler';
 
+// CSV Importer
+import ConvertCsv from './screens/out/convertCSV';
+
 // Importing Screens 
 import Home from './screens/out/Home';
 import PlanLanding from './screens/out/PlanLanding';
@@ -44,6 +47,10 @@ function App() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/checkout/:planId" element={<Checkout />} />
           <Route path="/eleitor-form" element={<EleitorForm />} />
+
+          {/* Extrator CSV */}
+          <Route path="/convert-csv" element={<ConvertCsv />} />
+
 
           {/* Rotas públicas que redirecionam se o usuário estiver logado */}
           <Route element={<PublicRoute />}>
