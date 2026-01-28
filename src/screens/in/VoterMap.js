@@ -59,12 +59,26 @@ export default function VoterMap() {
           }
 
           // Constrói a string de busca do endereço
-          const addressString = `${voter.endereco || ''}, ${voter.numero || ''}, ${voter.bairro || ''}, ${voter.cidade || ''}, ${voter.estado || ''}`;
+          let addressString = `${voter.endereco || ''}, ${voter.numero || ''}, ${voter.bairro || ''}, ${voter.cidade || ''}, ${voter.estado || ''}`;
           
           try {
             // Chama a API do Nominatim (OpenStreetMap)
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressString)}&limit=1`);
-            const results = await response.json();
+            let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressString)}&limit=1`);
+            let results = await response.json();
+            
+            // Fallback 1: Tenta sem número e bairro (apenas Rua e Cidade) se a busca exata falhar
+            if (results.length === 0 && voter.endereco && voter.cidade) {
+               const fallbackAddress = `${voter.endereco}, ${voter.cidade}, ${voter.estado || ''}`;
+               response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackAddress)}&limit=1`);
+               results = await response.json();
+            }
+
+            // Fallback 2: Tenta apenas pelo Bairro e Cidade se ainda falhar
+            if (results.length === 0 && voter.bairro && voter.cidade) {
+               const fallbackBairro = `${voter.bairro}, ${voter.cidade}, ${voter.estado || ''}`;
+               response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackBairro)}&limit=1`);
+               results = await response.json();
+            }
             
             if (results.length > 0) {
               const { lat, lon } = results[0];
