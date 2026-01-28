@@ -105,21 +105,20 @@ export default function VoterMap() {
   }, [user]);
 
   return (
-    <div className="dashboard-card" style={{ height: '80vh', display: 'flex', flexDirection: 'column', padding: '15px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+    <div className="dashboard-card" style={{ height: '85vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '15px', borderBottom: '1px solid #e2e8f0' }}>
         <button onClick={() => navigate('/dashboard/voters')} className="icon-btn">
           <ArrowLeft size={20} />
         </button>
         <h3>Mapa de Eleitores</h3>
       </div>
-
-      <div style={{ flex: 1, borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', position: 'relative' }}>
+      <div style={{ flex: 1, position: 'relative' }}>
         {loading && (
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <p style={{ color: '#0f172a', fontWeight: '500' }}>{loadingMessage}</p>
           </div>
         )}
-         <MapContainer center={[-3.73, -38.65]} zoom={13} style={{ height: '100%', width: '100%' }}>
+         <MapContainer center={[-5.20, -39.53]} zoom={7} style={{ height: '100%', width: '100%' }}>
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

@@ -41,6 +41,7 @@ export default function Dashboard() {
     const path = location.pathname;
     if (path.includes('/team')) setActiveTab('Minha Equipe');
     else if (path.includes('/agenda')) setActiveTab('Agenda');
+    else if (path.includes('/voters/stations-map')) setActiveTab('Mapa de Colégios');
     else if (path.includes('/voters')) setActiveTab('Eleitores');
     else if (path.includes('/profile')) setActiveTab('Perfil');
     else if (path.includes('/notifications')) setActiveTab('Notificações');
@@ -88,6 +89,7 @@ export default function Dashboard() {
     else if (tabName === 'Minha Equipe') navigate('/dashboard/team');
     else if (tabName === 'Agenda') navigate('/dashboard/agenda');
     else if (tabName === 'Eleitores') navigate('/dashboard/voters');
+    else if (tabName === 'Mapa de Colégios') navigate('/dashboard/voters/stations-map');
     else if (tabName === 'Perfil') navigate('/dashboard/profile');
     else if (tabName === 'Notificações') navigate('/dashboard/notifications');
   };
