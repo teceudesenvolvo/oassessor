@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ref, push, set } from 'firebase/database';
+import { ref, push, set, get } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { CheckCircle } from 'lucide-react';
 import Navbar from '../../components/Navbar';
@@ -13,6 +13,8 @@ export default function EleitorForm() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const [localVotacaoLoading, setLocalVotacaoLoading] = useState(false);
+  const [localVotacaoOptions, setLocalVotacaoOptions] = useState([]);
   
   const [formData, setFormData] = useState({
     nome: '',
@@ -26,7 +28,8 @@ export default function EleitorForm() {
     cpf: '',
     nascimento: '',
     titulo: '',
-    zonaSecao: '',
+    zona: '',
+    secao: '',
     endereco: '',
     numero: '',
     cep: '',
@@ -65,11 +68,19 @@ export default function EleitorForm() {
       val = val.replace(/^(\d{5})(\d)/, '$1-$2');
     } else if (name === 'titulo') {
       val = val.replace(/\D/g, '').slice(0, 12);
-    } else if (name === 'zonaSecao') {
-      val = val.replace(/\D/g, '').slice(0, 7);
-      if (val.length > 3) val = val.slice(0, 3) + '/' + val.slice(3);
+    } else if (name === 'zona') {
+      val = val.replace(/\D/g, '').slice(0, 3);
+      if (val === '') {
+        setLocalVotacaoOptions([]);
+      }
+    } else if (name === 'secao') {
+      val = val.replace(/\D/g, '').slice(0, 4);
     }
-    setFormData(prev => ({ ...prev, [name]: val }));
+    setFormData(prev => {
+      const newData = { ...prev, [name]: val };
+      if (name === 'zona' && val === '') newData.localVotacao = '';
+      return newData;
+    });
   };
 
   const checkCep = async (e) => {
@@ -146,6 +157,38 @@ export default function EleitorForm() {
     }
   };
 
+  const checkLocalVotacao = async () => {
+    const { zona } = formData;
+    
+    setLocalVotacaoOptions([]);
+    setFormData(prev => ({ ...prev, localVotacao: '' }));
+
+    if (zona) {
+      setLocalVotacaoLoading(true);
+      try {
+        const placesRef = ref(database, 'localvotacao');
+        const snapshot = await get(placesRef);
+        
+        if (snapshot.exists()) {
+          const allData = snapshot.val();
+          let matchedPlaces = [];
+          
+          Object.values(allData).forEach(cityPlaces => {
+            const places = Object.values(cityPlaces).filter(p => p.zona === zona);
+            matchedPlaces = [...matchedPlaces, ...places];
+          });
+          
+          if (matchedPlaces.length > 0) {
+            setLocalVotacaoOptions(matchedPlaces);
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao buscar local de votação:", error);
+      } finally {
+        setLocalVotacaoLoading(false);
+      }
+    }
+  };
   
 
   const handleSave = async (e) => {
@@ -168,7 +211,7 @@ export default function EleitorForm() {
       setSuccess(true);
       setFormData({
         nome: '', apelido: '', instagram: '', email: '', telefone: '', bairro: '', cidade: '', estado: '',
-        cpf: '', nascimento: '', titulo: '', zonaSecao: '', endereco: '', numero: '', cep: '', localVotacao: ''
+        cpf: '', nascimento: '', titulo: '', zona: '', secao: '', endereco: '', numero: '', cep: '', localVotacao: ''
       });
     } catch (error) {
       console.error("Erro ao cadastrar:", error);
@@ -222,7 +265,27 @@ export default function EleitorForm() {
                     </label>
                     <input type="text" name="titulo" value={formData.titulo} onChange={handleMaskedChange} onBlur={checkTitulo} className="custom-input-voter" placeholder="Apenas números" /> 
                   </div>
-                  <div className="input-group"> <label>Zona / Seção</label> <input type="text" name="zonaSecao" value={formData.zonaSecao} onChange={handleMaskedChange} className="custom-input-voter " placeholder="000/0000" /> </div>
+                  <div className="input-group" style={{ display: 'flex', gap: '10px' }}> 
+                      <div style={{ flex: 1 }}> <label>Zona</label> <input type="text" name="zona" value={formData.zona} onChange={handleMaskedChange} onBlur={checkLocalVotacao} className="custom-input-voter" style={{ width: '30%' }} placeholder="000" /> </div>
+                      <div style={{ flex: 1 }}> <label>Seção</label> <input type="text" name="secao" value={formData.secao} onChange={handleMaskedChange} className="custom-input-voter" style={{ width: '86%' }} placeholder="0000" /> </div>
+                  </div>
+                  
+                  <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          Local de Votação {localVotacaoLoading && <span style={{ fontSize: '0.75rem', color: '#3b82f6' }}>(Buscando...)</span>}
+                      </label>
+                      <select name="localVotacao" value={formData.localVotacao} onChange={handleChange} className="custom-input-voter custom-input-voter-select" style={{ width: '93%' }}>
+                          <option value="">Selecione um local</option>
+                          {formData.localVotacao && !localVotacaoOptions.some(p => `${p.local || ''} - ${p.endereco || ''}` === formData.localVotacao) && (
+                              <option value={formData.localVotacao}>{formData.localVotacao}</option>
+                          )}
+                          {localVotacaoOptions.map((place, index) => (
+                              <option key={index} value={`${place.local || ''} - ${place.endereco || ''}`}>
+                                  {place.local}
+                              </option>
+                          ))}
+                      </select>
+                  </div>
                   
                   <h4 style={{ gridColumn: '1 / -1', marginTop: '10px', marginBottom: '5px', borderBottom: '1px solid #eee', paddingBottom: '5px', color: '#64748b' }}>Endereço</h4>
                   

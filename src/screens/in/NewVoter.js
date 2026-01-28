@@ -58,10 +58,17 @@ export default function NewVoter() {
       val = val.replace(/\D/g, '').slice(0, 12);
     } else if (name === 'zona') {
       val = val.replace(/\D/g, '').slice(0, 3);
+      if (val === '') {
+        setLocalVotacaoOptions([]);
+      }
     } else if (name === 'secao') {
       val = val.replace(/\D/g, '').slice(0, 4);
     }
-    setFormData(prev => ({ ...prev, [name]: val }));
+    setFormData(prev => {
+      const newData = { ...prev, [name]: val };
+      if (name === 'zona' && val === '') newData.localVotacao = '';
+      return newData;
+    });
   };
 
   const checkCep = async (e) => {
@@ -231,25 +238,17 @@ export default function NewVoter() {
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 Local de Votação {localVotacaoLoading && <span style={{ fontSize: '0.75rem', color: '#3b82f6' }}>(Buscando...)</span>}
             </label>
-            {localVotacaoOptions.length > 0 ? (
-                <select name="localVotacao" value={formData.localVotacao} onChange={handleChange} className="custom-input-voter custom-input-voter-select" style={{ width: '93%' }} required>
-                    <option value="">Selecione um local</option>
-                    {localVotacaoOptions.map((place, index) => (
-                        <option key={index} value={`${place.local || ''} - ${place.endereco || ''}`}>
-                            {place.local}
-                        </option>
-                    ))}
-                </select>
-            ) : (
-                <input 
-                    type="text" 
-                    name="localVotacao" 
-                    value={formData.localVotacao} 
-                    onChange={handleChange} 
-                    className="custom-input-voter" 
-                    style={{ width: '93%' }} 
-                    placeholder="Preenchido automaticamente após informar Zona" />
-            )}
+            <select name="localVotacao" value={formData.localVotacao} onChange={handleChange} className="custom-input-voter custom-input-voter-select" style={{ width: '93%' }}>
+                <option value="">Selecione um local</option>
+                {formData.localVotacao && !localVotacaoOptions.some(p => `${p.local || ''} - ${p.endereco || ''}` === formData.localVotacao) && (
+                    <option value={formData.localVotacao}>{formData.localVotacao}</option>
+                )}
+                {localVotacaoOptions.map((place, index) => (
+                    <option key={index} value={`${place.local || ''} - ${place.endereco || ''}`}>
+                        {place.local}
+                    </option>
+                ))}
+            </select>
         </div>
         
         <h4 style={{ gridColumn: '1 / -1', marginTop: '10px', marginBottom: '5px', borderBottom: '1px solid #eee', paddingBottom: '5px', color: '#64748b' }}>Endereço</h4>
