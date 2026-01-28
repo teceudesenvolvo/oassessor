@@ -193,7 +193,12 @@ export default function VoterDetails() {
     if (cleanPhone.length <= 11) {
       cleanPhone = '55' + cleanPhone;
     }
-    const url = `https://wa.me/${cleanPhone}`;
+    
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const url = isMobile 
+      ? `https://api.whatsapp.com/send?phone=${cleanPhone}`
+      : `https://web.whatsapp.com/send?phone=${cleanPhone}`;
+
     window.open(url, '_blank');
   };
 

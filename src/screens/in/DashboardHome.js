@@ -162,7 +162,12 @@ export default function DashboardHome() {
       cleanPhone = '55' + cleanPhone;
     }
     const message = `Parabéns ${name}! Feliz aniversário! 🎉`;
-    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const url = isMobile 
+      ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`
+      : `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+
     window.open(url, '_blank');
   };
 
