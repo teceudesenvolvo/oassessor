@@ -288,6 +288,7 @@ export default function Voters() {
         startY: y + 5,
         theme: 'striped',
         styles: { fontSize: 6, cellPadding: 1 },
+        headStyles: { fillColor: '#0F172A' },
         didDrawPage: (data) => {
             doc.setFontSize(8);
             doc.setTextColor(150);
