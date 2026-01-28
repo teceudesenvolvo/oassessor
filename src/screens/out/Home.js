@@ -4,6 +4,7 @@ import Navbar from '../../components/Navbar';
 import { Splide, SplideSlide } from '@splidejs/react-splide';
 import '@splidejs/react-splide/css';
 import { BarChart3, Users, ShieldCheck, Trophy, Zap } from 'lucide-react';
+import HeroBg from '../../assets/hero-home.avif';
 
 const GET_PLANS_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/getAppPlans';
 
@@ -13,7 +14,7 @@ export default function Home() {
   const [loadingPlans, setLoadingPlans] = useState(true);
   
   const items = [
-    { 
+    {  
       title: "Multi-Plataforma", 
       description: "Acesse seus dados de qualquer lugar: Web, Android ou iOS com sincronização automática." 
     },
@@ -109,7 +110,11 @@ export default function Home() {
           }
         `}
       </style>
-      <header className="hero-section">
+      <header className="hero-section" style={{ 
+        backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.8)), url(${HeroBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      }}>
         <Navbar />
         <div className="logo-container">
         </div>
