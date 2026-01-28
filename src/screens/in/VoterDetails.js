@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, MessageCircle } from 'lucide-react';
 import { ref, get, update, remove } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 
@@ -186,6 +186,17 @@ export default function VoterDetails() {
     }
   };
 
+  const handleWhatsApp = () => {
+    const phone = formData.telefone;
+    if (!phone) return alert("Telefone não cadastrado.");
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length <= 11) {
+      cleanPhone = '55' + cleanPhone;
+    }
+    const url = `https://wa.me/${cleanPhone}`;
+    window.open(url, '_blank');
+  };
+
   const handleDelete = async () => {
     if (window.confirm('Tem certeza que deseja excluir este eleitor?')) {
       try {
@@ -211,7 +222,10 @@ export default function VoterDetails() {
           <h3>Detalhes do Eleitor</h3>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={handleDelete} className="btn-secondary" style={{ color: '#ef4444', borderColor: '#ef4444', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <button onClick={handleWhatsApp} className="btn-secondary btn-whatsapp" style={{ color: '#16a34a', borderColor: '#16a34a', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <MessageCircle size={18} /> WhatsApp
+            </button>
+            <button onClick={handleDelete} className="btn-secondary btn-excluir" style={{ color: '#ef4444', borderColor: '#ef4444', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <Trash2 size={18} /> Excluir
             </button>
             <button onClick={handleSave} className="btn-primary" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -264,7 +278,7 @@ export default function VoterDetails() {
         <div className="input-group"> <label>Bairro</label> <input type="text" name="bairro" value={formData.bairro || ''} onChange={handleChange} className="custom-input-voter" /> </div>
         <div className="input-group"> <label>Cidade</label> <input type="text" name="cidade" value={formData.cidade || ''} onChange={handleChange} className="custom-input-voter" /> </div>
         <div className="input-group"> <label>Estado</label> <input type="text" name="estado" value={formData.estado || ''} onChange={handleChange} className="custom-input-voter" /> </div>
-      </form>
+      </form> 
     </div>
   );
 }

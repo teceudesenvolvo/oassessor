@@ -137,12 +137,29 @@
   background-color: #52e085;
   color: white;
 }
+
+.btn-whatsapp{
+  background-color: rgb(22, 163, 74);
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-excluir{
+  background-color: #ef4444;
+  color: white !important;
+  border: none;
+  cursor: pointer;;
+}
+
 /* Services.css */
 .services-section {
   max-width: 1000px;
   margin: -40px auto 40px; /* Sobe para sobrepor o fundo escuro */
   padding: 0 20px;
 }
+
+
 
 .services-grid {
   display: grid;
