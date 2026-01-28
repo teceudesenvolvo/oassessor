@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { ref, query, orderByChild, equalTo, get } from 'firebase/database';
+import { ref, query, orderByChild, equalTo, get, update } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 import 'leaflet/dist/leaflet.css';
@@ -100,9 +100,9 @@ export default function PollingStationMap() {
             const allPlaces = placesSnapshot.val();
             Object.keys(allPlaces).forEach(cityKey => {
                 const cityPlaces = allPlaces[cityKey];
-                Object.values(cityPlaces).forEach(place => {
+                Object.entries(cityPlaces).forEach(([placeKey, place]) => {
                     const key = `${place.local || ''} - ${place.endereco || ''}`;
-                    placesMap[key] = { ...place, city: cityKey };
+                    placesMap[key] = { ...place, city: cityKey, key: placeKey };
                 });
             });
         }
@@ -141,6 +141,12 @@ export default function PollingStationMap() {
            const placeData = placesMap[station.name];
            
            if (placeData) {
+               // Se já tiver coordenadas salvas no localvotacao, usa direto
+               if (placeData.lat && placeData.lng) {
+                   geocodedStations.push({ ...station, lat: placeData.lat, lng: placeData.lng, bairro: placeData.bairro, zona: placeData.zona });
+                   continue;
+               }
+
                // Use structured data from localvotacao
                const city = placeData.city || station.city || '';
                addressString = `${placeData.endereco}, ${placeData.bairro || ''}, ${city}`;
@@ -157,6 +163,12 @@ export default function PollingStationMap() {
              if (results.length > 0) {
                lat = parseFloat(results[0].lat);
                lng = parseFloat(results[0].lon);
+
+               // Salva as coordenadas de volta na coleção localvotacao para uso futuro
+               if (placeData && placeData.city && placeData.key) {
+                   const updateRef = ref(database, `localvotacao/${placeData.city}/${placeData.key}`);
+                   update(updateRef, { lat, lng });
+               }
              }
            } catch (err) {
              console.error("Erro ao geocodificar local:", station.name, err);

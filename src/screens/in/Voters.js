@@ -296,7 +296,7 @@ export default function Voters() {
         }
     });
 
-    doc.save('lista_eleitores.pdf');
+    doc.save('lista_eleitores_o_assessor`.pdf');
   };
 
   const copyVoterFormLink = () => {

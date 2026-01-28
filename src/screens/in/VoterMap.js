@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { ref, query, orderByChild, equalTo, get, update } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 import { ArrowLeft } from 'lucide-react';
@@ -34,21 +34,20 @@ export default function VoterMap() {
     const votersRef = ref(database, 'eleitores');
     const q = query(votersRef, orderByChild('creatorId'), equalTo(user.uid));
 
-    const unsubscribe = onValue(q, (snapshot) => {
-      const data = snapshot.val();
-      const votersList = data
-        ? Object.keys(data).map(key => ({ id: key, ...data[key] }))
-        : [];
-      
-      if (votersList.length === 0) {
-        setLoading(false);
-        return;
-      }
+    const fetchAndGeocode = async () => {
+      try {
+        const snapshot = await get(q);
+        const data = snapshot.val();
+        const votersList = data
+          ? Object.keys(data).map(key => ({ id: key, ...data[key] }))
+          : [];
+        
+        if (votersList.length === 0) {
+          setLoading(false);
+          return;
+        }
 
-      // Converte os endereços em coordenadas de mapa (Geocoding)
-      const geocodeVoters = async () => {
-        setLoading(true);
-        setLoadingMessage(`Geocodificando ${votersList.length} endereços...`);
+        setLoadingMessage(`Carregando ${votersList.length} endereços...`);
         const geocodedVoters = [];
 
         for (const voter of votersList) {
@@ -82,10 +81,19 @@ export default function VoterMap() {
             
             if (results.length > 0) {
               const { lat, lon } = results[0];
+              const latFloat = parseFloat(lat);
+              const lngFloat = parseFloat(lon);
+              
               geocodedVoters.push({
                 ...voter,
-                lat: parseFloat(lat),
-                lng: parseFloat(lon)
+                lat: latFloat,
+                lng: lngFloat
+              });
+
+              // Salva no banco para não precisar buscar novamente
+              await update(ref(database, `eleitores/${voter.id}`), {
+                lat: latFloat,
+                lng: lngFloat
               });
             }
           } catch (error) {
@@ -96,12 +104,13 @@ export default function VoterMap() {
         }
         setVoters(geocodedVoters);
         setLoading(false);
-      };
+      } catch (error) {
+        console.error("Erro ao buscar eleitores:", error);
+        setLoading(false);
+      }
+    };
 
-      geocodeVoters();
-    });
-
-    return () => unsubscribe();
+    fetchAndGeocode();
   }, [user]);
 
   return (
