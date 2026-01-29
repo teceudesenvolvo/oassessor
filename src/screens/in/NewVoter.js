@@ -17,6 +17,7 @@ export default function NewVoter() {
     nome: '',
     apelido: '',
     instagram: '',
+    sexo: '',
     email: '',
     telefone: '',
     bairro: '',
@@ -222,6 +223,14 @@ export default function NewVoter() {
         <div className="input-group"> <label>Telefone</label> <input type="text" name="telefone" value={formData.telefone} onChange={handleMaskedChange} className="custom-input-voter" style={{ width: '86%' }} placeholder="(00) 00000-0000" /> </div>
         <div className="input-group"> <label>Instagram</label> <input type="text" name="instagram" value={formData.instagram} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} placeholder="@usuario" /> </div>
         <div className="input-group"> <label>CPF</label> <input type="text" name="cpf" value={formData.cpf} onChange={handleMaskedChange} className="custom-input-voter" style={{ width: '86%' }} placeholder="000.000.000-00" /> </div>
+        <div className="input-group"> <label>Sexo</label> 
+            <select name="sexo" value={formData.sexo} onChange={handleChange} className="custom-input-voter" style={{ width: '93%' }}>
+                <option value="">Selecione</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Feminino">Feminino</option>
+                <option value="Outro">Outro</option>
+            </select>
+        </div>
         <div className="input-group"> <label>Data de Nascimento</label> <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
         <div className="input-group"> 
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

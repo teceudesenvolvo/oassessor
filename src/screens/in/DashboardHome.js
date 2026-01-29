@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, BarChart, Bar, Legend 
+} from 'recharts';
 import { ref, query as rQuery, orderByChild, equalTo, get } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
@@ -15,6 +18,15 @@ export default function DashboardHome() {
   const [birthdays, setBirthdays] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [userType, setUserType] = useState(null);
+  const [chartsData, setChartsData] = useState({
+    age: [],
+    sex: [],
+    zone: [],
+    neighborhood: [],
+    city: []
+  });
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
   useEffect(() => {
     if (!user) return;
@@ -57,6 +69,12 @@ export default function DashboardHome() {
         const tempChartData = {};
         const allVoters = {};
 
+        const ageGroups = { '16-24': 0, '25-34': 0, '35-44': 0, '45-59': 0, '60+': 0 };
+        const sexGroups = { 'Masculino': 0, 'Feminino': 0, 'Outro': 0 };
+        const zoneGroups = {};
+        const neighborhoodGroups = {};
+        const cityGroups = {};
+
         if (snapCreator.exists()) Object.assign(allVoters, snapCreator.val());
         if (snapAdmin.exists()) Object.assign(allVoters, snapAdmin.val());
 
@@ -72,6 +90,21 @@ export default function DashboardHome() {
             const voter = { id: key, ...allVoters[key] };
             
             if (voter.nascimento) {
+              // Cálculo de idade para o gráfico
+              const birthDate = new Date(voter.nascimento);
+              const todayDate = new Date();
+              let age = todayDate.getFullYear() - birthDate.getFullYear();
+              const m = todayDate.getMonth() - birthDate.getMonth();
+              if (m < 0 || (m === 0 && todayDate.getDate() < birthDate.getDate())) {
+                  age--;
+              }
+              
+              if (age >= 16 && age <= 24) ageGroups['16-24']++;
+              else if (age >= 25 && age <= 34) ageGroups['25-34']++;
+              else if (age >= 35 && age <= 44) ageGroups['35-44']++;
+              else if (age >= 45 && age <= 59) ageGroups['45-59']++;
+              else if (age >= 60) ageGroups['60+']++;
+
               const parts = voter.nascimento.split('-'); // Esperado YYYY-MM-DD
               if (parts.length === 3) {
                 const month = parseInt(parts[1], 10);
@@ -80,6 +113,26 @@ export default function DashboardHome() {
                   todaysBirthdays.push(voter);
                 }
               }
+            }
+
+            // Sexo
+            if (voter.sexo) {
+                sexGroups[voter.sexo] = (sexGroups[voter.sexo] || 0) + 1;
+            }
+
+            // Zona
+            if (voter.zona) {
+                zoneGroups[voter.zona] = (zoneGroups[voter.zona] || 0) + 1;
+            }
+
+            // Bairro
+            if (voter.bairro) {
+                neighborhoodGroups[voter.bairro] = (neighborhoodGroups[voter.bairro] || 0) + 1;
+            }
+
+            // Cidade
+            if (voter.cidade) {
+                cityGroups[voter.cidade] = (cityGroups[voter.cidade] || 0) + 1;
             }
 
             // Processamento para o Gráfico (Agrupamento por data)
@@ -98,6 +151,36 @@ export default function DashboardHome() {
           });
 
           setChartData(Object.values(tempChartData).sort((a, b) => a.sortKey.localeCompare(b.sortKey)));
+          
+          // Preparar dados para os gráficos
+          const ageChartData = Object.keys(ageGroups).map(key => ({ name: key, value: ageGroups[key] }));
+          
+          const sexChartData = Object.keys(sexGroups)
+            .filter(key => sexGroups[key] > 0)
+            .map(key => ({ name: key, value: sexGroups[key] }));
+
+          const zoneChartData = Object.keys(zoneGroups)
+            .map(key => ({ name: key, value: zoneGroups[key] }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+
+          const neighborhoodChartData = Object.keys(neighborhoodGroups)
+            .map(key => ({ name: key, value: neighborhoodGroups[key] }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+
+          const cityChartData = Object.keys(cityGroups)
+            .map(key => ({ name: key, value: cityGroups[key] }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+
+          setChartsData({
+              age: ageChartData,
+              sex: sexChartData,
+              zone: zoneChartData,
+              neighborhood: neighborhoodChartData,
+              city: cityChartData
+          });
         }
         
         // 2. Contar Equipe (Realtime DB)
@@ -174,9 +257,8 @@ export default function DashboardHome() {
   return (
     <>
     
-      <div className="dashboard-card welcome-card">
-        <h3>Bem-vindo ao Painel!</h3>
-        <p>Aqui está o resumo da sua campanha hoje.</p>
+      <div className="dashboard-card welcome-card" style={{ padding: '15px', marginBottom: '20px' }}>
+        <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Bem-vindo ao Painel!</h3>
       </div>
 
       <div className="dashboard-card" style={{ marginTop: '20px' }}>
@@ -242,6 +324,85 @@ export default function DashboardHome() {
           <div className="stat-value">{stats.pendingTasks}</div>
           <span className="stat-trend">Aguardando conclusão</span>
         </div>
+      </div>
+
+      {/* Novos Gráficos */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginTop: '20px' }}>
+        
+        {/* Gráfico de Idade */}
+        <div className="dashboard-card">
+            <h3>Eleitores por Idade</h3>
+            <div style={{ width: '100%', height: 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartsData.age}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 12}} />
+                        <YAxis tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
+                        <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                        <Bar dataKey="value" fill="#3b82f6" name="Eleitores" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
+
+        {/* Gráfico de Sexo */}
+        <div className="dashboard-card">
+            <h3>Eleitores por Sexo</h3>
+            <div style={{ width: '100%', height: 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={chartsData.sex}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                        >
+                            {chartsData.sex.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                        </Pie>
+                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                        <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
+
+        {/* Gráfico de Bairros */}
+        <div className="dashboard-card">
+            <h3>Top Bairros</h3>
+            <div style={{ width: '100%', height: 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartsData.neighborhood} layout="vertical" margin={{ left: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                        <XAxis type="number" tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
+                        <YAxis dataKey="name" type="category" width={100} tick={{fill: '#64748b', fontSize: 11}} />
+                        <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                        <Bar dataKey="value" fill="#10b981" name="Eleitores" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
+
+        {/* Gráfico de Zonas */}
+        <div className="dashboard-card">
+            <h3>Eleitores por Zona</h3>
+            <div style={{ width: '100%', height: 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartsData.zone}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 12}} />
+                        <YAxis tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
+                        <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                        <Bar dataKey="value" fill="#f59e0b" name="Eleitores" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
+
       </div>
 
       <div className="dashboard-card" style={{ marginTop: '20px' }}>
