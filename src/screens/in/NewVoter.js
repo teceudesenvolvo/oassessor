@@ -224,7 +224,7 @@ export default function NewVoter() {
         <div className="input-group"> <label>Instagram</label> <input type="text" name="instagram" value={formData.instagram} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} placeholder="@usuario" /> </div>
         <div className="input-group"> <label>CPF</label> <input type="text" name="cpf" value={formData.cpf} onChange={handleMaskedChange} className="custom-input-voter" style={{ width: '86%' }} placeholder="000.000.000-00" /> </div>
         <div className="input-group"> <label>Sexo</label> 
-            <select name="sexo" value={formData.sexo} onChange={handleChange} className="custom-input-voter" style={{ width: '93%' }}>
+            <select name="sexo" value={formData.sexo} onChange={handleChange} className="custom-input-voter custom-input-voter-select" style={{ width: '100%' }}>
                 <option value="">Selecione</option>
                 <option value="Masculino">Masculino</option>
                 <option value="Feminino">Feminino</option>
