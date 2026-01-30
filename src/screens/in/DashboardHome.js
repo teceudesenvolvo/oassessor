@@ -23,7 +23,8 @@ export default function DashboardHome() {
     sex: [],
     zone: [],
     neighborhood: [],
-    city: []
+    city: [],
+    localVotacao: []
   });
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
@@ -74,6 +75,7 @@ export default function DashboardHome() {
         const zoneGroups = {};
         const neighborhoodGroups = {};
         const cityGroups = {};
+        const localVotacaoGroups = {};
 
         if (snapCreator.exists()) Object.assign(allVoters, snapCreator.val());
         if (snapAdmin.exists()) Object.assign(allVoters, snapAdmin.val());
@@ -137,6 +139,12 @@ export default function DashboardHome() {
                 if (cidade) cityGroups[cidade] = (cityGroups[cidade] || 0) + 1;
             }
 
+            // Local de Votação
+            if (voter.localVotacao) {
+                const local = voter.localVotacao.split(' - ')[0].trim().toUpperCase();
+                if (local) localVotacaoGroups[local] = (localVotacaoGroups[local] || 0) + 1;
+            }
+
             // Processamento para o Gráfico (Agrupamento por data)
             if (voter.createdAt) {
               const dateObj = new Date(voter.createdAt);
@@ -176,12 +184,18 @@ export default function DashboardHome() {
             .sort((a, b) => b.value - a.value)
             .slice(0, 10);
 
+          const localVotacaoChartData = Object.keys(localVotacaoGroups)
+            .map(key => ({ name: key, value: localVotacaoGroups[key] }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+
           setChartsData({
               age: ageChartData,
               sex: sexChartData,
               zone: zoneChartData,
               neighborhood: neighborhoodChartData,
-              city: cityChartData
+              city: cityChartData,
+              localVotacao: localVotacaoChartData
           });
         }
         
@@ -371,23 +385,7 @@ export default function DashboardHome() {
                     </PieChart>
                 </ResponsiveContainer>
             </div>
-        </div>
-
-        {/* Gráfico de Bairros */}
-        <div className="dashboard-card">
-            <h3>Top Bairros</h3>
-            <div style={{ width: '100%', height: 250 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartsData.neighborhood} layout="vertical" margin={{ left: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                        <XAxis type="number" tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
-                        <YAxis dataKey="name" type="category" width={100} tick={{fill: '#64748b', fontSize: 11}} />
-                        <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none' }} />
-                        <Bar dataKey="value" fill="#10b981" name="Eleitores" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
-        </div>
+        </div> 
 
         {/* Gráfico de Zonas */}
         <div className="dashboard-card">
@@ -405,6 +403,38 @@ export default function DashboardHome() {
             </div>
         </div>
 
+      </div>
+
+      {/* Gráfico de Bairros (Full Width) */}
+      <div className="dashboard-card" style={{ marginTop: '20px' }}>
+          <h3>Top Bairros</h3>
+          <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartsData.neighborhood} layout="vertical" margin={{ left: 20, right: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                      <XAxis type="number" tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
+                      <YAxis dataKey="name" type="category" width={150} tick={{fill: '#64748b', fontSize: 11}} />
+                      <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                      <Bar dataKey="value" fill="#10b981" name="Eleitores" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+              </ResponsiveContainer>
+          </div>
+      </div>
+
+      {/* Gráfico de Locais de Votação (Full Width) */}
+      <div className="dashboard-card" style={{ marginTop: '20px' }}>
+          <h3>Top Locais de Votação</h3>
+          <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartsData.localVotacao} layout="vertical" margin={{ left: 20, right: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                      <XAxis type="number" tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
+                      <YAxis dataKey="name" type="category" width={180} tick={{fill: '#64748b', fontSize: 11}} />
+                      <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                      <Bar dataKey="value" fill="#8884d8" name="Eleitores" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+              </ResponsiveContainer>
+          </div>
       </div>
 
       <div className="dashboard-card" style={{ marginTop: '20px' }}>
