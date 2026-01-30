@@ -82,7 +82,17 @@ export default function Voters() {
             Object.values(votersMap).forEach(group => {
               Object.assign(allVoters, group);
             });
-            const list = Object.keys(allVoters).map(key => ({ id: key, ...allVoters[key] }));
+            const list = Object.keys(allVoters).map(key => {
+              const v = allVoters[key];
+              return {
+                id: key,
+                ...v,
+                endereco: v.endereco ? v.endereco.trim().toUpperCase() : '',
+                bairro: v.bairro ? v.bairro.trim().toUpperCase() : '',
+                cidade: v.cidade ? v.cidade.trim().toUpperCase() : '',
+                localVotacao: v.localVotacao ? v.localVotacao.trim().toUpperCase() : ''
+              };
+            });
             setVoters(list);
             setLoading(false);
           };
@@ -118,7 +128,17 @@ export default function Voters() {
           const qCreator = query(votersRef, orderByChild('creatorId'), equalTo(user.uid));
           const unsub = onValue(qCreator, (snapshot) => {
             const data = snapshot.val();
-            const list = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            const list = data ? Object.keys(data).map(key => {
+              const v = data[key];
+              return {
+                id: key,
+                ...v,
+                endereco: v.endereco ? v.endereco.trim().toUpperCase() : '',
+                bairro: v.bairro ? v.bairro.trim().toUpperCase() : '',
+                cidade: v.cidade ? v.cidade.trim().toUpperCase() : '',
+                localVotacao: v.localVotacao ? v.localVotacao.trim().toUpperCase() : ''
+              };
+            }) : [];
             setVoters(list);
             setLoading(false);
           });

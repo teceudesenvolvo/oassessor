@@ -188,6 +188,11 @@ export default function NewVoter() {
       const newVoterRef = push(votersRef);
       await set(newVoterRef, {
         ...formData,
+        // Normaliza campos de endereço para maiúsculas ao salvar
+        endereco: formData.endereco ? formData.endereco.trim().toUpperCase() : '',
+        bairro: formData.bairro ? formData.bairro.trim().toUpperCase() : '',
+        cidade: formData.cidade ? formData.cidade.trim().toUpperCase() : '',
+        localVotacao: formData.localVotacao ? formData.localVotacao.trim().toUpperCase() : '',
         creatorId: user.uid,
         creatorEmail: user.email,
         createdAt: new Date().toISOString()

@@ -127,12 +127,14 @@ export default function DashboardHome() {
 
             // Bairro
             if (voter.bairro) {
-                neighborhoodGroups[voter.bairro] = (neighborhoodGroups[voter.bairro] || 0) + 1;
+                const bairro = voter.bairro.trim().toUpperCase();
+                if (bairro) neighborhoodGroups[bairro] = (neighborhoodGroups[bairro] || 0) + 1;
             }
 
             // Cidade
             if (voter.cidade) {
-                cityGroups[voter.cidade] = (cityGroups[voter.cidade] || 0) + 1;
+                const cidade = voter.cidade.trim().toUpperCase();
+                if (cidade) cityGroups[cidade] = (cityGroups[cidade] || 0) + 1;
             }
 
             // Processamento para o Gráfico (Agrupamento por data)

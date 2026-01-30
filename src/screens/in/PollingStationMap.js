@@ -113,7 +113,9 @@ export default function PollingStationMap() {
           if (!voter.localVotacao) return;
           
           // Use localVotacao + City as key to ensure uniqueness across cities
-          const key = `${voter.localVotacao}-${voter.cidade || ''}`;
+          const upperLocal = (voter.localVotacao || '').trim().toUpperCase();
+          const upperCidade = (voter.cidade || '').trim().toUpperCase();
+          const key = `${upperLocal}-${upperCidade}`;
           
           if (!groups[key]) {
             groups[key] = {
