@@ -48,7 +48,7 @@ export default function Profile() {
 
         // Se não achou dados completos em 'users' (ex: nome vazio), tenta buscar em 'assessores' para complementar
         if (!userData.nome && !userData.name) {
-            const assessoresRef = ref(database, 'assessores');
+            const assessoresRef = ref(database, 'users');
             const q = query(assessoresRef, orderByChild('userId'), equalTo(user.uid));
             const snapshotAssessor = await get(q);
 
