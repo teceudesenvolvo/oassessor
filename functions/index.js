@@ -194,6 +194,69 @@ exports.deleteUser = onRequest({ cors: true, invoker: 'public' }, async (req, re
     }
 });
 
+exports.completeTeamMemberRegistration = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+    if (req.method !== 'POST') {
+        return res.status(405).send('Method Not Allowed');
+    }
+
+    const { idToken } = req.body;
+    if (!idToken) {
+        return res.status(400).send({ success: false, error: 'Auth token é obrigatório.' });
+    }
+
+    try {
+        // 1. Verifica o token de autenticação do usuário
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        const { uid, email } = decodedToken;
+
+        // 2. Encontra o convite em `/assessores` pelo e-mail
+        const assessorsRef = admin.database().ref('assessores');
+        const snapshot = await assessorsRef.orderByChild('email').equalTo(email).once('value');
+
+        if (!snapshot.exists()) {
+            return res.status(404).send({ success: false, error: 'Convite não encontrado para este e-mail.' });
+        }
+
+        const data = snapshot.val();
+        const userKey = Object.keys(data)[0]; // A chave temporária do convite
+        const assessorData = data[userKey];
+
+        // Verifica se o convite já foi usado
+        if (assessorData.status !== 'invited') {
+            return res.status(409).send({ success: false, error: 'Este convite já foi utilizado.' });
+        }
+
+        // 3. Prepara a atualização atômica do banco de dados
+        const updates = {};
+
+        // 3.1 Atualiza o registro em /assessores
+        updates[`/assessores/${userKey}/userId`] = uid;
+        updates[`/assessores/${userKey}/uid`] = uid;
+        updates[`/assessores/${userKey}/status`] = 'Ativo';
+
+        // 3.2 Cria o registro final em /users com o UID real da autenticação
+        updates[`/users/${uid}`] = {
+            ...assessorData,
+            userId: uid,
+            uid: uid,
+            tipoUser: 'assessor',
+            status: 'Ativo',
+        };
+
+        // 3.3 Deleta o registro temporário de /users que foi criado no convite
+        updates[`/users/${userKey}`] = null;
+
+        // 4. Executa a atualização atômica
+        await admin.database().ref().update(updates);
+
+        return res.status(200).send({ success: true, message: 'Cadastro do usuário finalizado com sucesso.' });
+
+    } catch (error) {
+        console.error('Erro ao finalizar cadastro:', error);
+        return res.status(500).send({ success: false, error: 'Ocorreu um erro interno.' });
+    }
+});
+
 exports.createSubscription = onRequest(
   { cors: true, invoker: 'public' },
   async (req, res) => {

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { ref, query, orderByChild, equalTo, get, update } from 'firebase/database';
-import { auth, database } from '../../firebaseConfig';
+import { auth } from '../../firebaseConfig';
 import Navbar from '../../components/Navbar';
+
+const COMPLETE_REGISTRATION_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/completeTeamMemberRegistration';
 
 export default function TeamMemberRegistration() {
     const location = useLocation();
@@ -40,52 +41,38 @@ export default function TeamMemberRegistration() {
                 return;
             }
 
-            // Buscar o nó do usuário no Realtime Database pelo email
-            const usersRef = ref(database, 'assessores');
-            const q = query(usersRef, orderByChild('email'), equalTo(email));
-            const snapshot = await get(q);
-
-            if (!snapshot.exists()) {
-                setError('Não foi encontrado um convite para este e-mail.');
-                setLoading(false);
-                return;
-            }
-
-            // No Realtime DB, o resultado é um objeto onde as chaves são os IDs
-            const data = snapshot.val();
-            const userKey = Object.keys(data)[0]; // Pega a primeira chave encontrada
-            const assessorData = data[userKey];
-
-            // Se o convite é válido, cria o usuário na autenticação
+            // 1. Cria o usuário no Firebase Authentication
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // Atualiza o nó no Realtime Database com o novo UID
-            const updates = {};
-            updates[`/assessores/${userKey}/userId`] = user.uid;
-            updates[`/assessores/${userKey}/uid`] = user.uid;
-            updates[`/assessores/${userKey}/status`] = 'Ativo';
-            
-            // Cria/Atualiza o registro na coleção 'users' com o UID correto da autenticação
-            updates[`/users/${user.uid}`] = {
-                ...assessorData,
-                userId: user.uid,
-                uid: user.uid,
-                tipoUser: 'assessor'
-            };
-            
-            console.log("Atualizando usuário:", userKey, "com UID:", user.uid);
-            await update(ref(database), updates);
+            // 2. Pega o token do usuário para chamar o backend de forma segura
+            const idToken = await user.getIdToken();
+
+            // 3. Chama a Cloud Function para realizar as atualizações privilegiadas no banco
+            const response = await fetch(COMPLETE_REGISTRATION_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                // Se o backend falhar, o usuário de autenticação existe, mas os dados no DB não estão configurados.
+                // O ideal seria deletar o usuário da autenticação para permitir uma nova tentativa.
+                throw new Error(errorData.error || 'Ocorreu uma falha ao finalizar seu cadastro. Contate o suporte.');
+            }
 
             alert('Cadastro realizado com sucesso! Bem-vindo à equipe.');
             navigate('/dashboard');
         } catch (err) {
             console.error(err);
             let msg = 'Erro ao realizar cadastro.';
-            if (err.code === 'auth/email-already-in-use') { // Este erro agora é mais significativo
+            if (err.code === 'auth/email-already-in-use') {
                 msg = 'Este e-mail já possui uma conta. Por favor, tente fazer o login.';
             } else if (err.code === 'auth/weak-password') {
                 msg = 'A senha deve ter pelo menos 6 caracteres.';
+            } else {
+                msg = err.message; // Mostra o erro vindo da nossa Cloud Function
             }
             setError(msg);
         } finally {
