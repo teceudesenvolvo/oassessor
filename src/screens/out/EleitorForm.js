@@ -34,7 +34,8 @@ export default function EleitorForm() {
     endereco: '',
     numero: '',
     cep: '',
-    localVotacao: ''
+    localVotacao: '',
+    observacoes: ''
   });
 
   useEffect(() => {
@@ -212,7 +213,7 @@ export default function EleitorForm() {
       setSuccess(true);
       setFormData({
         nome: '', apelido: '', instagram: '', sexo: '', email: '', telefone: '', bairro: '', cidade: '', estado: '',
-        cpf: '', nascimento: '', titulo: '', zona: '', secao: '', endereco: '', numero: '', cep: '', localVotacao: ''
+        cpf: '', nascimento: '', titulo: '', zona: '', secao: '', endereco: '', numero: '', cep: '', localVotacao: '', observacoes: ''
       });
     } catch (error) {
       console.error("Erro ao cadastrar:", error);
@@ -309,6 +310,11 @@ export default function EleitorForm() {
                   <div className="input-group"> <label>Bairro</label> <input type="text" name="bairro" value={formData.bairro} onChange={handleChange} className="custom-input-voter" /> </div>
                   <div className="input-group"> <label>Cidade</label> <input type="text" name="cidade" value={formData.cidade} onChange={handleChange} className="custom-input-voter" /> </div>
                   <div className="input-group"> <label>Estado</label> <input type="text" name="estado" value={formData.estado} onChange={handleChange} className="custom-input-voter" /> </div>
+
+                  <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                      <label>Observações</label>
+                      <textarea name="observacoes" value={formData.observacoes} onChange={handleChange} className="custom-input-voter" style={{ width: '100%', minHeight: '100px', resize: 'vertical', fontFamily: 'inherit' }} />
+                  </div>
 
                   <div style={{ gridColumn: '1 / -1', marginTop: '20px' }}>
                       <button type="submit" className="btn-primary" disabled={saving} style={{ width: '100%', justifyContent: 'center', padding: '15px', fontSize: '1.1rem' }}>

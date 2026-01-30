@@ -241,6 +241,9 @@ exports.completeTeamMemberRegistration = onRequest({ cors: true, invoker: 'publi
             uid: uid,
             tipoUser: 'assessor',
             status: 'Ativo',
+            name: assessorData.nome || assessorData.name || '',
+            nome: assessorData.nome || assessorData.name || '',
+            updatedAt: new Date().toISOString()
         };
 
         // 3.3 Deleta o registro temporário de /users que foi criado no convite

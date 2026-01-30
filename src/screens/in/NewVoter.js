@@ -31,7 +31,8 @@ export default function NewVoter() {
     endereco: '',
     numero: '',
     cep: '',
-    localVotacao: ''
+    localVotacao: '',
+    observacoes: ''
   });
 
   const handleChange = (e) => {
@@ -278,6 +279,11 @@ export default function NewVoter() {
         <div className="input-group"> <label>Bairro</label> <input type="text" name="bairro" value={formData.bairro} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
         <div className="input-group"> <label>Cidade</label> <input type="text" name="cidade" value={formData.cidade} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
         <div className="input-group"> <label>Estado</label> <input type="text" name="estado" value={formData.estado} onChange={handleChange} className="custom-input-voter" style={{ width: '86%' }} /> </div>
+        
+        <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+            <label>Observações</label>
+            <textarea name="observacoes" value={formData.observacoes} onChange={handleChange} className="custom-input-voter" style={{ width: '93%', minHeight: '100px', resize: 'vertical', fontFamily: 'inherit' }} />
+        </div>
       </form>
     </div>
   );
