@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, MoreVertical, X, Edit, Trash } from 'lucide-react';
+import { UserPlus, MoreVertical, X, Edit, Trash, Share2 } from 'lucide-react';
 import { ref, query, orderByChild, equalTo, onValue, push, set, update, remove } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
@@ -63,6 +63,16 @@ export default function Team() {
       val = val.replace(/(\d)(\d{4})$/, '$1-$2');
     }
     setFormData(prev => ({ ...prev, [name]: val }));
+  };
+
+  const handleShareInvite = (link) => {
+    if (link) {
+      navigator.clipboard.writeText(link);
+      alert('Link de convite copiado para a área de transferência!');
+    } else {
+      alert('Link de convite não disponível para este membro.');
+    }
+    setMenuOpen(null);
   };
 
   const sendInviteEmail = async (name, emailAddress, link) => {
@@ -277,6 +287,25 @@ export default function Team() {
                     overflow: 'hidden',
                     border: '1px solid #f1f5f9'
                   }}>
+                    <button 
+                      onClick={() => handleShareInvite(member.inviteLink)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        width: '100%',
+                        padding: '10px 15px',
+                        border: 'none',
+                        background: 'white',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        fontSize: '0.9rem',
+                        color: '#2563eb',
+                        borderBottom: '1px solid #f1f5f9'
+                      }}
+                    >
+                      <Share2 size={14} /> Copiar Convite
+                    </button>
                     <button 
                       onClick={() => handleEdit(member)}
                       style={{
