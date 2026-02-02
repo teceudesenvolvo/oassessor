@@ -22,7 +22,7 @@ export default function TeamMemberRegistration() {
             setEmail(emailParam);
         }
     }, [location]);
-
+ 
     const handleRegister = async (e) => {
         e.preventDefault();
         setError('');

@@ -239,10 +239,13 @@ exports.completeTeamMemberRegistration = onRequest({ cors: true, invoker: 'publi
             ...assessorData,
             userId: uid,
             uid: uid,
+            email: email,
             tipoUser: 'assessor',
             status: 'Ativo',
             name: assessorData.nome || assessorData.name || '',
             nome: assessorData.nome || assessorData.name || '',
+            phone: assessorData.telefone || assessorData.phone || '',
+            telefone: assessorData.telefone || assessorData.phone || '',
             updatedAt: new Date().toISOString()
         };
 
