@@ -623,6 +623,7 @@
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid rgba(255,255,255,0.1);
+  z-index: 10000;
 }
 
 .sidebar-logo {
@@ -634,6 +635,8 @@
   flex: 1;
   padding: 20px 0;
   overflow-y: auto;
+  position: relative;
+  z-index: 100 !important;
 }
 
 .sidebar-nav ul {
@@ -681,6 +684,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  z-index: 0;
 }
 
 /* Topbar */
@@ -770,6 +774,7 @@
   padding: 24px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   margin-bottom: 24px;
+  z-index: -10 !important;
 }
 
 .welcome-card {
@@ -800,9 +805,9 @@
 .menu-toggle-btn, .close-menu-btn { display: none; background: none; border: none; color: inherit; cursor: pointer; }
 
 @media (max-width: 768px) {
-  .dashboard-sidebar { transform: translateX(-100%); width: 280px; }
+  .dashboard-sidebar { transform: translateX(-100%); width: 280px; z-index: 9999 !important; }
   .dashboard-sidebar.mobile-open { transform: translateX(0); }
-  .dashboard-content { margin-left: 0; }
+  .dashboard-content { margin-left: 0; z-index: -1000 !important; }
   .menu-toggle-btn { display: block; margin-right: 15px; }
   .close-menu-btn { display: block; color: white; }
   .search-box { display: none; } /* Hide search on mobile for space */
@@ -810,6 +815,7 @@
   .sidebar-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.5); z-index: 45;
+    z-index: 999;
   }
 }
 
