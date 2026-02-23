@@ -18,6 +18,7 @@ import Contact from './screens/out/Contact';
 import Checkout from './screens/out/Checkout';
 import Plans from './screens/out/Plans';
 import About from './screens/out/About';
+import DownloadApp from './screens/out/DownloadApp';
 
 import Login from './screens/out/Login';
 import TeamMemberRegistration from './screens/out/TeamMemberRegistration';
@@ -28,6 +29,7 @@ import Team from './screens/in/Team';
 import Agenda from './screens/in/Agenda';
 import Voters from './screens/in/Voters';
 import NewVoter from './screens/in/NewVoter';
+import VoteComparison from './screens/in/VoteComparison';
 import VoterMap from './screens/in/VoterMap';
 import PollingStationMap from './screens/in/PollingStationMap';
 import VoterDetails from './screens/in/VoterDetails';
@@ -48,6 +50,7 @@ function App() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/checkout/:planId" element={<Checkout />} />
           <Route path="/eleitor-form" element={<EleitorForm />} />
+          <Route path="/download-app" element={<DownloadApp />} />
 
           {/* Extrator CSV */}
           <Route path="/convert-csv" element={<ConvertCsv />} />
@@ -69,6 +72,7 @@ function App() {
               <Route path="voters/new" element={<NewVoter />} />
               <Route path="voters/map" element={<VoterMap />} />
               <Route path="voters/stations-map" element={<PollingStationMap />} />
+              <Route path="vote-comparison" element={<VoteComparison />} />
               <Route path="voters/:id" element={<VoterDetails />} />
               <Route path="profile" element={<Profile />} />
               <Route path="notifications" element={<Notifications />} />

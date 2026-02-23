@@ -12,7 +12,8 @@ import {
   User, 
   LogOut, 
   X,
-  School
+  School,
+  BarChart2
 } from 'lucide-react';
 import Logo from '../assets/logomarca-vertical.png';
 
@@ -24,6 +25,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
     { name: 'Inicio', icon: Home },
     { name: 'Eleitores', icon: Vote },
     { name: 'Mapa de Colégios', icon: School },
+    { name: 'Comparativo 2024', icon: BarChart2 },
     { name: 'Minha Equipe', icon: Users },
     { name: 'Agenda', icon: Calendar },
     { name: 'Perfil', icon: User },

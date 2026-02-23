@@ -349,7 +349,7 @@ export default function DashboardHome() {
         <div className="dashboard-card">
             <h3>Eleitores por Idade</h3>
             <div style={{ width: '100%', height: 250 }}>
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart data={chartsData.age}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                         <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 12}} />
@@ -365,7 +365,7 @@ export default function DashboardHome() {
         <div className="dashboard-card">
             <h3>Eleitores por Sexo</h3>
             <div style={{ width: '100%', height: 250 }}>
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <PieChart>
                         <Pie
                             data={chartsData.sex}
@@ -391,7 +391,7 @@ export default function DashboardHome() {
         <div className="dashboard-card">
             <h3>Eleitores por Zona</h3>
             <div style={{ width: '100%', height: 250 }}>
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart data={chartsData.zone}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                         <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 12}} />
@@ -409,7 +409,7 @@ export default function DashboardHome() {
       <div className="dashboard-card" style={{ marginTop: '20px' }}>
           <h3>Top Bairros</h3>
           <div style={{ width: '100%', height: 300 }}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart data={chartsData.neighborhood} layout="vertical" margin={{ left: 20, right: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                       <XAxis type="number" tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
@@ -425,7 +425,7 @@ export default function DashboardHome() {
       <div className="dashboard-card" style={{ marginTop: '20px' }}>
           <h3>Top Locais de Votação</h3>
           <div style={{ width: '100%', height: 300 }}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart data={chartsData.localVotacao} layout="vertical" margin={{ left: 20, right: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                       <XAxis type="number" tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
@@ -440,7 +440,7 @@ export default function DashboardHome() {
       <div className="dashboard-card" style={{ marginTop: '20px' }}>
         <h3>Evolução de Cadastros</h3>
         <div style={{ width: '100%', height: 300, marginTop: '20px' }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
               <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />

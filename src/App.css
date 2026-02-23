@@ -1041,3 +1041,257 @@
   opacity: 1;
   margin-top: 10px;
 }
+
+/* --- Vote Comparison Page --- */
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.select-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.select-icon {
+  position: absolute;
+  right: 15px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.custom-input option {
+  color: #0f172a;
+}
+
+.comparison-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .comparison-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.candidate-list-section {
+  height: fit-content;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+.comparison-view-section {
+  flex: 1;
+}
+
+.search-box-voter {
+  display: flex;
+  align-items: center;
+  background: #f1f5f9;
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin: 15px 0;
+  border: 1px solid #e2e8f0;
+}
+
+.search-box-voter input {
+  border: none;
+  background: transparent;
+  margin-left: 10px;
+  outline: none;
+  width: 100%;
+  color: #0f172a;
+}
+
+.candidates-scroll {
+  overflow-y: auto;
+  flex: 1;
+  max-height: 450px;
+  padding-right: 5px;
+}
+
+.candidate-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-radius: 8px;
+}
+
+.candidate-item:hover {
+  background-color: #f8fafc;
+}
+
+.candidate-item.selected {
+  background-color: #ecfdf5;
+  border-color: #10b981;
+}
+
+.candidate-number {
+  background: #0f172a;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.candidate-info {
+  display: flex;
+  align-items: center;
+}
+
+.candidate-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.candidate-party {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.empty-state-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  text-align: center;
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  border: 2px dashed #e2e8f0;
+}
+
+.comparison-cards-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.comparison-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  text-align: center;
+  position: relative;
+}
+
+.card-header-comp {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.rank-badge {
+  background: #f1f5f9;
+  color: #64748b;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.remove-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+}
+
+.cand-avatar-placeholder {
+  width: 80px;
+  height: 80px;
+  background: #e2e8f0;
+  border-radius: 50%;
+  margin: 0 auto 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #64748b;
+}
+
+.comp-name {
+  font-size: 1.1rem;
+  margin: 0 0 5px 0;
+  color: #0f172a;
+}
+
+.comp-party {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+.comp-stats {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.stat-row:last-child {
+  margin-bottom: 0;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.stat-value.highlight {
+  color: #10b981;
+  font-weight: 800;
+}
+
+.vote-bar-bg {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.vote-bar-fill {
+  height: 100%;
+  background: #10b981;
+  border-radius: 4px;
+}
+
+.error-banner {
+  background: #fef2f2;
+  color: #ef4444;
+  padding: 15px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  border: 1px solid #fecaca;
+}
+
+.loading-container {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+}
