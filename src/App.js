@@ -1,85 +1,89 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 
 // Importing Components
-import Footer from './components/Footer';
-import ProtectedRoute from './components/ProtectedRoute';
-import PublicRoute from './components/PublicRoute';
-import AuthTokenHandler from './components/AuthTokenHandler';
+const Footer = lazy(() => import('./components/Footer'));
+const ProtectedRoute = lazy(() => import('./components/ProtectedRoute'));
+const PublicRoute = lazy(() => import('./components/PublicRoute'));
+const AuthTokenHandler = lazy(() => import('./components/AuthTokenHandler'));
 
 // CSV Importer
-import ConvertCsv from './screens/out/convertCSV';
+const ConvertCsv = lazy(() => import('./screens/out/convertCSV'));
 
 // Importing Screens 
-import Home from './screens/out/Home';
-import PlanLanding from './screens/out/PlanLanding';
-import Contact from './screens/out/Contact';
-import Checkout from './screens/out/Checkout';
-import Plans from './screens/out/Plans';
-import About from './screens/out/About';
-import DownloadApp from './screens/out/DownloadApp';
+const Home = lazy(() => import('./screens/out/Home'));
+const PlanLanding = lazy(() => import('./screens/out/PlanLanding'));
+const Contact = lazy(() => import('./screens/out/Contact'));
+const Checkout = lazy(() => import('./screens/out/Checkout'));
+const Plans = lazy(() => import('./screens/out/Plans'));
+const About = lazy(() => import('./screens/out/About'));
+const DownloadApp = lazy(() => import('./screens/out/DownloadApp'));
 
-import Login from './screens/out/Login';
-import TeamMemberRegistration from './screens/out/TeamMemberRegistration';
+const Login = lazy(() => import('./screens/out/Login'));
+const TeamMemberRegistration = lazy(() => import('./screens/out/TeamMemberRegistration'));
 
-import Dashboard from './screens/in/Dashboard';
-import DashboardHome from './screens/in/DashboardHome';
-import Team from './screens/in/Team';
-import Agenda from './screens/in/Agenda';
-import Voters from './screens/in/Voters';
-import NewVoter from './screens/in/NewVoter';
-import VoteComparison from './screens/in/VoteComparison';
-import VoterMap from './screens/in/VoterMap';
-import PollingStationMap from './screens/in/PollingStationMap';
-import VoterDetails from './screens/in/VoterDetails';
-import Profile from './screens/in/Profile';
-import Notifications from './screens/in/Notifications';
-import EleitorForm from './screens/out/EleitorForm';
+const Dashboard = lazy(() => import('./screens/in/Dashboard'));
+const DashboardHome = lazy(() => import('./screens/in/DashboardHome'));
+const Team = lazy(() => import('./screens/in/Team'));
+const Agenda = lazy(() => import('./screens/in/Agenda'));
+const Voters = lazy(() => import('./screens/in/Voters'));
+const NewVoter = lazy(() => import('./screens/in/NewVoter'));
+const VoteComparison = lazy(() => import('./screens/in/VoteComparison'));
+const VoterMap = lazy(() => import('./screens/in/VoterMap'));
+const PollingStationMap = lazy(() => import('./screens/in/PollingStationMap'));
+const VoterDetails = lazy(() => import('./screens/in/VoterDetails'));
+const Profile = lazy(() => import('./screens/in/Profile'));
+const Notifications = lazy(() => import('./screens/in/Notifications'));
+const EleitorForm = lazy(() => import('./screens/out/EleitorForm'));
 
 function App() {
+  const loadingFallback = <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+
   return (
     <Router>
-      <AuthTokenHandler />
       <div className="main-container">
-        <Routes>
-          <Route exact path="/" element={<Home />} />
-          <Route path="/plan/:id" element={<PlanLanding />} />
-          <Route path="/plans" element={<Plans />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/checkout/:planId" element={<Checkout />} />
-          <Route path="/eleitor-form" element={<EleitorForm />} />
-          <Route path="/download-app" element={<DownloadApp />} />
+        <Suspense fallback={loadingFallback}>
+          <AuthTokenHandler />
+          <Routes>
+            <Route exact path="/" element={<Home />} />
+            <Route path="/plan/:id" element={<PlanLanding />} />
+            <Route path="/plans" element={<Plans />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/checkout/:planId" element={<Checkout />} />
+            <Route path="/eleitor-form" element={<EleitorForm />} />
+            <Route path="/download-app" element={<DownloadApp />} />
 
-          {/* Extrator CSV */}
-          <Route path="/convert-csv" element={<ConvertCsv />} />
+            {/* Extrator CSV */}
+            <Route path="/convert-csv" element={<ConvertCsv />} />
 
 
-          {/* Rotas públicas que redirecionam se o usuário estiver logado */}
-          <Route element={<PublicRoute />}>
-            <Route path="/login" element={<Login />} />
-            <Route path="/cadastro-assessor-equipe" element={<TeamMemberRegistration />} />
-          </Route>
-
-          {/* Rotas protegidas que exigem login */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<Dashboard />}>
-              <Route index element={<DashboardHome />} />
-              <Route path="team" element={<Team />} />
-              <Route path="agenda" element={<Agenda />} />
-              <Route path="voters" element={<Voters />} />
-              <Route path="voters/new" element={<NewVoter />} />
-              <Route path="voters/map" element={<VoterMap />} />
-              <Route path="voters/stations-map" element={<PollingStationMap />} />
-              <Route path="vote-comparison" element={<VoteComparison />} />
-              <Route path="voters/:id" element={<VoterDetails />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="notifications" element={<Notifications />} />
+            {/* Rotas públicas que redirecionam se o usuário estiver logado */}
+            <Route element={<PublicRoute />}>
+              <Route path="/login" element={<Login />} />
+              <Route path="/cadastro-assessor-equipe" element={<TeamMemberRegistration />} />
             </Route>
-          </Route>
-        </Routes>
-        <Footer />
+
+            {/* Rotas protegidas que exigem login */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<Dashboard />}>
+                <Route index element={<DashboardHome />} />
+                <Route path="team" element={<Team />} />
+                <Route path="agenda" element={<Agenda />} />
+                <Route path="voters" element={<Voters />} />
+                <Route path="voters/new" element={<NewVoter />} />
+                <Route path="voters/map" element={<VoterMap />} />
+                <Route path="voters/stations-map" element={<PollingStationMap />} />
+                <Route path="vote-comparison" element={<VoteComparison />} />
+                <Route path="voters/:id" element={<VoterDetails />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="notifications" element={<Notifications />} />
+              </Route>
+            </Route>
+          </Routes>
+          <Footer />
+        </Suspense>
       </div>
     </Router>
   );
