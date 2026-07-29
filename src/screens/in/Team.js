@@ -3,6 +3,8 @@ import { UserPlus, MoreVertical, X, Edit, Trash, Share2 } from 'lucide-react';
 import { ref, query, orderByChild, equalTo, onValue, push, set, update, remove } from 'firebase/database';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
+import { useTeamPerformance } from '../../hooks/useTeamPerformance';
+import MetricCard from '../../components/dashboard/MetricCard';
 
 // URL da Cloud Function para envio de e-mail (substitua pela URL real se disponível)
 const CLOUD_FUNCTION_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/sendInviteEmail'; 
@@ -10,6 +12,7 @@ const DELETE_USER_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/de
 
 export default function Team() {
   const { user } = useAuth();
+  const { loading: performanceLoading, memberStats, summary, metaPrincipal } = useTeamPerformance(user);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -228,6 +231,15 @@ export default function Team() {
 
   return (
     <div className="dashboard-card">
+      <div className="campaign-metrics-grid" style={{ marginBottom: '24px' }}>
+        <MetricCard title="Produtividade média" value={`${summary.avgConversion.toFixed(1)}%`} helper="Conversão média da equipe" tone="success" />
+        <MetricCard title="Tarefas pendentes" value={summary.totalPendingTasks} helper="Pendências somadas da equipe" />
+        <MetricCard title="Visitas" value={summary.totalVisits} helper="Tarefas do tipo visita" tone="highlight" />
+        <MetricCard title="Apoios" value={summary.totalSupport} helper="Base em estágio de apoio ou melhor" />
+        <MetricCard title="Votos confirmados" value={summary.totalConfirmed} helper="Confirmações somadas da equipe" tone="success" />
+        <MetricCard title="Meta da equipe" value={metaPrincipal || 0} helper="Meta principal atual da campanha" />
+      </div>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h3>Minha Equipe</h3>
         <button className="btn-primary" onClick={handleNewMember} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -242,13 +254,19 @@ export default function Team() {
             <th style={{ padding: '12px' }}>Nome</th>
             <th style={{ padding: '12px' }}>Função</th>
             <th style={{ padding: '12px' }}>Status</th>
+            <th style={{ padding: '12px' }}>Produtividade</th>
+            <th style={{ padding: '12px' }}>Tarefas</th>
+            <th style={{ padding: '12px' }}>Visitas</th>
+            <th style={{ padding: '12px' }}>Apoios</th>
+            <th style={{ padding: '12px' }}>Conversão</th>
+            <th style={{ padding: '12px' }}>Meta</th>
             <th style={{ padding: '12px' }}>Ações</th>
           </tr>
         </thead>
         <tbody>
-          {loading && <tr><td colSpan="4" style={{padding: '20px', textAlign: 'center'}}>Carregando equipe...</td></tr>}
+          {(loading || performanceLoading) && <tr><td colSpan="10" style={{padding: '20px', textAlign: 'center'}}>Carregando equipe...</td></tr>}
           {!loading && members.length === 0 && (
-             <tr><td colSpan="4" style={{padding: '20px', textAlign: 'center', color: '#64748b'}}>Nenhum membro encontrado.</td></tr>
+             <tr><td colSpan="10" style={{padding: '20px', textAlign: 'center', color: '#64748b'}}>Nenhum membro encontrado.</td></tr>
           )}
           {members.map(member => (
             <tr key={member.id} style={{ borderBottom: '1px solid #f9f9f9' }}>
@@ -265,6 +283,24 @@ export default function Team() {
                 }}>
                   {member.status === 'invited' ? 'Convidado' : 'Ativo'}
                 </span>
+              </td>
+              <td style={{ padding: '12px', color: '#0f172a', fontWeight: 700 }}>
+                {memberStats.find((item) => item.id === member.id)?.confirmedVotes || 0}
+              </td>
+              <td style={{ padding: '12px', color: '#64748b' }}>
+                {memberStats.find((item) => item.id === member.id)?.pendingTasks || 0}
+              </td>
+              <td style={{ padding: '12px', color: '#64748b' }}>
+                {memberStats.find((item) => item.id === member.id)?.visits || 0}
+              </td>
+              <td style={{ padding: '12px', color: '#64748b' }}>
+                {memberStats.find((item) => item.id === member.id)?.supportCount || 0}
+              </td>
+              <td style={{ padding: '12px', color: '#166534', fontWeight: 700 }}>
+                {(memberStats.find((item) => item.id === member.id)?.conversion || 0).toFixed(1)}%
+              </td>
+              <td style={{ padding: '12px', color: '#64748b' }}>
+                {Math.round(memberStats.find((item) => item.id === member.id)?.progressToGoal || 0)}%
               </td>
               <td style={{ padding: '12px', position: 'relative' }}>
                 <button 

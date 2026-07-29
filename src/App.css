@@ -2077,3 +2077,240 @@
   padding: 40px;
   color: #64748b;
 }
+
+.task-card-shell {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.04);
+}
+
+.task-card-shell.compact {
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.tasks-kanban-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.tasks-kanban-column,
+.tasks-calendar-day {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.tasks-kanban-header,
+.tasks-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.tasks-kanban-header h4,
+.tasks-calendar-header strong {
+  margin: 0;
+  color: #0f172a;
+}
+
+.tasks-kanban-header span,
+.tasks-calendar-header span {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #475569;
+  background: #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.tasks-kanban-body,
+.tasks-calendar-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tasks-calendar-board {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.visits-main-grid {
+  align-items: start;
+}
+
+.visits-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.visit-mobile-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.visit-mobile-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.visit-mobile-header strong {
+  display: block;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.visit-mobile-header p,
+.visit-mobile-notes {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.visit-mobile-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.visit-mobile-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.86rem;
+}
+
+.visit-mobile-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.visit-mobile-tags,
+.visit-mobile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.visit-status-badge,
+.visit-result-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.tone-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.tone-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.tone-default {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.visits-route-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.visits-route-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px;
+  background: #fff;
+}
+
+.visits-route-header,
+.visits-route-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.visits-route-header {
+  margin-bottom: 10px;
+}
+
+.visits-route-header strong,
+.visits-route-item span {
+  color: #0f172a;
+}
+
+.visits-route-header span,
+.visits-route-item small {
+  color: #64748b;
+}
+
+.visits-route-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .tasks-kanban-board {
+    grid-template-columns: 1fr;
+  }
+
+  .task-card-shell {
+    padding: 14px;
+  }
+
+  .visit-mobile-header,
+  .visits-route-header,
+  .visits-route-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .visit-mobile-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .visit-mobile-actions .funnel-link-btn,
+  .visit-mobile-actions button,
+  .visit-mobile-tags .visit-result-pill {
+    width: 100%;
+    justify-content: center;
+  }
+}

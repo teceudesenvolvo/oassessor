@@ -37,6 +37,7 @@ const ElectoralFunnel = lazy(() => import('./screens/in/ElectoralFunnel'));
 const VictoryPath = lazy(() => import('./screens/in/VictoryPath'));
 const Leaderships = lazy(() => import('./screens/in/Leaderships'));
 const Volunteers = lazy(() => import('./screens/in/Volunteers'));
+const Visits = lazy(() => import('./screens/in/Visits'));
 const Profile = lazy(() => import('./screens/in/Profile'));
 const Notifications = lazy(() => import('./screens/in/Notifications'));
 const DataMigration = lazy(() => import('./screens/in/DataMigration'));
@@ -81,6 +82,7 @@ function App() {
                 <Route path="victory-path" element={<VictoryPath />} />
                 <Route path="leaderships" element={<Leaderships />} />
                 <Route path="volunteers" element={<Volunteers />} />
+                <Route path="visits" element={<Visits />} />
                 <Route path="voters/new" element={<NewVoter />} />
                 <Route path="voters/map" element={<VoterMap />} />
                 <Route path="voters/stations-map" element={<PollingStationMap />} />

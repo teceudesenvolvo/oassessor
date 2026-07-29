@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CalendarDays, HandHelping, Plus, Save, Trash2, Wrench } from 'lucide-react';
+import { HandHelping, Plus, Save, Trash2 } from 'lucide-react';
 import { useAuth } from '../../useAuth';
 import { useVolunteers } from '../../hooks/useVolunteers';
 import InsightPanel from '../../components/dashboard/InsightPanel';

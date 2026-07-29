@@ -18,7 +18,8 @@ import {
   Rows3,
   Route,
   Network,
-  HandHelping
+  HandHelping,
+  MapPinned
 } from 'lucide-react';
 import Logo from '../assets/logomarca-vertical.png';
 
@@ -33,6 +34,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
     { name: 'Caminho para a Vitória', icon: Route },
     { name: 'Lideranças', icon: Network },
     { name: 'Voluntários', icon: HandHelping },
+    { name: 'Visitas', icon: MapPinned },
     { name: 'Mapa de Colégios', icon: School },
     { name: 'Comparativo 2024', icon: BarChart2 },
     { name: 'Minha Equipe', icon: Users },
