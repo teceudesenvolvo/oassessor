@@ -38,6 +38,8 @@ const VictoryPath = lazy(() => import('./screens/in/VictoryPath'));
 const Leaderships = lazy(() => import('./screens/in/Leaderships'));
 const Volunteers = lazy(() => import('./screens/in/Volunteers'));
 const Visits = lazy(() => import('./screens/in/Visits'));
+const Demands = lazy(() => import('./screens/in/Demands'));
+const Events = lazy(() => import('./screens/in/Events'));
 const Profile = lazy(() => import('./screens/in/Profile'));
 const Notifications = lazy(() => import('./screens/in/Notifications'));
 const DataMigration = lazy(() => import('./screens/in/DataMigration'));
@@ -83,6 +85,8 @@ function App() {
                 <Route path="leaderships" element={<Leaderships />} />
                 <Route path="volunteers" element={<Volunteers />} />
                 <Route path="visits" element={<Visits />} />
+                <Route path="demands" element={<Demands />} />
+                <Route path="events" element={<Events />} />
                 <Route path="voters/new" element={<NewVoter />} />
                 <Route path="voters/map" element={<VoterMap />} />
                 <Route path="voters/stations-map" element={<PollingStationMap />} />

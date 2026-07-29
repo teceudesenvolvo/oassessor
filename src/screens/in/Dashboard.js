@@ -46,6 +46,8 @@ export default function Dashboard() {
     else if (path.includes('/leaderships')) setActiveTab('Lideranças');
     else if (path.includes('/volunteers')) setActiveTab('Voluntários');
     else if (path.includes('/visits')) setActiveTab('Visitas');
+    else if (path.includes('/demands')) setActiveTab('Demandas');
+    else if (path.includes('/events')) setActiveTab('Eventos');
     else if (path.includes('/voters/stations-map')) setActiveTab('Mapa de Colégios');
     else if (path.includes('/voters')) setActiveTab('Eleitores');
     else if (path.includes('/vote-comparison')) setActiveTab('Comparativo 2024');
@@ -100,6 +102,8 @@ export default function Dashboard() {
     else if (tabName === 'Lideranças') navigate('/dashboard/leaderships');
     else if (tabName === 'Voluntários') navigate('/dashboard/volunteers');
     else if (tabName === 'Visitas') navigate('/dashboard/visits');
+    else if (tabName === 'Demandas') navigate('/dashboard/demands');
+    else if (tabName === 'Eventos') navigate('/dashboard/events');
     else if (tabName === 'Eleitores') navigate('/dashboard/voters');
     else if (tabName === 'Mapa de Colégios') navigate('/dashboard/voters/stations-map');
     else if (tabName === 'Comparativo 2024') navigate('/dashboard/vote-comparison');

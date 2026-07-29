@@ -19,7 +19,9 @@ import {
   Route,
   Network,
   HandHelping,
-  MapPinned
+  MapPinned,
+  ClipboardList,
+  CalendarHeart
 } from 'lucide-react';
 import Logo from '../assets/logomarca-vertical.png';
 
@@ -35,6 +37,8 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
     { name: 'Lideranças', icon: Network },
     { name: 'Voluntários', icon: HandHelping },
     { name: 'Visitas', icon: MapPinned },
+    { name: 'Demandas', icon: ClipboardList },
+    { name: 'Eventos', icon: CalendarHeart },
     { name: 'Mapa de Colégios', icon: School },
     { name: 'Comparativo 2024', icon: BarChart2 },
     { name: 'Minha Equipe', icon: Users },
