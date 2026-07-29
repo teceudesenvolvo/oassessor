@@ -215,7 +215,7 @@ export default function Leaderships() {
         </InsightPanel>
 
         <InsightPanel title="Leitura da rede" subtitle="Indicadores rápidos da estrutura" compact>
-          <div className="campaign-notes-list">
+          <div className="campaign-notes-list leadership-side-scroll">
             <div className="campaign-note-item">
               <strong>Eleitores disponíveis</strong>
               <p>{availableVoters.length} ainda não estão vinculados a uma liderança.</p>

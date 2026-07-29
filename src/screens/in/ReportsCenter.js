@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Download, FileSpreadsheet, FileText, PlusSquare } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, LineChart, PlusSquare } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import InsightPanel from '../../components/dashboard/InsightPanel';
@@ -114,6 +114,24 @@ export default function ReportsCenter() {
         </div>
       </section>
 
+      <section className="campaign-hero">
+        <div className="campaign-hero-copy">
+          <p className="campaign-kicker">
+            <LineChart size={16} />
+            Relatórios executivos
+          </p>
+          <h2>Transforme dados da operação em leitura clara para decisão, auditoria e apresentação.</h2>
+          <span>
+            Consolidamos gráficos, exportação e resumos em um layout mais objetivo, leve para mobile e confortável para consultas longas.
+          </span>
+        </div>
+        <div className="campaign-goal-card">
+          <span>Linhas prontas</span>
+          <strong>{filteredRows.length}</strong>
+          <p>{filter === 'territory' ? 'Recortes territoriais' : 'Indicadores executivos'} preparados para exportação.</p>
+        </div>
+      </section>
+
       <div className="campaign-metrics-grid">
         <MetricCard title="Eleitores" value={summary.voters} helper="Base consolidada" />
         <MetricCard title="Apoiadores" value={summary.supporters} helper="Recorte eleitoral ativo" tone="success" />
@@ -145,7 +163,7 @@ export default function ReportsCenter() {
         </InsightPanel>
 
         <InsightPanel title="Tabela resumida" subtitle="Pronta para exportação e leitura mobile" compact>
-          <div className="reports-table-list">
+          <div className="reports-table-list scrollable-panel long-list-panel">
             {loading ? <div className="campaign-empty-state">Carregando relatórios...</div> : null}
             {!loading && filteredRows.length === 0 ? <div className="campaign-empty-state">Nenhum dado encontrado para o relatório atual.</div> : null}
 

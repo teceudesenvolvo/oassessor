@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /registros_temporarios/{document=**} {
+      allow read, create, update, delete: if true;
+    }
+
+    match /eleitores/{voterId} {
+      allow create: if signedIn()
+        || (
+          request.resource.data.creatorId is string
+          && request.resource.data.creatorId.size() > 0
+          && request.resource.data.origin == 'public_form'
+        );
+      allow read, update, delete: if signedIn();
+    }
+
+    match /{document=**} {
+      allow read, create, update, delete: if signedIn();
+    }
+  }
+}

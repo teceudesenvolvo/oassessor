@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
-import { get, query, orderByChild, equalTo, ref } from 'firebase/database';
-import { database } from '../firebaseConfig';
+import {
+  getAssessorsByAdminHybrid,
+  getTasksByAdminHybrid,
+  getUserProfileHybrid,
+  getVotersByOwnersHybrid
+} from '../services/campaignDataService';
 
 const DEFAULT_FILTERS = {
   campaign: 'all',
@@ -107,38 +111,18 @@ export function useCampaignDashboard(user) {
       try {
         setLoading(true);
 
-        let currentUserType = null;
-        let adminId = user.uid;
-
-        if (user.email) {
-          const assessoresRef = ref(database, 'assessores');
-          const qEmail = query(assessoresRef, orderByChild('email'), equalTo(user.email));
-          const snapshotEmail = await get(qEmail);
-          if (snapshotEmail.exists()) currentUserType = 'assessor';
-        }
-
-        const usersRef = ref(database, 'users');
-        const qUser = query(usersRef, orderByChild('userId'), equalTo(user.uid));
-        const userSnapshot = await get(qUser);
-        if (userSnapshot.exists()) {
-          const userData = Object.values(userSnapshot.val())[0];
-          currentUserType = userData.tipoUser || currentUserType;
-          if (userData.adminId) adminId = userData.adminId;
-        }
+        const profile = await getUserProfileHybrid(user.uid, user.email);
+        const currentUserType = profile?.tipoUser || profile?.tipo || profile?.role || (user.email ? 'assessor' : null);
+        const adminId = profile?.adminId || user.uid;
 
         const effectiveAdminId = currentUserType === 'admin' ? user.uid : adminId;
-
-        const assessoresRef = ref(database, 'assessores');
-        const assessorsSnapshot = await get(query(assessoresRef, orderByChild('adminId'), equalTo(effectiveAdminId)));
-        const assessors = assessorsSnapshot.exists()
-          ? Object.entries(assessorsSnapshot.val()).map(([id, value]) => ({
-              id,
-              ...value,
-              nome: value.nome || value.name || value.email || 'Assessor',
-              equipeNome: normalizeUpper(value.equipe || value.cargo || 'Equipe principal'),
-              ownerKey: value.userId || value.email || id
-            }))
-          : [];
+        const assessorsRaw = await getAssessorsByAdminHybrid(effectiveAdminId);
+        const assessors = assessorsRaw.map((value) => ({
+          ...value,
+          nome: value.nome || value.name || value.email || 'Assessor',
+          equipeNome: normalizeUpper(value.equipe || value.cargo || 'Equipe principal'),
+          ownerKey: value.userId || value.email || value.id
+        }));
 
         const ownerIds = new Set([effectiveAdminId]);
         const ownerEmails = new Set([user.email].filter(Boolean));
@@ -147,66 +131,53 @@ export function useCampaignDashboard(user) {
           if (assessor.email) ownerEmails.add(assessor.email);
         });
 
-        const votersRef = ref(database, 'eleitores');
-        const voterQueries = [
-          ...[...ownerIds].map((id) => get(query(votersRef, orderByChild('creatorId'), equalTo(id)))),
-          ...[...ownerEmails].map((email) => get(query(votersRef, orderByChild('creatorEmail'), equalTo(email))))
-        ];
-
-        const tasksRef = ref(database, 'tarefas');
-        const tasksSnapshot = await get(query(tasksRef, orderByChild('adminId'), equalTo(effectiveAdminId)));
-
-        const voterSnapshots = await Promise.all(voterQueries);
+        const rawVoters = await getVotersByOwnersHybrid([...ownerIds], [...ownerEmails]);
+        const rawTasks = await getTasksByAdminHybrid(effectiveAdminId);
         const votersMap = new Map();
 
-        voterSnapshots.forEach((snapshot) => {
-          if (!snapshot.exists()) return;
-          Object.entries(snapshot.val()).forEach(([id, value]) => {
-            const creatorKey = value.creatorId || value.creatorEmail || effectiveAdminId;
-            const matchedAssessor = assessors.find((assessor) =>
-              assessor.userId === value.creatorId || assessor.email === value.creatorEmail
-            );
+        rawVoters.forEach((value) => {
+          const creatorKey = value.creatorId || value.creatorEmail || effectiveAdminId;
+          const matchedAssessor = assessors.find((assessor) =>
+            assessor.userId === value.creatorId || assessor.email === value.creatorEmail
+          );
 
-            votersMap.set(id, {
-              id,
-              ...value,
-              campaign: normalizeUpper(value.campanha || value.campaign || 'Campanha principal'),
-              neighborhood: normalizeUpper(value.bairro || 'Sem bairro'),
-              region: normalizeUpper(value.regiao || value.cidade || value.zona || 'Sem região'),
-              assessorKey: creatorKey,
-              assessorName:
-                creatorKey === effectiveAdminId
-                  ? 'Administrador'
-                  : matchedAssessor?.nome || value.creatorEmail || 'Assessor',
-              teamName:
-                matchedAssessor?.equipeNome ||
-                normalizeUpper(value.equipe || matchedAssessor?.cargo || 'Equipe principal'),
-              createdAtDate: parseDate(value.createdAt),
-              updatedAtDate: parseDate(value.updatedAt),
-              nextContactDate: parseDate(value.proximoContato || value.nextContactAt),
-              stageLabel:
-                value.etapa ||
-                value.statusEleitoral ||
-                value.classificacao ||
-                value.tipoApoio ||
-                'Sem classificação'
-            });
+          votersMap.set(value.id, {
+            id: value.id,
+            ...value,
+            campaign: normalizeUpper(value.campanha || value.campaign || 'Campanha principal'),
+            neighborhood: normalizeUpper(value.bairro || 'Sem bairro'),
+            region: normalizeUpper(value.regiao || value.cidade || value.zona || 'Sem região'),
+            assessorKey: creatorKey,
+            assessorName:
+              creatorKey === effectiveAdminId
+                ? 'Administrador'
+                : matchedAssessor?.nome || value.creatorEmail || 'Assessor',
+            teamName:
+              matchedAssessor?.equipeNome ||
+              normalizeUpper(value.equipe || matchedAssessor?.cargo || 'Equipe principal'),
+            createdAtDate: parseDate(value.createdAt),
+            updatedAtDate: parseDate(value.updatedAt),
+            nextContactDate: parseDate(value.proximoContato || value.nextContactAt),
+            stageLabel:
+              value.etapa ||
+              value.statusEleitoral ||
+              value.classificacao ||
+              value.tipoApoio ||
+              'Sem classificação'
           });
         });
 
         const voters = [...votersMap.values()];
-        const tasks = tasksSnapshot.exists()
-          ? Object.entries(tasksSnapshot.val()).map(([id, value]) => ({
-              id,
-              ...value,
-              taskDate: parseDate(value.fullDate || value.data),
-              teamName: normalizeUpper(value.equipe || 'Equipe principal'),
-              assessorKey: value.creatorId || effectiveAdminId,
-              assessorName: value.creatorName || value.creatorEmail || 'Equipe',
-              campaign: normalizeUpper(value.campanha || 'Campanha principal'),
-              region: normalizeUpper(value.regiao || 'Sem região')
-            }))
-          : [];
+        const tasks = rawTasks.map((value) => ({
+          id: value.id,
+          ...value,
+          taskDate: parseDate(value.fullDate || value.data),
+          teamName: normalizeUpper(value.equipe || 'Equipe principal'),
+          assessorKey: value.creatorId || effectiveAdminId,
+          assessorName: value.creatorName || value.creatorEmail || 'Equipe',
+          campaign: normalizeUpper(value.campanha || 'Campanha principal'),
+          region: normalizeUpper(value.regiao || 'Sem região')
+        }));
 
         const birthdays = voters
           .filter((voter) => {

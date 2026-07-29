@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getDatabase } from "firebase/database";
+import { getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
 
 // Substitua pelas suas credenciais do Firebase Console
@@ -16,7 +16,11 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const FIRESTORE_DATABASE_ID = "(default)";
 export const auth = getAuth(app);
 
-export const database = getDatabase(app);
+export const firestore = getFirestore(app, FIRESTORE_DATABASE_ID);
+// Alias temporário para manter compatibilidade com componentes durante a transição.
+// Todas as operações de dados são executadas pela camada Firestore.
+export const database = firestore;
 export const analytics = getAnalytics(app);

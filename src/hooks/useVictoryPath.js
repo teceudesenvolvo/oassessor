@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { equalTo, get, onValue, orderByChild, push, query, ref, set, update } from 'firebase/database';
+import { equalTo, get, onValue, orderByChild, push, query, ref, set, update } from '../services/firestoreDatabase';
 import { database } from '../firebaseConfig';
 
 const CONFIRMED_STAGES = ['voto confirmado', 'confirmado'];

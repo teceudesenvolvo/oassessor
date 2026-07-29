@@ -59,6 +59,24 @@ export default function TerritoryCenter() {
         </p>
       </section>
 
+      <section className="campaign-hero">
+        <div className="campaign-hero-copy">
+          <p className="campaign-kicker">
+            <Layers3 size={16} />
+            Leitura territorial
+          </p>
+          <h2>Entenda concentração, pressão e presença de campo em uma única visão operacional.</h2>
+          <span>
+            O território agora conversa melhor com a camada executiva: mapa, calor lógico e listas auxiliares com limites seguros de rolagem.
+          </span>
+        </div>
+        <div className="campaign-goal-card">
+          <span>Bairros monitorados</span>
+          <strong>{neighborhoodSummary.length}</strong>
+          <p>{stats.mappedVoters} registro(s) já possuem coordenadas úteis para leitura geográfica.</p>
+        </div>
+      </section>
+
       <div className="campaign-metrics-grid">
         <MetricCard title="Eleitores" value={stats.voters} helper="Base territorial total" />
         <MetricCard title="Georreferenciados" value={stats.mappedVoters} helper="Com latitude e longitude" tone="success" />
@@ -101,8 +119,8 @@ export default function TerritoryCenter() {
         </InsightPanel>
 
         <InsightPanel title="Heatmap lógico por bairro" subtitle="Intensidade combinada de eleitores, visitas e demandas" compact>
-          <div className="territory-heat-list">
-            {neighborhoodSummary.slice(0, 12).map((item) => (
+          <div className="territory-heat-list scrollable-panel long-list-panel">
+            {neighborhoodSummary.map((item) => (
               <div key={item.name} className="territory-heat-card">
                 <div className="territory-heat-head">
                   <strong>{item.name}</strong>
@@ -129,7 +147,7 @@ export default function TerritoryCenter() {
 
       <div className="campaign-secondary-grid territory-secondary-grid">
         <InsightPanel title="Eventos por território" subtitle="Próximas ativações no mapa">
-          <div className="territory-mini-list">
+          <div className="territory-mini-list scrollable-panel compact-list-panel">
             {territory.events.length === 0 ? (
               <div className="campaign-empty-state">Nenhum evento cadastrado ainda.</div>
             ) : (
@@ -144,7 +162,7 @@ export default function TerritoryCenter() {
         </InsightPanel>
 
         <InsightPanel title="Demandas territoriais" subtitle="Onde a pressão comunitária está maior">
-          <div className="territory-mini-list">
+          <div className="territory-mini-list scrollable-panel compact-list-panel">
             {territory.demands.length === 0 ? (
               <div className="campaign-empty-state">Nenhuma demanda cadastrada ainda.</div>
             ) : (
@@ -159,7 +177,7 @@ export default function TerritoryCenter() {
         </InsightPanel>
 
         <InsightPanel title="Lideranças no território" subtitle="Rede organizada por bairro">
-          <div className="territory-mini-list">
+          <div className="territory-mini-list scrollable-panel compact-list-panel">
             {territory.leaderships.length === 0 ? (
               <div className="campaign-empty-state">Nenhuma liderança cadastrada ainda.</div>
             ) : (

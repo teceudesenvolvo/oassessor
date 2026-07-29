@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { equalTo, get, onValue, orderByChild, query, ref } from 'firebase/database';
+import { equalTo, get, onValue, orderByChild, query, ref } from '../services/firestoreDatabase';
 import { database } from '../firebaseConfig';
 
 const normalizeUpper = (value) => String(value || '').trim().toUpperCase();

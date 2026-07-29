@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ref, push, set, get } from 'firebase/database';
+import { ref, push, set, get } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import { CheckCircle } from 'lucide-react';
 import Navbar from '../../components/Navbar';

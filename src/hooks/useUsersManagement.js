@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { equalTo, get, onValue, orderByChild, push, query, ref, remove, set, update } from 'firebase/database';
+import { equalTo, get, onValue, orderByChild, push, query, ref, remove, set, update } from '../services/firestoreDatabase';
 import { database } from '../firebaseConfig';
 import { logAuditEvent } from '../services/auditService';
 

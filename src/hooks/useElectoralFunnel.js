@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { equalTo, get, onValue, orderByChild, push, query, ref, set, update } from 'firebase/database';
-import { database } from '../firebaseConfig';
+import {
+  getAssessorsByAdminHybrid,
+  getUserProfileHybrid,
+  getVotersByOwnersHybrid,
+  updateVoterFunnelHybrid
+} from '../services/campaignDataService';
 
 export const FUNNEL_STAGES = [
   'Não contatado',
@@ -105,37 +109,16 @@ export function useElectoralFunnel(user) {
     if (!user) return;
 
     let active = true;
-    const unsubscribes = [];
-
     const fetchFunnel = async () => {
       try {
         setLoading(true);
 
-        let currentUserType = null;
-        let adminId = user.uid;
-
-        if (user.email) {
-          const assessoresRef = ref(database, 'assessores');
-          const qEmail = query(assessoresRef, orderByChild('email'), equalTo(user.email));
-          const snapshotEmail = await get(qEmail);
-          if (snapshotEmail.exists()) currentUserType = 'assessor';
-        }
-
-        const usersRef = ref(database, 'users');
-        const qUser = query(usersRef, orderByChild('userId'), equalTo(user.uid));
-        const userSnapshot = await get(qUser);
-        if (userSnapshot.exists()) {
-          const userData = Object.values(userSnapshot.val())[0];
-          currentUserType = userData.tipoUser || currentUserType;
-          if (userData.adminId) adminId = userData.adminId;
-        }
+        const profile = await getUserProfileHybrid(user.uid, user.email);
+        const currentUserType = profile?.tipoUser || profile?.tipo || profile?.role || (user.email ? 'assessor' : null);
+        const adminId = profile?.adminId || user.uid;
 
         const effectiveAdminId = currentUserType === 'admin' ? user.uid : adminId;
-        const assessoresRef = ref(database, 'assessores');
-        const assessorsSnapshot = await get(query(assessoresRef, orderByChild('adminId'), equalTo(effectiveAdminId)));
-        const assessorsList = assessorsSnapshot.exists()
-          ? Object.entries(assessorsSnapshot.val()).map(([id, value]) => ({ id, ...value }))
-          : [];
+        const assessorsList = await getAssessorsByAdminHybrid(effectiveAdminId);
 
         if (!active) return;
         setUserType(currentUserType || 'assessor');
@@ -149,53 +132,14 @@ export function useElectoralFunnel(user) {
           if (assessor.email) ownerEmails.add(assessor.email);
         });
 
-        const votersRef = ref(database, 'eleitores');
-        const collectionMap = new Map();
+        const votersList = await getVotersByOwnersHybrid([...ownerIds], [...ownerEmails]);
+        if (!active) return;
 
-        const syncCollection = () => {
-          if (!active) return;
-          const mapped = [...collectionMap.entries()].map(([id, value]) =>
-            mapVoter(user, assessorsList, effectiveAdminId, id, value)
-          );
-          setVoters(mapped);
-          setLoading(false);
-        };
-
-        ownerIds.forEach((ownerId) => {
-          const ownerQuery = query(votersRef, orderByChild('creatorId'), equalTo(ownerId));
-          const unsubscribe = onValue(ownerQuery, (snapshot) => {
-            [...collectionMap.keys()].forEach((key) => {
-              if (collectionMap.get(key)?.creatorId === ownerId) collectionMap.delete(key);
-            });
-
-            if (snapshot.exists()) {
-              Object.entries(snapshot.val()).forEach(([id, value]) => {
-                collectionMap.set(id, value);
-              });
-            }
-
-            syncCollection();
-          });
-          unsubscribes.push(unsubscribe);
-        });
-
-        ownerEmails.forEach((email) => {
-          const ownerQuery = query(votersRef, orderByChild('creatorEmail'), equalTo(email));
-          const unsubscribe = onValue(ownerQuery, (snapshot) => {
-            [...collectionMap.keys()].forEach((key) => {
-              if (collectionMap.get(key)?.creatorEmail === email) collectionMap.delete(key);
-            });
-
-            if (snapshot.exists()) {
-              Object.entries(snapshot.val()).forEach(([id, value]) => {
-                collectionMap.set(id, value);
-              });
-            }
-
-            syncCollection();
-          });
-          unsubscribes.push(unsubscribe);
-        });
+        const mapped = votersList.map((item) =>
+          mapVoter(user, assessorsList, effectiveAdminId, item.id, item)
+        );
+        setVoters(mapped);
+        setLoading(false);
       } catch (error) {
         console.error('Erro ao carregar funil eleitoral:', error);
         if (active) setLoading(false);
@@ -206,7 +150,6 @@ export function useElectoralFunnel(user) {
 
     return () => {
       active = false;
-      unsubscribes.forEach((unsubscribe) => unsubscribe());
     };
   }, [user]);
 
@@ -274,14 +217,21 @@ export function useElectoralFunnel(user) {
     const voter = voters.find((item) => item.id === voterId);
     if (!voter) return;
 
-    const voterRef = ref(database, `eleitores/${voterId}`);
-    const historyRef = push(ref(database, `eleitores/${voterId}/funnelHistory`));
     const changedAt = new Date().toISOString();
     const safeNotes = notes ?? voter.funnelNotes ?? '';
     const safeResponsible = responsible || voter.funnelOwner || user?.displayName || user?.email || 'Equipe';
+    const historyEntry = {
+      fromStage: voter.funnelStage || 'Não contatado',
+      toStage,
+      notes: safeNotes,
+      nextContact: nextContact || '',
+      responsible: safeResponsible,
+      changedAt
+    };
 
-    await Promise.all([
-      update(voterRef, {
+    await updateVoterFunnelHybrid(
+      voterId,
+      {
         funnelStage: toStage,
         funnelNotes: safeNotes,
         funnelNextContact: nextContact || '',
@@ -290,16 +240,29 @@ export function useElectoralFunnel(user) {
         etapa: toStage,
         proximoContato: nextContact || '',
         updatedAt: changedAt
-      }),
-      set(historyRef, {
-        fromStage: voter.funnelStage || 'Não contatado',
-        toStage,
-        notes: safeNotes,
-        nextContact: nextContact || '',
-        responsible: safeResponsible,
-        changedAt
-      })
-    ]);
+      },
+      historyEntry
+    );
+
+    setVoters((current) =>
+      current.map((item) =>
+        item.id === voterId
+          ? {
+              ...item,
+              funnelStage: toStage,
+              funnelNotes: safeNotes,
+              funnelNextContact: nextContact || '',
+              funnelOwner: safeResponsible,
+              funnelUpdatedAt: changedAt,
+              etapa: toStage,
+              proximoContato: nextContact || '',
+              updatedAt: changedAt,
+              nextContactDate: parseDate(nextContact || ''),
+              history: [{ id: `history_${Date.now()}`, ...historyEntry }, ...(item.history || [])]
+            }
+          : item
+      )
+    );
   };
 
   return {

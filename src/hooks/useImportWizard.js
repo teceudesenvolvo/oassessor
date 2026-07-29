@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { equalTo, get, orderByChild, push, query, ref, set } from 'firebase/database';
+import { equalTo, get, orderByChild, push, query, ref, set } from '../services/firestoreDatabase';
 import { database } from '../firebaseConfig';
 import { logAuditEvent } from '../services/auditService';
 

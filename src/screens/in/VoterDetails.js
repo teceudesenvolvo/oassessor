@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Trash2, MessageCircle, Rows3, History } from 'lucide-react';
-import { ref, get, update, remove } from 'firebase/database';
+import { ref, get, update, remove } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import { FUNNEL_STAGES } from '../../hooks/useElectoralFunnel';
 

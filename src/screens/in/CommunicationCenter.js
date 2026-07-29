@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Copy, MessageSquare, Plus, Save, Search, Trash2, UsersRound } from 'lucide-react';
+import { Copy, MessageSquare, Plus, Save, Search, Sparkles, Trash2, UsersRound } from 'lucide-react';
 import InsightPanel from '../../components/dashboard/InsightPanel';
 import MetricCard from '../../components/dashboard/MetricCard';
 import { useCommunicationCenter } from '../../hooks/useCommunicationCenter';
@@ -199,6 +199,24 @@ export default function CommunicationCenter() {
         </div>
       </section>
 
+      <section className="campaign-hero">
+        <div className="campaign-hero-copy">
+          <p className="campaign-kicker">
+            <Sparkles size={16} />
+            Comunicação segmentada
+          </p>
+          <h2>Organize públicos, reutilize mensagens e mantenha o relacionamento mais pessoal.</h2>
+          <span>
+            A central foi desenhada para operação manual com velocidade: segmentação clara, biblioteca pronta e listas controladas para não estourar a página.
+          </span>
+        </div>
+        <div className="campaign-goal-card">
+          <span>Contatos filtrados</span>
+          <strong>{filteredContacts.length}</strong>
+          <p>{templates.length} modelo(s) disponíveis para copiar e adaptar no contexto certo.</p>
+        </div>
+      </section>
+
       <div className="campaign-metrics-grid">
         <MetricCard title="Contatos" value={stats.total} helper="Base disponível para segmentação" />
         <MetricCard title="Apoiadores" value={stats.supporters} helper="Público de mobilização" tone="success" />
@@ -245,7 +263,7 @@ export default function CommunicationCenter() {
         </InsightPanel>
 
         <InsightPanel title="Modelos de mensagem" subtitle="Biblioteca pronta para copiar e adaptar" compact>
-          <div className="communication-template-list">
+          <div className="communication-template-list communication-template-list-scroll">
             {templates.map((template) => (
               <div key={template.id} className="communication-template-card">
                 <div className="communication-template-head">

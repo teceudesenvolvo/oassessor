@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Camera } from 'lucide-react';
-import { ref, get, update, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, get, update, query, orderByChild, equalTo } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 

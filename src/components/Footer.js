@@ -14,19 +14,19 @@ export default function Footer() {
       {!isDashboard && (
         <div className="footer-content">
           <div className="footer-brand">
-            <div className="logo-container">
-              <span><img src={Logo} alt="Logo" className='logo-img-footer' /></span>
+            <div className="footer-brand-mark">
+              <img src={Logo} alt="Logo" className='logo-img-footer' />
             </div>
+            <p>Plataforma premium para gestão de campanhas, operação territorial e relacionamento eleitoral.</p>
           </div>
           
           <div className="footer-info">
-            <h4>Contato</h4>
-            <p>Email: </p>
-            <p>Telefone: </p>
+            <h4>Portal</h4>
+            <p>Experiência web com foco em performance, mobilização e inteligência operacional.</p>
           </div>
 
           <div className="footer-links">
-            <h4>Links</h4>
+            <h4>Acesso</h4>
             <ul>
               <li><Link className='footer-links' to="/login">Cadastrar-se</Link></li>
               <li><Link className='footer-links' to="/login">Entrar na sua conta</Link></li>
@@ -34,6 +34,7 @@ export default function Footer() {
           </div>
 
           <div className="footer-apps">
+            <h4>Apps</h4>
             <div className="store-buttons">
                <div className="store-badge"><img className='lojas-app-footer' src={AppStore} alt="App Store"/></div>
                <div className="store-badge"><img className='lojas-app-footer' src={GooglePlay} alt="Google Play"/></div>

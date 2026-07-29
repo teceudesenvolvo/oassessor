@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, BrainCircuit, Lock, Send, ShieldCheck } from 'lucide-react';
+import { Bot, BrainCircuit, Lock, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import InsightPanel from '../../components/dashboard/InsightPanel';
 import MetricCard from '../../components/dashboard/MetricCard';
 import { useAICenter } from '../../hooks/useAICenter';
@@ -36,6 +36,24 @@ export default function AICenter() {
         <p style={{ margin: 0, color: '#64748b', lineHeight: 1.6 }}>
           Estrutura preparada para IA sem usar chave da OpenAI no frontend. Esta etapa entrega telas, contratos, serviços e fluxo seguro de integração futura.
         </p>
+      </section>
+
+      <section className="campaign-hero">
+        <div className="campaign-hero-copy">
+          <p className="campaign-kicker">
+            <Sparkles size={16} />
+            Camada inteligente pronta
+          </p>
+          <h2>Uma central preparada para IA com segurança, contratos claros e integração futura sem improviso.</h2>
+          <span>
+            A experiência já antecipa o uso real do produto, preservando a exigência principal: nada de segredo exposto no frontend.
+          </span>
+        </div>
+        <div className="campaign-goal-card">
+          <span>Recursos previstos</span>
+          <strong>{features.length}</strong>
+          <p>{selectedFeature?.title || 'Fluxo seguro'} disponível para simulação e evolução backend-first.</p>
+        </div>
       </section>
 
       <div className="campaign-metrics-grid">

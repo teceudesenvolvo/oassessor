@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Eye, Map, FileDown, UserPlus, Link as LinkIcon, Filter } from 'lucide-react';
-import { ref, query, orderByChild, equalTo, onValue, get } from 'firebase/database';
+import { Search, Eye, Map, FileDown, UserPlus, Link as LinkIcon, Filter, List, LayoutGrid } from 'lucide-react';
+import { ref, query, orderByChild, equalTo, onValue, get } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 import jsPDF from 'jspdf';
@@ -23,6 +23,7 @@ export default function Voters() {
   const [filterSection, setFilterSection] = useState('');
   const [filterPollingPlace, setFilterPollingPlace] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('oassessor-voters-view') || 'cards');
 
   useEffect(() => {
     if (!user) return;
@@ -157,6 +158,10 @@ export default function Voters() {
       unsubscribes.forEach(unsub => unsub());
     };
   }, [user]);
+
+  useEffect(() => {
+    localStorage.setItem('oassessor-voters-view', viewMode);
+  }, [viewMode]);
 
   const uniqueCities = [...new Set(voters.map(v => v.cidade).filter(Boolean))].sort();
   const uniqueNeighborhoods = [...new Set(voters.map(v => v.bairro).filter(Boolean))].sort();
@@ -330,11 +335,11 @@ export default function Voters() {
   };
 
   return (
-    <div className="dashboard-card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+    <div className="dashboard-card voters-shell">
+      <div className="voters-toolbar">
         <h3>Base ({filteredVoters?.length || 0} eleitores)</h3>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <div className="search-box" style={{ display: 'flex' }}>
+        <div className="voters-toolbar-actions">
+          <label className="funnel-search-box voters-search-box">
             <Search size={18} />
             <input 
               type="text" 
@@ -342,12 +347,11 @@ export default function Voters() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-          </div>
+          </label>
           
           {isAdmin && (
             <select 
-              className="custom-input" 
-              style={{ width: 'auto', padding: '8px', height: '40px' }}
+              className="campaign-filter-select voters-owner-filter"
               value={filterOwner}
               onChange={(e) => setFilterOwner(e.target.value)}
             >
@@ -359,49 +363,59 @@ export default function Voters() {
             </select>
           )}
 
-          <button className="icon-btn" onClick={copyVoterFormLink} title="Link de Cadastro" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px', width: 'auto', height: 'auto', backgroundColor: '#f8fafc' }}>
+          <button className="icon-btn voters-action-btn" onClick={copyVoterFormLink} title="Link de Cadastro">
             <LinkIcon size={20} color="#64748b" />
           </button>
-          <button className="icon-btn" onClick={() => navigate('/dashboard/voters/new')} title="Novo Eleitor" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px', width: 'auto', height: 'auto', backgroundColor: '#dcfce7', color: '#166534' }}>
+          <button className="icon-btn voters-action-btn is-primary" onClick={() => navigate('/dashboard/voters/new')} title="Novo Eleitor">
             <UserPlus size={20} />
           </button>
-          <button className="icon-btn" onClick={() => navigate('/dashboard/voters/map')} title="Ver no Mapa" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px', width: 'auto', height: 'auto', backgroundColor: '#f8fafc' }}>
+          <button className="icon-btn voters-action-btn" onClick={() => navigate('/dashboard/voters/map')} title="Ver no Mapa">
             <Map size={20} color="#3b82f6" />
           </button>
-          <button className={`icon-btn ${showFilters ? 'active' : ''}`} onClick={() => setShowFilters(!showFilters)} title="Filtros Avançados" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px', width: 'auto', height: 'auto', backgroundColor: showFilters ? '#e0f2fe' : '#f8fafc', color: showFilters ? '#0284c7' : '#64748b' }}>
+          <button className={`icon-btn voters-action-btn ${showFilters ? 'active' : ''}`} onClick={() => setShowFilters(!showFilters)} title="Filtros Avançados">
             <Filter size={20} />
           </button>
-          <button onClick={generatePdf} className="icon-btn" title="Gerar PDF" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px', width: 'auto', height: 'auto', backgroundColor: '#f8fafc' }}>
+          <button onClick={generatePdf} className="icon-btn voters-action-btn" title="Gerar PDF">
             <FileDown size={20} color="#ef4444" />
           </button>
+          <div className="funnel-view-switch voters-view-switch">
+            <button className={viewMode === 'cards' ? 'active' : ''} onClick={() => setViewMode('cards')} type="button">
+              <LayoutGrid size={16} />
+              Cards
+            </button>
+            <button className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')} type="button">
+              <List size={16} />
+              Lista
+            </button>
+          </div>
         </div>
       </div>
 
       {showFilters && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-            <select className="custom-input" value={filterCity} onChange={e => setFilterCity(e.target.value)} style={{ padding: '8px' }}>
+        <div className="voters-filters-panel">
+            <select className="campaign-filter-select" value={filterCity} onChange={e => setFilterCity(e.target.value)}>
                 <option value="">Todas as Cidades</option>
                 {uniqueCities.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-            <select className="custom-input" value={filterNeighborhood} onChange={e => setFilterNeighborhood(e.target.value)} style={{ padding: '8px' }}>
+            <select className="campaign-filter-select" value={filterNeighborhood} onChange={e => setFilterNeighborhood(e.target.value)}>
                 <option value="">Todos os Bairros</option>
                 {uniqueNeighborhoods.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
-            <select className="custom-input" value={filterZone} onChange={e => setFilterZone(e.target.value)} style={{ padding: '8px' }}>
+            <select className="campaign-filter-select" value={filterZone} onChange={e => setFilterZone(e.target.value)}>
                 <option value="">Todas as Zonas</option>
                 {uniqueZones.map(z => <option key={z} value={z}>{z}</option>)}
             </select>
-            <select className="custom-input" value={filterSection} onChange={e => setFilterSection(e.target.value)} style={{ padding: '8px' }}>
+            <select className="campaign-filter-select" value={filterSection} onChange={e => setFilterSection(e.target.value)}>
                 <option value="">Todas as Seções</option>
                 {uniqueSections.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <select className="custom-input" value={filterPollingPlace} onChange={e => setFilterPollingPlace(e.target.value)} style={{ padding: '8px' }}>
+            <select className="campaign-filter-select" value={filterPollingPlace} onChange={e => setFilterPollingPlace(e.target.value)}>
                 <option value="">Todos os Locais</option>
                 {uniquePollingPlaces.map(l => <option key={l} value={l}>{l.split(' - ')[0]}</option>)}
             </select>
-            <button onClick={() => {
+            <button className="btn-secondary voters-clear-btn" onClick={() => {
                 setFilterCity(''); setFilterNeighborhood(''); setFilterZone(''); setFilterSection(''); setFilterPollingPlace('');
-            }} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', cursor: 'pointer', color: '#64748b', fontWeight: '500' }}>
+            }}>
                 Limpar Filtros
             </button>
         </div>
@@ -420,45 +434,71 @@ export default function Voters() {
             <p>Nenhum eleitor encontrado para esta busca.</p>
           </div>
         )
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0 }}>
+      ) : viewMode === 'list' ? (
+        <ul className="voters-list-scroll">
           {filteredVoters.map(voter => (
-            <li key={voter.id} style={{ padding: '15px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontWeight: 'bold', color: '#0f172a' }}>{voter.nome}</div>
-                <div style={{ fontSize: '0.9rem', color: '#64748b' }}>{voter.telefone || voter.email}</div>
+            <li key={voter.id} className="voters-list-item">
+              <div className="voters-list-copy">
+                <div className="voters-list-name">{voter.nome}</div>
+                <div className="voters-list-contact">{voter.telefone || voter.email}</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <div style={{
-                  fontSize: '0.78rem',
-                  fontWeight: '700',
-                  color: '#166534',
-                  backgroundColor: '#dcfce7',
-                  padding: '6px 10px',
-                  borderRadius: '999px',
-                  whiteSpace: 'nowrap'
-                }}>
+              <div className="voters-list-meta">
+                <div className="voters-stage-pill">
                   {voter.funnelStage || voter.etapa || 'Não contatado'}
                 </div>
-                <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                <div className="voters-list-neighborhood">
                   {voter.bairro || 'Sem bairro'}
                 </div>
                 <button 
-                  className="icon-btn" 
+                  className="icon-btn voters-detail-btn" 
                   onClick={() => navigate(`/dashboard/voters/${voter.id}`)} 
-                  title="Ver Detalhes"
-                  style={{
-                    backgroundColor: '#dcfce7',
-                    color: '#16a34a',
-                    borderRadius: '8px',
-                    padding: '5px'
-                  }}>
+                  title="Ver Detalhes">
                   <Eye size={20} />
                 </button>
               </div>
             </li>
           ))}
         </ul>
+      ) : (
+        <div className="voters-cards-grid">
+          {filteredVoters.map((voter) => (
+            <article key={voter.id} className="voters-card-item">
+              <div className="voters-card-head">
+                <div className="voters-list-copy">
+                  <div className="voters-list-name">{voter.nome}</div>
+                  <div className="voters-list-contact">{voter.telefone || voter.email || 'Sem contato principal'}</div>
+                </div>
+                <div className="voters-stage-pill">
+                  {voter.funnelStage || voter.etapa || 'Não contatado'}
+                </div>
+              </div>
+              <div className="voters-card-body">
+                <div className="voters-card-field">
+                  <span>Bairro</span>
+                  <strong>{voter.bairro || 'Sem bairro'}</strong>
+                </div>
+                <div className="voters-card-field">
+                  <span>Cidade</span>
+                  <strong>{voter.cidade || 'Sem cidade'}</strong>
+                </div>
+                <div className="voters-card-field">
+                  <span>Zona / Seção</span>
+                  <strong>{[voter.zona, voter.secao].filter(Boolean).join(' / ') || 'Não informado'}</strong>
+                </div>
+              </div>
+              <div className="voters-card-actions">
+                <button
+                  className="icon-btn voters-detail-btn"
+                  onClick={() => navigate(`/dashboard/voters/${voter.id}`)}
+                  title="Ver Detalhes"
+                  type="button"
+                >
+                  <Eye size={20} />
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
       )}
     </div>
   );

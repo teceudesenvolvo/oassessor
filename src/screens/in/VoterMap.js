@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { ref, query, orderByChild, equalTo, get, update } from 'firebase/database';
+import { ref, query, orderByChild, equalTo, get, update } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 import { ArrowLeft } from 'lucide-react';

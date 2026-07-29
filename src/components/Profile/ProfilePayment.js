@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CreditCard, MapPin, X } from 'lucide-react';
-import { ref, update } from 'firebase/database';
+import { ref, update } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 
 export default function ProfilePayment({ user, profileData, setProfileData, handleSave, loading, handleMaskedInput }) {

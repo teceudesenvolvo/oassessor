@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
-import { ref, push, set, get } from 'firebase/database';
+import { ref, push, set, get } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 

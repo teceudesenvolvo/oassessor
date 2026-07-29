@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserPlus, MoreVertical, X, Edit, Trash, Share2 } from 'lucide-react';
-import { ref, query, orderByChild, equalTo, onValue, push, set, update, remove } from 'firebase/database';
+import { ref, query, orderByChild, equalTo, onValue, push, set, update, remove } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 import { useTeamPerformance } from '../../hooks/useTeamPerformance';

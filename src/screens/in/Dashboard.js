@@ -1,20 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
   User, 
   Menu,
-  Bell
+  Bell,
+  Moon,
+  Sun
 } from 'lucide-react';
 import Sidebar from '../../components/Sidebar';
+import NotificationsModal from '../../components/NotificationsModal';
 import { useAuth } from '../../useAuth';
-import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { ref, query, orderByChild, equalTo, onValue, update } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 
  
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('Inicio');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => localStorage.getItem('oassessor-sidebar-collapsed') === 'true');
   const [notificationCount, setNotificationCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('oassessor-theme') || 'light');
   const [showTransition, setShowTransition] = useState(() => {
     return !sessionStorage.getItem('dashboard_welcome_shown');
   });
@@ -24,6 +32,15 @@ export default function Dashboard() {
   const { user } = useAuth();
  
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('oassessor-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('oassessor-sidebar-collapsed', String(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
 
   useEffect(() => {
     if (showTransition) {
@@ -60,7 +77,6 @@ export default function Dashboard() {
     else if (path.includes('/voters/stations-map')) setActiveTab('Mapa de Colégios');
     else if (path.includes('/voters')) setActiveTab('Eleitores');
     else if (path.includes('/vote-comparison')) setActiveTab('Comparativo 2024');
-    else if (path.includes('/data-migration')) setActiveTab('Migração de Dados');
     else if (path.includes('/profile')) setActiveTab('Perfil');
     else if (path.includes('/notifications')) setActiveTab('Notificações');
     else setActiveTab('Inicio');
@@ -79,9 +95,13 @@ export default function Dashboard() {
 
     const updateCount = () => {
       const combined = { ...notifsByUser, ...notifsByAdmin };
-      // Conta notificações que não possuem a propriedade 'read: true'
-      const unreadCount = Object.values(combined).filter(n => !n.read).length;
+      const list = Object.keys(combined)
+        .map((key) => ({ id: key, ...combined[key] }))
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      const unreadCount = list.filter((n) => !n.read).length;
+      setNotifications(list);
       setNotificationCount(unreadCount);
+      setNotificationsLoading(false);
     };
 
     const unsubUser = onValue(qUser, (snapshot) => {
@@ -99,6 +119,18 @@ export default function Dashboard() {
       unsubAdmin();
     };
   }, [user]);
+
+  const markAllNotificationsAsRead = async () => {
+    const unread = notifications.filter((item) => !item.read);
+    for (const item of unread) {
+      await update(ref(database, `notificacoes/${item.id}`), { read: true, readAt: new Date().toISOString() });
+    }
+  };
+
+  const pageTitle = useMemo(() => {
+    if (activeTab === 'Inicio') return 'Central da Campanha';
+    return activeTab;
+  }, [activeTab]);
 
   // Função para navegar quando clicar no Sidebar
   const handleNavigation = (tabName) => {
@@ -126,8 +158,6 @@ export default function Dashboard() {
     else if (tabName === 'Mapa de Colégios') navigate('/dashboard/voters/stations-map');
     else if (tabName === 'Comparativo 2024') navigate('/dashboard/vote-comparison');
     else if (tabName === 'Perfil') navigate('/dashboard/profile');
-    else if (tabName === 'Notificações') navigate('/dashboard/notifications');
-    else if (tabName === 'Migração de Dados') navigate('/dashboard/data-migration');
   };
 
   return (
@@ -181,20 +211,33 @@ export default function Dashboard() {
         setActiveTab={handleNavigation} 
         isOpen={isMobileMenuOpen} 
         toggleMenu={toggleMobileMenu} 
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
       />
 
       {/* --- Conteúdo Principal --- */}
-      <main className="dashboard-content">
-        {/* Topbar Mobile & Desktop */}
+      <main className={`dashboard-content ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <header className="dashboard-topbar">
-          <button className="menu-toggle-btn" onClick={toggleMobileMenu}>
-            <Menu size={24} />
-          </button>
-          <h2 className="page-title"> </h2>
+          <div className="dashboard-topbar-left">
+            <button className="menu-toggle-btn glass-icon-btn" onClick={toggleMobileMenu}>
+              <Menu size={22} />
+            </button>
+            <div className="dashboard-page-heading">
+              <span className="dashboard-page-kicker">Workspace</span>
+              <h2 className="page-title">{pageTitle}</h2>
+            </div>
+          </div>
           
           <div className="topbar-actions">
-            
-            <button className="icon-btn" onClick={() => handleNavigation('Notificações')}>
+            <button
+              className="icon-btn glass-icon-btn"
+              onClick={() => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))}
+              aria-label="Alternar tema"
+            >
+              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+            </button>
+
+            <button className="icon-btn glass-icon-btn" onClick={() => setIsNotificationsOpen(true)} aria-label="Abrir notificações">
               <Bell size={20} />
               {notificationCount > 0 && (
                 <span className="notification-dot">
@@ -202,20 +245,25 @@ export default function Dashboard() {
                 </span>
               )}
             </button>
-            <div className="user-avatar-sm">
+            <button className="user-avatar-sm" onClick={() => navigate('/dashboard/profile')} aria-label="Abrir perfil">
               <User size={20} />
-            </div>
+            </button>
           </div>
         </header>
 
-        {/* Área Dinâmica */}
         <div className="content-area">
           <Outlet />
         </div>
       </main>
 
-      {/* Overlay para mobile */}
       {isMobileMenuOpen && <div className="sidebar-overlay" onClick={toggleMobileMenu}></div>}
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        notifications={notifications}
+        loading={notificationsLoading}
+        onMarkAllRead={markAllNotificationsAsRead}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CheckCircle2, ChevronLeft, ChevronRight, Filter, GripVertical, List, MessageSquareText, PanelLeftDashed, PhoneCall, Save, Search } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Filter, GripVertical, List, MessageSquareText, PanelLeftDashed, PhoneCall, Save, Search, TrendingUp } from 'lucide-react';
 import { FUNNEL_STAGES, useElectoralFunnel } from '../../hooks/useElectoralFunnel';
 import { useAuth } from '../../useAuth';
 
@@ -55,6 +55,14 @@ export default function ElectoralFunnel() {
     { value: 'scheduled', label: 'Com próximo contato' },
     { value: 'overdue', label: 'Atrasados' }
   ];
+
+  const totalVoters = filteredVoters.length;
+  const convertedVoters = groupedByStage['Voto confirmado']?.length || 0;
+  const probableVoters =
+    (groupedByStage['Simpatizante']?.length || 0) +
+    (groupedByStage['Apoiador']?.length || 0) +
+    (groupedByStage['Voluntário']?.length || 0) +
+    (groupedByStage['Multiplicador']?.length || 0);
 
   const openEditor = (voter) => {
     setSelectedVoter(voter);
@@ -133,7 +141,7 @@ export default function ElectoralFunnel() {
 
   return (
     <div className="campaign-dashboard">
-      <section className="campaign-filters-card">
+      <section className="campaign-filters-card funnel-filters-card">
         <div className="campaign-filters-header">
           <div>
             <p className="campaign-kicker">
@@ -171,7 +179,7 @@ export default function ElectoralFunnel() {
             />
           </label>
 
-          <div className="campaign-filters-grid">
+          <div className="campaign-filters-grid funnel-filters-grid">
             <FunnelFilterSelect
               label="Etapa"
               value={filters.stage}
@@ -203,6 +211,24 @@ export default function ElectoralFunnel() {
               options={nextContactOptions}
             />
           </div>
+        </div>
+      </section>
+
+      <section className="campaign-hero">
+        <div className="campaign-hero-copy">
+          <p className="campaign-kicker">
+            <TrendingUp size={16} />
+            Jornada de conversão
+          </p>
+          <h2>Visualize gargalos, priorize contatos e mova a base com mais previsibilidade.</h2>
+          <span>
+            O funil concentra leitura operacional e ação rápida, com Kanban, lista estratégica e atualização direta por eleitor.
+          </span>
+        </div>
+        <div className="campaign-goal-card">
+          <span>Conversão atual</span>
+          <strong>{totalVoters ? `${Math.round((convertedVoters / totalVoters) * 100)}%` : '0%'}</strong>
+          <p>{convertedVoters} voto(s) confirmados e {probableVoters} em zona imediata de conversão.</p>
         </div>
       </section>
 

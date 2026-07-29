@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, AlertCircle, CheckCircle } from 'lucide-react';
-import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { ref, query, orderByChild, equalTo, onValue } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 

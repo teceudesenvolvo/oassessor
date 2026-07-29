@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Cog, Plus, Save, Settings2, Trash2 } from 'lucide-react';
+import { Cog, Plus, Save, Settings2, ShieldCheck, Trash2 } from 'lucide-react';
 import InsightPanel from '../../components/dashboard/InsightPanel';
 import MetricCard from '../../components/dashboard/MetricCard';
 import { useSettingsCenter } from '../../hooks/useSettingsCenter';
@@ -51,9 +51,7 @@ export default function SettingsCenter() {
     () => [
       { key: 'emailInvites', label: 'Convites por e-mail' },
       { key: 'auditTrail', label: 'Trilha de auditoria' },
-      { key: 'aiReady', label: 'Estrutura de IA pronta' },
-      { key: 'storageMigration', label: 'Migração de mídias para Storage' },
-      { key: 'firestoreMigration', label: 'Migração de dados para Firestore' }
+      { key: 'aiReady', label: 'Estrutura de IA pronta' }
     ],
     []
   );
@@ -73,6 +71,24 @@ export default function SettingsCenter() {
         <p style={{ margin: 0, color: '#64748b', lineHeight: 1.6 }}>
           Centralize campanha, cargos, bairros, zonas, equipes, categorias, permissões e integrações em um único lugar, mantendo compatibilidade com a base atual.
         </p>
+      </section>
+
+      <section className="campaign-hero">
+        <div className="campaign-hero-copy">
+          <p className="campaign-kicker">
+            <ShieldCheck size={16} />
+            Governança central
+          </p>
+          <h2>Configure a operação inteira em um ambiente mais claro, confiável e pronto para escala.</h2>
+          <span>
+            Campanha, catálogos, permissões e integrações foram organizados para leitura rápida, menos ruído visual e melhor uso em telas menores.
+          </span>
+        </div>
+        <div className="campaign-goal-card">
+          <span>Itens de governança</span>
+          <strong>{stats.catalogs + stats.roles}</strong>
+          <p>{stats.activeIntegrations} integração(ões) ativa(s) e matriz de acesso centralizada.</p>
+        </div>
       </section>
 
       <div className="campaign-metrics-grid">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, get, query, orderByChild, equalTo } from '../services/firestoreDatabase';
 import { auth, database } from '../firebaseConfig';
 import { useAuth } from '../useAuth';
 import { 
@@ -14,7 +14,6 @@ import {
   X,
   School,
   BarChart2,
-  DatabaseZap,
   Rows3,
   Route,
   Network,
@@ -30,39 +29,60 @@ import {
   ShieldCheck,
   ScrollText,
   FileUp,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
-import Logo from '../assets/logomarca-vertical.png';
+import Logo from '../assets/sidebar-app-icon.png';
 
-export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu }) {
+export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, isCollapsed = false, onToggleCollapse }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [userType, setUserType] = useState(null);
-  const menuItems = [
-    { name: 'Inicio', icon: Home },
-    { name: 'Eleitores', icon: Vote },
-    { name: 'Funil Eleitoral', icon: Rows3 },
-    { name: 'Caminho para a Vitória', icon: Route },
-    { name: 'Lideranças', icon: Network },
-    { name: 'Voluntários', icon: HandHelping },
-    { name: 'Visitas', icon: MapPinned },
-    { name: 'Demandas', icon: ClipboardList },
-    { name: 'Eventos', icon: CalendarHeart },
-    { name: 'Comunicação', icon: MessagesSquare },
-    { name: 'Território', icon: Map },
-    { name: 'Pesquisas', icon: ClipboardCheck },
-    { name: 'Relatórios', icon: Files },
-    { name: 'IA', icon: Sparkles },
-    { name: 'Usuários', icon: ShieldCheck },
-    { name: 'Auditoria', icon: ScrollText },
-    { name: 'Importação', icon: FileUp },
-    { name: 'Configurações', icon: SlidersHorizontal },
-    { name: 'Mapa de Colégios', icon: School },
-    { name: 'Comparativo 2024', icon: BarChart2 },
-    { name: 'Minha Equipe', icon: Users },
-    { name: 'Agenda', icon: Calendar },
-    { name: 'Perfil', icon: User },
-    { name: 'Migração de Dados', icon: DatabaseZap },
+  const menuGroups = [
+    {
+      label: 'Central',
+      items: [
+        { name: 'Inicio', icon: Home },
+        { name: 'Eleitores', icon: Vote },
+        { name: 'Funil Eleitoral', icon: Rows3 },
+        { name: 'Caminho para a Vitória', icon: Route },
+        { name: 'Relatórios', icon: Files },
+        { name: 'IA', icon: Sparkles }
+      ]
+    },
+    {
+      label: 'Operação',
+      items: [
+        { name: 'Lideranças', icon: Network },
+        { name: 'Voluntários', icon: HandHelping },
+        { name: 'Visitas', icon: MapPinned },
+        { name: 'Demandas', icon: ClipboardList },
+        { name: 'Eventos', icon: CalendarHeart },
+        { name: 'Comunicação', icon: MessagesSquare },
+        { name: 'Território', icon: Map },
+        { name: 'Pesquisas', icon: ClipboardCheck },
+        { name: 'Minha Equipe', icon: Users },
+        { name: 'Agenda', icon: Calendar }
+      ]
+    },
+    {
+      label: 'Administração',
+      items: [
+        { name: 'Usuários', icon: ShieldCheck },
+        { name: 'Auditoria', icon: ScrollText },
+        { name: 'Importação', icon: FileUp },
+        { name: 'Configurações', icon: SlidersHorizontal }
+      ]
+    },
+    {
+      label: 'Mapas e utilitários',
+      items: [
+        { name: 'Mapa de Colégios', icon: School },
+        { name: 'Comparativo 2024', icon: BarChart2 },
+        { name: 'Perfil', icon: User }
+      ]
+    }
   ];
 
   useEffect(() => {
@@ -109,12 +129,16 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
     }
   }, [user]);
 
-  const filteredMenuItems = menuItems.filter(item => {
-    if (item.name === 'Migração de Dados') return userType === 'admin';
-    if (item.name === 'Auditoria') return userType === 'admin';
-    if (item.name === 'Configurações') return userType === 'admin';
-    return !(userType === 'assessor' && item.name === 'Minha Equipe');
-  });
+  const filteredMenuGroups = menuGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (item.name === 'Auditoria') return userType === 'admin';
+        if (item.name === 'Configurações') return userType === 'admin';
+        return !(userType === 'assessor' && item.name === 'Minha Equipe');
+      })
+    }))
+    .filter((group) => group.items.length > 0);
 
   const handleLogout = async () => {
     try {
@@ -126,34 +150,43 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
   };
 
   return (
-    <aside className={`dashboard-sidebar ${isOpen ? 'mobile-open' : ''}`}>
+    <aside className={`dashboard-sidebar ${isOpen ? 'mobile-open' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
-        <img src={Logo} alt="Logo" className="sidebar-logo" />
+        <div className="sidebar-brand">
+          <img src={Logo} alt="Logo" className="sidebar-logo" />
+        </div>
+        <button className="sidebar-collapse-btn" onClick={onToggleCollapse} aria-label={isCollapsed ? 'Expandir menu' : 'Recolher menu'}>
+          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
         <button className="close-menu-btn" onClick={toggleMenu}>
           <X size={24} />
         </button>
       </div>
 
       <nav className="sidebar-nav">
-        <ul>
-          {filteredMenuItems.map((item) => (
-            <li key={item.name}>
-              <button 
-                className={`nav-item ${activeTab === item.name ? 'active' : ''}`}
-                onClick={() => {
-                  setActiveTab(item.name);
-                  // Fecha o menu mobile ao clicar em um item, se necessário
-                  if (window.innerWidth <= 768) {
-                    toggleMenu();
-                  }
-                }}
-              >
-                <item.icon size={20} />
-                <span>{item.name}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        {filteredMenuGroups.map((group) => (
+          <div key={group.label} className="sidebar-group">
+            <p className="sidebar-group-label">{group.label}</p>
+            <ul>
+              {group.items.map((item) => (
+                <li key={item.name}>
+                  <button 
+                    className={`nav-item ${activeTab === item.name ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveTab(item.name);
+                      if (window.innerWidth <= 768) {
+                        toggleMenu();
+                      }
+                    }}
+                  >
+                    <item.icon size={18} />
+                    <span>{item.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       <div className="sidebar-footer">

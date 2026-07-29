@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { User, MapPin, CreditCard, CheckCircle, ArrowRight, ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react';
 import { auth, database } from '../../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { ref, set, push, update, get, remove } from 'firebase/database';
+import { ref, set, push, update, get, remove } from '../../services/firestoreDatabase';
 import Logo from '../../assets/logomarca-vertical-azul.png';
 
 const CREATE_SUBSCRIPTION_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/createSubscription';

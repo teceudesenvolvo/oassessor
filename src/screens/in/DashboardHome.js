@@ -1,5 +1,16 @@
 import React from 'react';
-import { AlertTriangle, CalendarClock, CheckCircle2, MessageCircle, Target, Users2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  CalendarClock,
+  CheckCircle2,
+  MessageCircle,
+  ShieldAlert,
+  Target,
+  TrendingUp,
+  Users2,
+  Vote
+} from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useAuth } from '../../useAuth';
 import { useCampaignDashboard } from '../../hooks/useCampaignDashboard';
@@ -25,41 +36,107 @@ export default function DashboardHome() {
   } = useCampaignDashboard(user);
 
   const handleWhatsApp = (phone, name) => {
-    if (!phone) return alert("Telefone não cadastrado.");
+    if (!phone) return alert('Telefone não cadastrado.');
     let cleanPhone = phone.replace(/\D/g, '');
-    // Adiciona DDI 55 se não tiver (assumindo números BR)
     if (cleanPhone.length <= 11) {
-      cleanPhone = '55' + cleanPhone;
+      cleanPhone = `55${cleanPhone}`;
     }
     const message = `Parabéns ${name}! Feliz aniversário! 🎉`;
-    
+
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const url = isMobile 
+    const url = isMobile
       ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`
       : `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
 
     window.open(url, '_blank');
   };
 
+  const conversionRate = metrics.voters
+    ? `${Math.round((metrics.confirmedVotes / metrics.voters) * 100)}%`
+    : '0%';
+
+  const executionRate = metrics.agendaToday
+    ? `${Math.max(0, Math.round(((metrics.agendaToday - metrics.pendingTasks) / metrics.agendaToday) * 100))}%`
+    : 'Sem agenda';
+
+  const strategicSignals = [
+    {
+      title: 'Conversão atual',
+      value: conversionRate,
+      helper: `${metrics.confirmedVotes} voto(s) confirmados em ${metrics.voters} cadastro(s).`,
+      icon: TrendingUp
+    },
+    {
+      title: 'Execução do dia',
+      value: executionRate,
+      helper: metrics.agendaToday
+        ? `${metrics.pendingTasks} item(ns) ainda pedem ação hoje.`
+        : 'Nenhum compromisso programado para hoje.',
+      icon: CalendarClock
+    },
+    {
+      title: 'Pontos de atenção',
+      value: `${metrics.alerts}`,
+      helper: metrics.alerts
+        ? 'Alertas operacionais ativos no recorte atual.'
+        : 'Sem bloqueios críticos neste momento.',
+      icon: ShieldAlert
+    }
+  ];
+
+  const executiveHighlights = [
+    { label: 'Base monitorada', value: metrics.voters, tone: 'default' },
+    { label: 'Apoio em construção', value: metrics.probableVotes, tone: 'highlight' },
+    { label: 'Risco de dispersão', value: metrics.undecided, tone: 'warning' },
+    { label: 'Mobilização pronta', value: metrics.volunteers, tone: 'success' }
+  ];
+
   return (
     <div className="campaign-dashboard">
       <CampaignFilters filters={filters} setFilters={setFilters} options={filterOptions} />
 
-      <section className="campaign-hero">
-        <div className="campaign-hero-copy">
-          <p className="campaign-kicker">
-            <Target size={16} />
-            Operação eleitoral em tempo real
-          </p>
-          <h2>Visão consolidada da campanha para decidir o próximo movimento.</h2>
+      <section className="campaign-hero campaign-hero-executive">
+        <div className="campaign-hero-copy executive-copy">
+          <div className="campaign-hero-topline">
+            <p className="campaign-kicker">
+              <Target size={16} />
+              Central estratégica da campanha
+            </p>
+            <span className="campaign-hero-status">
+              <CheckCircle2 size={14} />
+              Operação sincronizada
+            </span>
+          </div>
+
+          <h2>Dashboard executivo para decidir rápido, priorizar melhor e mover a campanha com confiança.</h2>
           <span>
-            Painel conectado à base atual do portal web, pronto para evoluir para funil, metas e território nas próximas fases.
+            Consolidamos captação, conversão, tarefas e sinais de risco em uma leitura premium, com foco em clareza no desktop e fluidez no mobile.
           </span>
+
+          <div className="campaign-executive-strip">
+            {executiveHighlights.map((item) => (
+              <article key={item.label} className={`campaign-executive-pill ${item.tone}`}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </article>
+            ))}
+          </div>
         </div>
-        <div className="campaign-goal-card">
-          <span>Meta eleitoral</span>
+
+        <div className="campaign-goal-card campaign-goal-executive">
+          <div className="campaign-goal-header">
+            <span>Meta eleitoral</span>
+            <Vote size={18} />
+          </div>
           <strong>{metrics.goal.value}</strong>
           <p>{metrics.goal.helper}</p>
+          <div className="campaign-goal-progress">
+            <div
+              className="campaign-goal-progress-bar"
+              style={{ width: `${Math.min(100, Math.round((metrics.confirmedVotes / Math.max(metrics.voters || 1, 1)) * 100))}%` }}
+            />
+          </div>
+          <small>{conversionRate} da base já está em voto confirmado.</small>
         </div>
       </section>
 
@@ -78,6 +155,53 @@ export default function DashboardHome() {
         <MetricCard title="Tarefas pendentes" value={metrics.pendingTasks} helper="Itens aguardando conclusão" tone="warning" />
         <MetricCard title="Demandas críticas" value={metrics.criticalDemands} helper="Pendências já atrasadas" tone="danger" />
         <MetricCard title="Alertas" value={metrics.alerts} helper="Sinais que pedem correção de rota" tone="danger" />
+      </div>
+
+      <div className="campaign-executive-grid">
+        <InsightPanel title="Resumo executivo" subtitle="Os indicadores que orientam a próxima decisão" compact>
+          <div className="campaign-signal-grid">
+            {strategicSignals.map((signal) => (
+              <article key={signal.title} className="campaign-signal-card">
+                <div className="campaign-signal-icon">
+                  <signal.icon size={18} />
+                </div>
+                <div>
+                  <span>{signal.title}</span>
+                  <strong>{signal.value}</strong>
+                  <p>{signal.helper}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </InsightPanel>
+
+        <InsightPanel title="Direção sugerida" subtitle="Leitura automatizada do recorte atual" compact>
+          <div className="campaign-priority-stack">
+            <article className="campaign-priority-card success">
+              <div>
+                <strong>Expandir a conversão</strong>
+                <p>Priorize apoiadores e simpatizantes com maior chance de virar voto confirmado.</p>
+              </div>
+              <ArrowUpRight size={18} />
+            </article>
+
+            <article className="campaign-priority-card warning">
+              <div>
+                <strong>Ativar os indecisos</strong>
+                <p>{metrics.undecided} contato(s) pedem abordagem consultiva e próximo passo claro.</p>
+              </div>
+              <AlertTriangle size={18} />
+            </article>
+
+            <article className="campaign-priority-card neutral">
+              <div>
+                <strong>Organizar execução</strong>
+                <p>{metrics.pendingTasks} tarefa(s) pendentes impactam a cadência operacional.</p>
+              </div>
+              <CalendarClock size={18} />
+            </article>
+          </div>
+        </InsightPanel>
       </div>
 
       <div className="campaign-main-grid">
@@ -106,7 +230,7 @@ export default function DashboardHome() {
           </div>
         </InsightPanel>
 
-        <InsightPanel title="Alertas operacionais" subtitle="Atenção para o que pode travar a campanha" compact>
+        <InsightPanel title="Sala de comando" subtitle="Onde agir primeiro para manter tração" compact>
           <div className="campaign-alert-list">
             {alerts.length === 0 ? (
               <div className="campaign-empty-state">
@@ -208,10 +332,7 @@ export default function DashboardHome() {
                     <strong>{voter.nome}</strong>
                     <p>{voter.telefone || 'Sem telefone cadastrado'}</p>
                   </div>
-                  <button
-                    onClick={() => handleWhatsApp(voter.telefone, voter.nome)}
-                    className="campaign-inline-action"
-                  >
+                  <button onClick={() => handleWhatsApp(voter.telefone, voter.nome)} className="campaign-inline-action">
                     <MessageCircle size={16} />
                     Parabenizar
                   </button>
@@ -228,16 +349,16 @@ export default function DashboardHome() {
         >
           <div className="campaign-notes-list">
             <div className="campaign-note-item">
-              <strong>Filtros aplicam-se em toda a central.</strong>
-              <p>Bairro, região, equipe, assessor e período já influenciam métricas, alertas e ranking.</p>
+              <strong>Filtros governam toda a Home.</strong>
+              <p>Campanha, bairro, região, equipe, assessor e período sincronizam métricas, ranking e prioridades.</p>
             </div>
             <div className="campaign-note-item">
-              <strong>Indicadores sem etapa formal usam fallback seguro.</strong>
-              <p>A base já está pronta para receber o funil eleitoral da próxima fase sem refatoração da tela.</p>
+              <strong>A base já conversa com o funil.</strong>
+              <p>Mesmo sem etapa formal em todos os registros, a leitura atual preserva compatibilidade e continuidade.</p>
             </div>
             <div className="campaign-note-item">
-              <strong>Meta ainda é sugestiva nesta etapa.</strong>
-              <p>Na Fase 3, ela passa a vir de configuração explícita por cargo, município e eleição.</p>
+              <strong>Meta ainda é sugerida pela base.</strong>
+              <p>Quando a configuração eleitoral estiver completa, este card passa a refletir metas oficiais por cargo e município.</p>
             </div>
           </div>
         </InsightPanel>

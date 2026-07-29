@@ -1,8 +1,23 @@
 const { onRequest } = require("firebase-functions/v2/https");
+const functionsV1 = require("firebase-functions/v1");
 // const { onValueCreated } = require("firebase-functions/v2/database");
 const nodemailer = require("nodemailer");
 const admin = require("firebase-admin");
+const { getFirestore } = require("firebase-admin/firestore");
 // const { defineSecret } = require('firebase-functions/v2/params');
+const DEFAULT_STORAGE_BUCKET = 'oassessor-blu.firebasestorage.app';
+const DEFAULT_DATABASE_URL = 'https://oassessor-blu-default-rtdb.firebaseio.com';
+const FIRESTORE_DATABASE_ID = '(default)';
+const MIGRATABLE_COLLECTIONS = new Set([
+    'users',
+    'assessores',
+    'eleitores',
+    'tarefas',
+    'notificacoes',
+    'eventos',
+    'demandas',
+    'voluntarios'
+]);
 
 // Defina sua chave de API do Pagar.me
 // const pagarmeApiKey = 'sk_6f45fa07486f49068bde5f4aef9f951e';
@@ -18,7 +33,32 @@ const getPagarmeHeaders = () => {
     };
 };
 
-admin.initializeApp();
+admin.initializeApp({
+    databaseURL: DEFAULT_DATABASE_URL,
+    storageBucket: DEFAULT_STORAGE_BUCKET
+});
+
+const appFirestore = () => getFirestore(admin.app(), FIRESTORE_DATABASE_ID);
+
+const findDocumentByField = async (collectionName, field, value) => {
+    const snapshot = await appFirestore()
+        .collection(collectionName)
+        .where(field, '==', value)
+        .limit(1)
+        .get();
+    return snapshot.empty ? null : snapshot.docs[0];
+};
+
+const findUserProfileByUid = async (uid) => {
+    const directSnapshot = await appFirestore().collection('users').doc(uid).get();
+    if (directSnapshot.exists) return directSnapshot.data();
+
+    const indexedUser = await findDocumentByField('users', 'userId', uid);
+    if (indexedUser) return indexedUser.data();
+
+    const assessor = await findDocumentByField('assessores', 'userId', uid);
+    return assessor?.data() || null;
+};
 
 const extensionForMimeType = (mimeType) => {
     const extensions = {
@@ -48,6 +88,48 @@ const safeFirestoreId = (value, prefix) => {
     return normalized;
 };
 
+const migrationErrorPayload = (error, stage, requestId) => {
+    const rawCode = error?.code;
+    const code = rawCode === 5 || rawCode === '5' ? 'FIRESTORE_NOT_FOUND' : String(rawCode || 'INTERNAL');
+    const rawMessage = error?.message || 'Falha interna durante a migração.';
+
+    if (code === 'FIRESTORE_NOT_FOUND' || /\bNOT_FOUND\b/i.test(rawMessage)) {
+        return {
+            status: 503,
+            body: {
+                error: 'O banco Firestore padrão do projeto não foi encontrado.',
+                code: 'FIRESTORE_NOT_FOUND',
+                stage,
+                requestId,
+                details: `O database ID configurado é “${FIRESTORE_DATABASE_ID}”. Confirme se ele está ativo no projeto oassessor-blu.`
+            }
+        };
+    }
+
+    if (/bucket.*(not found|does not exist)/i.test(rawMessage)) {
+        return {
+            status: 503,
+            body: {
+                error: 'O bucket do Firebase Storage não foi encontrado.',
+                code: 'STORAGE_BUCKET_NOT_FOUND',
+                stage,
+                requestId,
+                details: `Confirme se o bucket ${DEFAULT_STORAGE_BUCKET} está ativo no projeto oassessor-blu.`
+            }
+        };
+    }
+
+    return {
+        status: 500,
+        body: {
+            error: rawMessage,
+            code,
+            stage,
+            requestId
+        }
+    };
+};
+
 const moveInlineMediaToStorage = async (value, context, fieldPath = []) => {
     if (typeof value === 'string') {
         const match = value.match(DATA_URI_PATTERN);
@@ -63,7 +145,7 @@ const moveInlineMediaToStorage = async (value, context, fieldPath = []) => {
             `${fieldName}.${extension}`
         ].join('/');
 
-        await admin.storage().bucket().file(storagePath).save(
+        await admin.storage().bucket(DEFAULT_STORAGE_BUCKET).file(storagePath).save(
             Buffer.from(base64Data, 'base64'),
             {
                 resumable: false,
@@ -101,37 +183,77 @@ const moveInlineMediaToStorage = async (value, context, fieldPath = []) => {
 exports.migrateRtdbToFirestore = onRequest(
   { cors: true, invoker: 'public', timeoutSeconds: 3600, memory: '1GiB' },
   async (req, res) => {
+    const requestId = req.get('X-Request-Id') || `migration-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    let stage = 'request-validation';
+
     if (req.method !== 'POST') {
-        return res.status(405).send({ error: 'Método não permitido.' });
+        return res.status(405).send({ error: 'Método não permitido.', code: 'METHOD_NOT_ALLOWED', requestId });
     }
 
     try {
         const authorization = req.get('Authorization') || '';
         if (!authorization.startsWith('Bearer ')) {
-            return res.status(401).send({ error: 'Autenticação obrigatória.' });
+            return res.status(401).send({ error: 'Autenticação obrigatória.', code: 'UNAUTHENTICATED', requestId });
         }
 
+        stage = 'authentication';
         const decodedToken = await admin.auth().verifyIdToken(authorization.slice(7));
-        const userSnapshot = await admin.database().ref(`users/${decodedToken.uid}`).once('value');
-        if (!userSnapshot.exists() || userSnapshot.val().tipoUser !== 'admin') {
-            return res.status(403).send({ error: 'Somente administradores podem executar a migração.' });
+        stage = 'authorization';
+        const userProfile = await findUserProfileByUid(decodedToken.uid);
+        if (!userProfile || userProfile.tipoUser !== 'admin') {
+            return res.status(403).send({
+                error: 'Somente administradores podem executar a migração.',
+                code: 'PERMISSION_DENIED',
+                requestId
+            });
         }
 
-        const sourceSnapshot = await admin.database().ref().once('value');
-        const sourceData = sourceSnapshot.val() || {};
-        const firestore = admin.firestore();
+        const requestedCollection = String(req.body?.collection || req.query?.collection || '').trim();
+        if (!requestedCollection) {
+            return res.status(400).send({
+                error: 'Informe a collection que deve ser migrada.',
+                code: 'COLLECTION_REQUIRED',
+                requestId
+            });
+        }
+        if (!MIGRATABLE_COLLECTIONS.has(requestedCollection)) {
+            return res.status(400).send({
+                error: `A collection “${requestedCollection}” não está liberada para migração.`,
+                code: 'COLLECTION_NOT_ALLOWED',
+                requestId
+            });
+        }
+
+        stage = 'rtdb-read';
+        const sourceSnapshot = await admin.database().ref(requestedCollection).once('value');
+        if (!sourceSnapshot.exists()) {
+            return res.status(404).send({
+                error: `A collection “${requestedCollection}” não foi encontrada no RTDB.`,
+                code: 'SOURCE_COLLECTION_NOT_FOUND',
+                requestId
+            });
+        }
+        const sourceData = { [requestedCollection]: sourceSnapshot.val() };
+
+        stage = 'firestore-connection';
+        const firestore = getFirestore(admin.app(), FIRESTORE_DATABASE_ID);
+        await firestore.listCollections();
+
         let batch = firestore.batch();
         let pendingWrites = [];
         let documents = 0;
+        let migratedDocuments = 0;
         let mediaFiles = 0;
         let collections = 0;
         const failures = [];
+        const processedCollections = [];
 
         const commitBatch = async () => {
             if (!pendingWrites.length) return;
 
             try {
                 await batch.commit();
+                migratedDocuments += pendingWrites.length;
             } catch (batchError) {
                 console.error('Falha ao gravar lote da migração. Tentando isolar documentos.', {
                     pendingWrites: pendingWrites.map(({ path }) => path),
@@ -141,6 +263,7 @@ exports.migrateRtdbToFirestore = onRequest(
                 for (const pendingWrite of pendingWrites) {
                     try {
                         await pendingWrite.ref.set(pendingWrite.data);
+                        migratedDocuments += 1;
                     } catch (writeError) {
                         failures.push({
                             path: pendingWrite.path,
@@ -165,6 +288,7 @@ exports.migrateRtdbToFirestore = onRequest(
         for (const [sourceCollectionName, collectionValue] of Object.entries(sourceData)) {
             if (collectionValue === null || typeof collectionValue !== 'object') continue;
             collections += 1;
+            processedCollections.push(sourceCollectionName);
             const collectionName = safeFirestoreId(sourceCollectionName, 'rtdb_collection');
 
             for (const [sourceDocumentId, sourceDocument] of Object.entries(collectionValue)) {
@@ -174,6 +298,7 @@ exports.migrateRtdbToFirestore = onRequest(
                     documentId: sourceDocumentId,
                     mediaCount: 0
                 };
+                stage = `media:${sourceCollectionName}/${sourceDocumentId}`;
                 const transformed = await moveInlineMediaToStorage(sourceDocument, mediaContext);
                 const documentData = transformed && typeof transformed === 'object' && !Array.isArray(transformed)
                     ? transformed
@@ -195,32 +320,67 @@ exports.migrateRtdbToFirestore = onRequest(
             }
         }
 
+        stage = 'firestore-write';
         await commitBatch();
-        await firestore.collection('_system_migrations').doc('rtdb-to-firestore').set({
-            completedAt: admin.firestore.FieldValue.serverTimestamp(),
-            executedBy: decodedToken.uid,
-            collections,
-            documents,
-            mediaFiles,
-            failuresCount: failures.length,
-            failures: failures.slice(0, 20)
-        });
+
+        let auditWarning = null;
+        try {
+            stage = 'migration-audit';
+            await firestore.collection('_system_migrations').doc(`rtdb-to-firestore-${requestedCollection}`).set({
+                completedAt: admin.firestore.FieldValue.serverTimestamp(),
+                executedBy: decodedToken.uid,
+                requestedCollection,
+                processedCollections,
+                collections,
+                documents,
+                migratedDocuments,
+                mediaFiles,
+                failuresCount: failures.length,
+                failures: failures.slice(0, 20)
+            }, { merge: true });
+        } catch (auditError) {
+            auditWarning = auditError.message || 'Não foi possível salvar o registro de auditoria.';
+            console.error('A migração terminou, mas o registro de auditoria falhou.', {
+                requestId,
+                requestedCollection,
+                error: auditWarning
+            });
+        }
 
         const responsePayload = {
             success: true,
+            requestId,
+            requestedCollection: requestedCollection || null,
+            processedCollections,
             collections,
             documents,
+            migratedDocuments,
             mediaFiles,
             failuresCount: failures.length,
-            failures: failures.slice(0, 20)
+            failures: failures.slice(0, 20),
+            auditWarning
         };
 
-        return res.status(failures.length ? 207 : 200).send(responsePayload);
+        if (documents > 0 && migratedDocuments === 0) {
+            return res.status(503).send({
+                ...responsePayload,
+                success: false,
+                error: 'Nenhum documento pôde ser gravado no Firestore.',
+                code: 'FIRESTORE_WRITE_FAILED'
+            });
+        }
+
+        return res.status(failures.length || auditWarning ? 207 : 200).send(responsePayload);
     } catch (error) {
-        console.error('Erro ao migrar RTDB para Firestore:', error);
-        return res.status(500).send({
-            error: error.message || 'Falha interna durante a migração.'
+        const diagnostic = migrationErrorPayload(error, stage, requestId);
+        console.error('Erro ao migrar RTDB para Firestore:', {
+            requestId,
+            stage,
+            code: error?.code,
+            message: error?.message,
+            stack: error?.stack
         });
+        return res.status(diagnostic.status).send(diagnostic.body);
     }
   }
 );
@@ -274,9 +434,12 @@ exports.sendInviteEmail = onRequest({ cors: true, invoker: 'public' }, async (re
     }
 });
 
-exports.sendPushOnNotification = require("firebase-functions/v1").database.ref("/notificacoes/{notificationId}").onCreate(async (snapshot, context) => {
-    const notification = snapshot.val();
-    console.log("Nova notificação detectada:", context.params.notificationId);
+exports.sendPushOnFirestoreNotification = functionsV1.firestore
+  .document("notificacoes/{notificationId}")
+  .onCreate(async (snapshot, context) => {
+    const notification = snapshot.data();
+    const notificationId = context.params.notificationId;
+    console.log("Nova notificação detectada:", notificationId);
     
     if (!notification) return;
 
@@ -288,9 +451,12 @@ exports.sendPushOnNotification = require("firebase-functions/v1").database.ref("
     }
 
     try {
-        // Busca o token de push do usuário no banco de dados
-        const userSnapshot = await admin.database().ref(`/users/${userId}`).once('value');
-        const userData = userSnapshot.val();
+        const directUserSnapshot = await appFirestore().collection('users').doc(userId).get();
+        const indexedUserSnapshot = directUserSnapshot.exists
+            ? null
+            : await findDocumentByField('users', 'userId', userId);
+        const userSnapshot = directUserSnapshot.exists ? directUserSnapshot : indexedUserSnapshot;
+        const userData = userSnapshot?.data() || null;
 
         if (!userData || !userData.pushToken) {
             console.log(`FALHA: Usuário ${userId} encontrado? ${!!userData}. Token existe? ${!!userData?.pushToken}`);
@@ -309,7 +475,7 @@ exports.sendPushOnNotification = require("firebase-functions/v1").database.ref("
             contentAvailable: true,
             mutableContent: true,
             data: { 
-                notificationId: context.params.notificationId,
+                notificationId,
                 type: notification.type 
             },
         };
@@ -341,7 +507,9 @@ exports.sendPushOnNotification = require("firebase-functions/v1").database.ref("
                 console.error(`Detalhe do erro: ${ticket.details.error}`);
                 // Se o erro for DeviceNotRegistered, podemos remover o token do banco
                 if (ticket.details.error === 'DeviceNotRegistered') {
-                    await admin.database().ref(`/users/${userId}/pushToken`).remove();
+                    await userSnapshot.ref.update({
+                        pushToken: admin.firestore.FieldValue.delete()
+                    });
                     console.log(`Token inválido removido para o usuário ${userId}`);
                 }
             }
@@ -355,7 +523,7 @@ exports.sendPushOnNotification = require("firebase-functions/v1").database.ref("
             console.error("ALERTA CRÍTICO: Erro de rede detectado. Se você estiver no plano 'Spark' (gratuito) do Firebase, chamadas para APIs externas (como a da Expo) são BLOQUEADAS. Faça upgrade para o plano 'Blaze' (Pay as you go).");
         }
     }
-});
+  });
 
 exports.generateWebAuthToken = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
     if (req.method !== "POST") {
@@ -415,33 +583,30 @@ exports.completeTeamMemberRegistration = onRequest({ cors: true, invoker: 'publi
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const { uid, email } = decodedToken;
 
-        // 2. Encontra o convite em `/assessores` pelo e-mail
-        const assessorsRef = admin.database().ref('assessores');
-        const snapshot = await assessorsRef.orderByChild('email').equalTo(email).once('value');
+        // 2. Encontra o convite em `assessores` pelo e-mail
+        const invitationSnapshot = await findDocumentByField('assessores', 'email', email);
 
-        if (!snapshot.exists()) {
+        if (!invitationSnapshot) {
             return res.status(404).send({ success: false, error: 'Convite não encontrado para este e-mail.' });
         }
 
-        const data = snapshot.val();
-        const userKey = Object.keys(data)[0]; // A chave temporária do convite
-        const assessorData = data[userKey];
+        const userKey = invitationSnapshot.id;
+        const assessorData = invitationSnapshot.data();
 
         // Verifica se o convite já foi usado
         if (assessorData.status !== 'invited') {
             return res.status(409).send({ success: false, error: 'Este convite já foi utilizado.' });
         }
 
-        // 3. Prepara a atualização atômica do banco de dados
-        const updates = {};
+        const firestore = appFirestore();
+        const batch = firestore.batch();
+        batch.set(invitationSnapshot.ref, {
+            userId: uid,
+            uid,
+            status: 'Ativo'
+        }, { merge: true });
 
-        // 3.1 Atualiza o registro em /assessores
-        updates[`/assessores/${userKey}/userId`] = uid;
-        updates[`/assessores/${userKey}/uid`] = uid;
-        updates[`/assessores/${userKey}/status`] = 'Ativo';
-
-        // 3.2 Cria o registro final em /users com o UID real da autenticação
-        updates[`/users/${uid}`] = {
+        batch.set(firestore.collection('users').doc(uid), {
             ...assessorData,
             userId: uid,
             uid: uid,
@@ -453,13 +618,13 @@ exports.completeTeamMemberRegistration = onRequest({ cors: true, invoker: 'publi
             phone: assessorData.telefone || assessorData.phone || '',
             telefone: assessorData.telefone || assessorData.phone || '',
             updatedAt: new Date().toISOString()
-        };
+        });
 
-        // 3.3 Deleta o registro temporário de /users que foi criado no convite
-        updates[`/users/${userKey}`] = null;
+        if (userKey !== uid) {
+            batch.delete(firestore.collection('users').doc(userKey));
+        }
 
-        // 4. Executa a atualização atômica
-        await admin.database().ref().update(updates);
+        await batch.commit();
 
         return res.status(200).send({ success: true, message: 'Cadastro do usuário finalizado com sucesso.' });
 
@@ -546,12 +711,12 @@ exports.createSubscription = onRequest(
       
       if (subResponse.ok && (subscription.status === 'active' || subscription.status === 'paid' || subscription.status === 'pending_payment')) {
         // Salva o ID da assinatura e do cliente no perfil do usuário no Firebase
-        const userRef = admin.database().ref(`users/${userId}`);
-        await userRef.update({
+        const userRef = appFirestore().collection('users').doc(userId);
+        await userRef.set({
           subscriptionId: subscription.id,
           pagarmeCustomerId: subscription.customer.id,
           planId: planId, // Salva o ID do plano do nosso app
-        });
+        }, { merge: true });
 
         res.status(200).send({ success: true, subscriptionId: subscription.id, status: subscription.status });
       } else {
@@ -677,9 +842,9 @@ exports.saveUserCard = onRequest({ cors: true, invoker: 'public' }, async (req, 
 
     try {
         // 1. Check/Create Customer
-        const userRef = admin.database().ref(`users/${userId}`);
-        const userSnap = await userRef.once('value');
-        const userData = userSnap.val() || {};
+        const userRef = appFirestore().collection('users').doc(userId);
+        const userSnap = await userRef.get();
+        const userData = userSnap.data() || {};
         
         let customerId = userData.pagarmeCustomerId;
 
@@ -705,7 +870,7 @@ exports.saveUserCard = onRequest({ cors: true, invoker: 'public' }, async (req, 
             const customer = await custResponse.json();
             if (!custResponse.ok) throw new Error(JSON.stringify(customer));
             customerId = customer.id;
-            await userRef.update({ pagarmeCustomerId: customerId });
+            await userRef.set({ pagarmeCustomerId: customerId }, { merge: true });
         }
 
         // 2. Create Card
@@ -728,7 +893,7 @@ exports.saveUserCard = onRequest({ cors: true, invoker: 'public' }, async (req, 
 
         const currentCards = userData.cards || [];
         currentCards.push(newCard);
-        await userRef.update({ cards: currentCards });
+        await userRef.set({ cards: currentCards }, { merge: true });
 
         res.status(200).send({ success: true, card: newCard });
 
@@ -743,8 +908,8 @@ exports.getSubscriptionDetails = onRequest({ cors: true, invoker: 'public' }, as
     if (!userId) return res.status(400).send("Missing userId");
 
     try {
-        const userSnap = await admin.database().ref(`users/${userId}`).once('value');
-        const userData = userSnap.val();
+        const userSnap = await appFirestore().collection('users').doc(userId).get();
+        const userData = userSnap.data();
 
         if (!userData || !userData.subscriptionId) {
             return res.status(200).send({ subscription: null, invoices: [] });
@@ -785,18 +950,25 @@ exports.getPollingPlace = onRequest({ cors: true, invoker: 'public' }, async (re
     }
 
     try {
-        // Como não há API pública nacional, consultamos nossa base interna importada do TSE.
-        // Estrutura esperada: locais_votacao/{UF}/{ZONA}/{SECAO}
-        let dbPath = 'locais_votacao';
-        
+        // Estrutura migrada: collection locais_votacao, documento por UF,
+        // contendo os mapas de zona e seção.
+        let localData = null;
         if (uf) {
-            dbPath += `/${uf.toUpperCase()}`;
+            const snapshot = await appFirestore()
+                .collection('locais_votacao')
+                .doc(uf.toUpperCase())
+                .get();
+            localData = snapshot.data()?.[zone]?.[section] || null;
+        } else {
+            const snapshot = await appFirestore().collection('locais_votacao').get();
+            for (const stateDocument of snapshot.docs) {
+                const candidate = stateDocument.data()?.[zone]?.[section];
+                if (candidate) {
+                    localData = candidate;
+                    break;
+                }
+            }
         }
-        
-        dbPath += `/${zone}/${section}`;
-        
-        const snapshot = await admin.database().ref(dbPath).once('value');
-        const localData = snapshot.val();
         
         res.status(200).send({ success: true, local: localData || null });
 

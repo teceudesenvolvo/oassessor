@@ -1,4 +1,4 @@
-import { push, ref, set } from 'firebase/database';
+import { push, ref, set } from './firestoreDatabase';
 import { database } from '../firebaseConfig';
 
 const sanitizeDetails = (details = {}) => {
