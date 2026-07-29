@@ -40,6 +40,15 @@ const Volunteers = lazy(() => import('./screens/in/Volunteers'));
 const Visits = lazy(() => import('./screens/in/Visits'));
 const Demands = lazy(() => import('./screens/in/Demands'));
 const Events = lazy(() => import('./screens/in/Events'));
+const CommunicationCenter = lazy(() => import('./screens/in/CommunicationCenter'));
+const TerritoryCenter = lazy(() => import('./screens/in/TerritoryCenter'));
+const ResearchCenter = lazy(() => import('./screens/in/ResearchCenter'));
+const ReportsCenter = lazy(() => import('./screens/in/ReportsCenter'));
+const AICenter = lazy(() => import('./screens/in/AICenter'));
+const UsersManagement = lazy(() => import('./screens/in/UsersManagement'));
+const AuditCenter = lazy(() => import('./screens/in/AuditCenter'));
+const ImportCenter = lazy(() => import('./screens/in/ImportCenter'));
+const SettingsCenter = lazy(() => import('./screens/in/SettingsCenter'));
 const Profile = lazy(() => import('./screens/in/Profile'));
 const Notifications = lazy(() => import('./screens/in/Notifications'));
 const DataMigration = lazy(() => import('./screens/in/DataMigration'));
@@ -87,6 +96,15 @@ function App() {
                 <Route path="visits" element={<Visits />} />
                 <Route path="demands" element={<Demands />} />
                 <Route path="events" element={<Events />} />
+                <Route path="communication" element={<CommunicationCenter />} />
+                <Route path="territory" element={<TerritoryCenter />} />
+                <Route path="research" element={<ResearchCenter />} />
+                <Route path="reports" element={<ReportsCenter />} />
+                <Route path="ai" element={<AICenter />} />
+                <Route path="users" element={<UsersManagement />} />
+                <Route path="audit" element={<AuditCenter />} />
+                <Route path="import" element={<ImportCenter />} />
+                <Route path="settings" element={<SettingsCenter />} />
                 <Route path="voters/new" element={<NewVoter />} />
                 <Route path="voters/map" element={<VoterMap />} />
                 <Route path="voters/stations-map" element={<PollingStationMap />} />

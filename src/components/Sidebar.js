@@ -21,7 +21,16 @@ import {
   HandHelping,
   MapPinned,
   ClipboardList,
-  CalendarHeart
+  CalendarHeart,
+  MessagesSquare,
+  Map,
+  ClipboardCheck,
+  Files,
+  Sparkles,
+  ShieldCheck,
+  ScrollText,
+  FileUp,
+  SlidersHorizontal
 } from 'lucide-react';
 import Logo from '../assets/logomarca-vertical.png';
 
@@ -39,6 +48,15 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
     { name: 'Visitas', icon: MapPinned },
     { name: 'Demandas', icon: ClipboardList },
     { name: 'Eventos', icon: CalendarHeart },
+    { name: 'Comunicação', icon: MessagesSquare },
+    { name: 'Território', icon: Map },
+    { name: 'Pesquisas', icon: ClipboardCheck },
+    { name: 'Relatórios', icon: Files },
+    { name: 'IA', icon: Sparkles },
+    { name: 'Usuários', icon: ShieldCheck },
+    { name: 'Auditoria', icon: ScrollText },
+    { name: 'Importação', icon: FileUp },
+    { name: 'Configurações', icon: SlidersHorizontal },
     { name: 'Mapa de Colégios', icon: School },
     { name: 'Comparativo 2024', icon: BarChart2 },
     { name: 'Minha Equipe', icon: Users },
@@ -93,6 +111,8 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
 
   const filteredMenuItems = menuItems.filter(item => {
     if (item.name === 'Migração de Dados') return userType === 'admin';
+    if (item.name === 'Auditoria') return userType === 'admin';
+    if (item.name === 'Configurações') return userType === 'admin';
     return !(userType === 'assessor' && item.name === 'Minha Equipe');
   });
 
