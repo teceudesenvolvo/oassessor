@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Trash2, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, MessageCircle, Rows3, History } from 'lucide-react';
 import { ref, get, update, remove } from 'firebase/database';
 import { database } from '../../firebaseConfig';
+import { FUNNEL_STAGES } from '../../hooks/useElectoralFunnel';
 
 export default function VoterDetails() {
   const { id } = useParams();
@@ -12,6 +13,7 @@ export default function VoterDetails() {
   const [cepLoading, setCepLoading] = useState(false);
   const [localVotacaoLoading, setLocalVotacaoLoading] = useState(false);
   const [localVotacaoOptions, setLocalVotacaoOptions] = useState([]);
+  const [historyEntries, setHistoryEntries] = useState([]);
   const [formData, setFormData] = useState({
     nome: '',
     apelido: '',
@@ -31,7 +33,11 @@ export default function VoterDetails() {
     numero: '',
     cep: '',
     localVotacao: '',
-    observacoes: ''
+    observacoes: '',
+    funnelStage: 'Não contatado',
+    funnelNotes: '',
+    funnelNextContact: '',
+    funnelOwner: ''
   });
 
   useEffect(() => {
@@ -52,6 +58,16 @@ export default function VoterDetails() {
             data.zona = zona;
             data.secao = secao;
           }
+          data.funnelStage = data.funnelStage || data.etapa || 'Não contatado';
+          data.funnelNotes = data.funnelNotes || '';
+          data.funnelNextContact = data.funnelNextContact || data.proximoContato || '';
+          data.funnelOwner = data.funnelOwner || data.creatorName || data.creatorEmail || '';
+          const history = data.funnelHistory
+            ? Object.entries(data.funnelHistory)
+                .map(([key, value]) => ({ id: key, ...value }))
+                .sort((a, b) => new Date(b.changedAt || 0) - new Date(a.changedAt || 0))
+            : [];
+          setHistoryEntries(history);
           setFormData(data);
         } else {
           alert('Eleitor não encontrado');
@@ -182,6 +198,8 @@ export default function VoterDetails() {
         bairro: formData.bairro ? formData.bairro.trim().toUpperCase() : '',
         cidade: formData.cidade ? formData.cidade.trim().toUpperCase() : '',
         localVotacao: formData.localVotacao ? formData.localVotacao.trim().toUpperCase() : '',
+        etapa: formData.funnelStage || 'Não contatado',
+        proximoContato: formData.funnelNextContact || '',
         updatedAt: new Date().toISOString()
       });
       alert('Dados atualizados com sucesso!');
@@ -247,6 +265,57 @@ export default function VoterDetails() {
       </div>
 
       <form onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+        <h4 style={{ gridColumn: '1 / -1', marginTop: '0', marginBottom: '5px', borderBottom: '1px solid #eee', paddingBottom: '5px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Rows3 size={18} />
+          Funil Eleitoral
+        </h4>
+        <div className="input-group">
+          <label>Etapa Atual</label>
+          <select name="funnelStage" value={formData.funnelStage || 'Não contatado'} onChange={handleChange} className="custom-input-voter custom-input-voter-select">
+            {FUNNEL_STAGES.map((stage) => (
+              <option key={stage} value={stage}>{stage}</option>
+            ))}
+          </select>
+        </div>
+        <div className="input-group">
+          <label>Responsável</label>
+          <input type="text" name="funnelOwner" value={formData.funnelOwner || ''} onChange={handleChange} className="custom-input-voter" placeholder="Responsável pelo relacionamento" />
+        </div>
+        <div className="input-group">
+          <label>Próximo Contato</label>
+          <input type="date" name="funnelNextContact" value={formData.funnelNextContact || ''} onChange={handleChange} className="custom-input-voter" />
+        </div>
+        <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+          <label>Observações do Funil</label>
+          <textarea name="funnelNotes" value={formData.funnelNotes || ''} onChange={handleChange} className="custom-input-voter" style={{ width: '100%', minHeight: '100px', resize: 'vertical', fontFamily: 'inherit' }} placeholder="Contexto do contato, objeções, encaminhamentos e próximos passos." />
+        </div>
+        <div style={{ gridColumn: '1 / -1', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', backgroundColor: '#f8fafc' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <History size={18} color="#64748b" />
+            <strong style={{ color: '#0f172a' }}>Histórico do Funil</strong>
+          </div>
+          {historyEntries.length === 0 ? (
+            <p style={{ margin: 0, color: '#64748b' }}>Ainda não há histórico registrado para este eleitor.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {historyEntries.slice(0, 8).map((entry) => (
+                <div key={entry.id} style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                  <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+                    {entry.fromStage || 'Sem etapa'} → {entry.toStage || 'Sem etapa'}
+                  </div>
+                  <div style={{ color: '#475569', fontSize: '0.9rem', marginBottom: '4px' }}>
+                    {entry.notes || 'Sem observações registradas.'}
+                  </div>
+                  <div style={{ color: '#64748b', fontSize: '0.82rem' }}>
+                    {entry.responsible || 'Equipe'} • {entry.changedAt ? new Date(entry.changedAt).toLocaleString('pt-BR') : 'Sem data'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <h4 style={{ gridColumn: '1 / -1', marginTop: '10px', marginBottom: '5px', borderBottom: '1px solid #eee', paddingBottom: '5px', color: '#64748b' }}>Cadastro Geral</h4>
         <div className="input-group"> <label>Nome Completo</label> <input type="text" name="nome" value={formData.nome || ''} onChange={handleChange} className="custom-input-voter" /> </div>
         <div className="input-group"> <label>Apelido</label> <input type="text" name="apelido" value={formData.apelido || ''} onChange={handleChange} className="custom-input-voter" /> </div>
         <div className="input-group"> <label>E-mail</label> <input type="email" name="email" value={formData.email || ''} onChange={handleChange} className="custom-input-voter" /> </div>

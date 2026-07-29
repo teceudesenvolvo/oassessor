@@ -194,6 +194,12 @@ export default function NewVoter() {
         bairro: formData.bairro ? formData.bairro.trim().toUpperCase() : '',
         cidade: formData.cidade ? formData.cidade.trim().toUpperCase() : '',
         localVotacao: formData.localVotacao ? formData.localVotacao.trim().toUpperCase() : '',
+        funnelStage: 'Não contatado',
+        funnelNotes: formData.observacoes || '',
+        funnelNextContact: '',
+        funnelOwner: user.displayName || user.email || 'Equipe',
+        funnelUpdatedAt: new Date().toISOString(),
+        etapa: 'Não contatado',
         creatorId: user.uid,
         creatorEmail: user.email,
         createdAt: new Date().toISOString()

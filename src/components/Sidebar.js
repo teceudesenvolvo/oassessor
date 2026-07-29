@@ -13,7 +13,12 @@ import {
   LogOut, 
   X,
   School,
-  BarChart2
+  BarChart2,
+  DatabaseZap,
+  Rows3,
+  Route,
+  Network,
+  HandHelping
 } from 'lucide-react';
 import Logo from '../assets/logomarca-vertical.png';
 
@@ -24,11 +29,16 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
   const menuItems = [
     { name: 'Inicio', icon: Home },
     { name: 'Eleitores', icon: Vote },
+    { name: 'Funil Eleitoral', icon: Rows3 },
+    { name: 'Caminho para a Vitória', icon: Route },
+    { name: 'Lideranças', icon: Network },
+    { name: 'Voluntários', icon: HandHelping },
     { name: 'Mapa de Colégios', icon: School },
     { name: 'Comparativo 2024', icon: BarChart2 },
     { name: 'Minha Equipe', icon: Users },
     { name: 'Agenda', icon: Calendar },
     { name: 'Perfil', icon: User },
+    { name: 'Migração de Dados', icon: DatabaseZap },
   ];
 
   useEffect(() => {
@@ -76,6 +86,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu })
   }, [user]);
 
   const filteredMenuItems = menuItems.filter(item => {
+    if (item.name === 'Migração de Dados') return userType === 'admin';
     return !(userType === 'assessor' && item.name === 'Minha Equipe');
   });
 

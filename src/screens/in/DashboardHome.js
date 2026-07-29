@@ -1,257 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { MessageCircle } from 'lucide-react';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, BarChart, Bar, Legend 
-} from 'recharts';
-import { ref, query as rQuery, orderByChild, equalTo, get } from 'firebase/database';
-import { database } from '../../firebaseConfig';
+import React from 'react';
+import { AlertTriangle, CalendarClock, CheckCircle2, MessageCircle, Target, Users2 } from 'lucide-react';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useAuth } from '../../useAuth';
+import { useCampaignDashboard } from '../../hooks/useCampaignDashboard';
+import CampaignFilters from '../../components/dashboard/CampaignFilters';
+import MetricCard from '../../components/dashboard/MetricCard';
+import InsightPanel from '../../components/dashboard/InsightPanel';
 
 export default function DashboardHome() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({
-    voters: 0,
-    team: 0,
-    pendingTasks: 0
-  });
-  const [birthdays, setBirthdays] = useState([]);
-  const [chartData, setChartData] = useState([]);
-  const [userType, setUserType] = useState(null);
-  const [chartsData, setChartsData] = useState({
-    age: [],
-    sex: [],
-    zone: [],
-    neighborhood: [],
-    city: [],
-    localVotacao: []
-  });
-
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
-
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchStats = async () => {
-      try {
-        // Busca o tipo de usuário para renderização condicional
-        let currentUserType = null;
-        if (user.email) {
-          const assessoresRef = ref(database, 'assessores');
-          const qEmail = rQuery(assessoresRef, orderByChild('email'), equalTo(user.email));
-          const snapshotEmail = await get(qEmail);
-          if (snapshotEmail.exists()) {
-            currentUserType = 'assessor';
-          }
-        }
-        if (!currentUserType) {
-            const usersRef = ref(database, 'users');
-            const qUser = rQuery(usersRef, orderByChild('userId'), equalTo(user.uid));
-            const userSnapshot = await get(qUser);
-            if (userSnapshot.exists()) {
-                const userData = Object.values(userSnapshot.val())[0];
-                currentUserType = userData.tipoUser;
-            }
-        }
-        setUserType(currentUserType);
-
-        // 1. Contar Eleitores (Realtime DB)
-        const votersRef = ref(database, 'eleitores');
-        const qVotersCreator = rQuery(votersRef, orderByChild('creatorId'), equalTo(user.uid));
-        const qVotersAdmin = rQuery(votersRef, orderByChild('adminId'), equalTo(user.uid));
-        
-        const [snapCreator, snapAdmin] = await Promise.all([
-            get(qVotersCreator),
-            get(qVotersAdmin)
-        ]);
-        
-        let votersCount = 0;
-        let todaysBirthdays = [];
-        const tempChartData = {};
-        const allVoters = {};
-
-        const ageGroups = { '16-24': 0, '25-34': 0, '35-44': 0, '45-59': 0, '60+': 0 };
-        const sexGroups = { 'Masculino': 0, 'Feminino': 0, 'Outro': 0 };
-        const zoneGroups = {};
-        const neighborhoodGroups = {};
-        const cityGroups = {};
-        const localVotacaoGroups = {};
-
-        if (snapCreator.exists()) Object.assign(allVoters, snapCreator.val());
-        if (snapAdmin.exists()) Object.assign(allVoters, snapAdmin.val());
-
-        votersCount = Object.keys(allVoters).length;
-
-        if (votersCount > 0) {
-
-          const today = new Date();
-          const currentMonth = today.getMonth() + 1;
-          const currentDay = today.getDate();
-
-          Object.keys(allVoters).forEach(key => {
-            const voter = { id: key, ...allVoters[key] };
-            
-            if (voter.nascimento) {
-              // Cálculo de idade para o gráfico
-              const birthDate = new Date(voter.nascimento);
-              const todayDate = new Date();
-              let age = todayDate.getFullYear() - birthDate.getFullYear();
-              const m = todayDate.getMonth() - birthDate.getMonth();
-              if (m < 0 || (m === 0 && todayDate.getDate() < birthDate.getDate())) {
-                  age--;
-              }
-              
-              if (age >= 16 && age <= 24) ageGroups['16-24']++;
-              else if (age >= 25 && age <= 34) ageGroups['25-34']++;
-              else if (age >= 35 && age <= 44) ageGroups['35-44']++;
-              else if (age >= 45 && age <= 59) ageGroups['45-59']++;
-              else if (age >= 60) ageGroups['60+']++;
-
-              const parts = voter.nascimento.split('-'); // Esperado YYYY-MM-DD
-              if (parts.length === 3) {
-                const month = parseInt(parts[1], 10);
-                const day = parseInt(parts[2], 10);
-                if (month === currentMonth && day === currentDay) {
-                  todaysBirthdays.push(voter);
-                }
-              }
-            }
-
-            // Sexo
-            if (voter.sexo) {
-                sexGroups[voter.sexo] = (sexGroups[voter.sexo] || 0) + 1;
-            }
-
-            // Zona
-            if (voter.zona) {
-                zoneGroups[voter.zona] = (zoneGroups[voter.zona] || 0) + 1;
-            }
-
-            // Bairro
-            if (voter.bairro) {
-                const bairro = voter.bairro.trim().toUpperCase();
-                if (bairro) neighborhoodGroups[bairro] = (neighborhoodGroups[bairro] || 0) + 1;
-            }
-
-            // Cidade
-            if (voter.cidade) {
-                const cidade = voter.cidade.trim().toUpperCase();
-                if (cidade) cityGroups[cidade] = (cityGroups[cidade] || 0) + 1;
-            }
-
-            // Local de Votação
-            if (voter.localVotacao) {
-                const local = voter.localVotacao.split(' - ')[0].trim().toUpperCase();
-                if (local) localVotacaoGroups[local] = (localVotacaoGroups[local] || 0) + 1;
-            }
-
-            // Processamento para o Gráfico (Agrupamento por data)
-            if (voter.createdAt) {
-              const dateObj = new Date(voter.createdAt);
-              // Chave para ordenação YYYY-MM-DD
-              const sortKey = dateObj.toISOString().split('T')[0];
-              // Formato de exibição DD/MM
-              const displayDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-
-              if (!tempChartData[sortKey]) {
-                tempChartData[sortKey] = { date: displayDate, count: 0, sortKey };
-              }
-              tempChartData[sortKey].count += 1;
-            }
-          });
-
-          setChartData(Object.values(tempChartData).sort((a, b) => a.sortKey.localeCompare(b.sortKey)));
-          
-          // Preparar dados para os gráficos
-          const ageChartData = Object.keys(ageGroups).map(key => ({ name: key, value: ageGroups[key] }));
-          
-          const sexChartData = Object.keys(sexGroups)
-            .filter(key => sexGroups[key] > 0)
-            .map(key => ({ name: key, value: sexGroups[key] }));
-
-          const zoneChartData = Object.keys(zoneGroups)
-            .map(key => ({ name: key, value: zoneGroups[key] }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 10);
-
-          const neighborhoodChartData = Object.keys(neighborhoodGroups)
-            .map(key => ({ name: key, value: neighborhoodGroups[key] }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 10);
-
-          const cityChartData = Object.keys(cityGroups)
-            .map(key => ({ name: key, value: cityGroups[key] }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 10);
-
-          const localVotacaoChartData = Object.keys(localVotacaoGroups)
-            .map(key => ({ name: key, value: localVotacaoGroups[key] }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 10);
-
-          setChartsData({
-              age: ageChartData,
-              sex: sexChartData,
-              zone: zoneChartData,
-              neighborhood: neighborhoodChartData,
-              city: cityChartData,
-              localVotacao: localVotacaoChartData
-          });
-        }
-        
-        // 2. Contar Equipe (Realtime DB)
-        // Assumindo que os membros da equipe têm um campo 'ownerId' apontando para o admin
-        const teamRef = ref(database, 'assessores');
-        const qTeam = rQuery(teamRef, orderByChild('adminId'), equalTo(user.uid));
-        const snapshotTeam = await get(qTeam);
-        const teamCount = snapshotTeam.exists() ? Object.keys(snapshotTeam.val()).length : 0;
-
-        // 3. Contar Tarefas Pendentes
-        const tasksRef = ref(database, 'tarefas');
-        const qTasksUser = rQuery(tasksRef, orderByChild('creatorId'), equalTo(user.uid));
-        const qTasksAdmin = rQuery(tasksRef, orderByChild('adminId'), equalTo(user.uid));
-
-        const [snapTasksUser, snapTasksAdmin] = await Promise.all([
-            get(qTasksUser),
-            get(qTasksAdmin)
-        ]);
-
-        let pendingCount = 0;
-        const processedTaskIds = new Set();
-
-        const countPending = (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.val();
-                Object.keys(data).forEach(key => {
-                    if (!processedTaskIds.has(key)) {
-                        processedTaskIds.add(key);
-                        // Verifica se status é 'pending' ou se não tem status (assume pending)
-                        const status = data[key].status || 'pending';
-                        if (status === 'pending') {
-                            pendingCount++;
-                        }
-                    }
-                });
-            }
-        };
-
-        countPending(snapTasksUser);
-        countPending(snapTasksAdmin);
-
-        setStats(prev => ({
-          ...prev,
-          voters: votersCount,
-          team: teamCount,
-          pendingTasks: pendingCount
-        }));
-        setBirthdays(todaysBirthdays);
-      } catch (error) {
-        console.error("Erro ao carregar estatísticas:", error);
-      }
-    };
-
-    fetchStats();
-  }, [user]);
+  const {
+    loading,
+    userType,
+    filters,
+    setFilters,
+    filterOptions,
+    birthdays,
+    alerts,
+    chartData,
+    leaderboard,
+    metrics,
+    upcomingEvents,
+    todayTasks
+  } = useCampaignDashboard(user);
 
   const handleWhatsApp = (phone, name) => {
     if (!phone) return alert("Telefone não cadastrado.");
@@ -271,190 +42,208 @@ export default function DashboardHome() {
   };
 
   return (
-    <>
-    
-      <div className="dashboard-card welcome-card" style={{ padding: '15px', marginBottom: '20px' }}>
-        <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Bem-vindo ao Painel!</h3>
+    <div className="campaign-dashboard">
+      <CampaignFilters filters={filters} setFilters={setFilters} options={filterOptions} />
+
+      <section className="campaign-hero">
+        <div className="campaign-hero-copy">
+          <p className="campaign-kicker">
+            <Target size={16} />
+            Operação eleitoral em tempo real
+          </p>
+          <h2>Visão consolidada da campanha para decidir o próximo movimento.</h2>
+          <span>
+            Painel conectado à base atual do portal web, pronto para evoluir para funil, metas e território nas próximas fases.
+          </span>
+        </div>
+        <div className="campaign-goal-card">
+          <span>Meta eleitoral</span>
+          <strong>{metrics.goal.value}</strong>
+          <p>{metrics.goal.helper}</p>
+        </div>
+      </section>
+
+      <div className="campaign-metrics-grid">
+        <MetricCard title="Votos confirmados" value={metrics.confirmedVotes} helper="Base com confirmação explícita" tone="success" />
+        <MetricCard title="Votos prováveis" value={metrics.probableVotes} helper="Simpatizantes, apoiadores e multiplicadores" tone="highlight" />
+        <MetricCard title="Apoiadores" value={metrics.supporters} helper="Recorte com potencial de mobilização" />
+        <MetricCard title="Indecisos" value={metrics.undecided} helper="Prioridade para próximo contato" tone="warning" />
+        <MetricCard title="Voluntários" value={metrics.volunteers} helper="Base já disposta a atuar" />
+        <MetricCard title="Lideranças" value={metrics.leaders} helper="Mapeadas nos dados atuais" />
+        <MetricCard title="Eleitores cadastrados" value={metrics.voters} helper="Após aplicação dos filtros" />
+        <MetricCard title="Cadastros do dia" value={metrics.newToday} helper="Novas entradas desde hoje" tone="success" />
+        <MetricCard title="Apoios do dia" value={metrics.supportToday} helper="Atualizações com apoio identificado hoje" />
+        <MetricCard title="Agenda do dia" value={metrics.agendaToday} helper="Compromissos e ações previstos" />
+        <MetricCard title="Próximos eventos" value={metrics.upcomingEvents} helper="Eventos futuros cadastrados" />
+        <MetricCard title="Tarefas pendentes" value={metrics.pendingTasks} helper="Itens aguardando conclusão" tone="warning" />
+        <MetricCard title="Demandas críticas" value={metrics.criticalDemands} helper="Pendências já atrasadas" tone="danger" />
+        <MetricCard title="Alertas" value={metrics.alerts} helper="Sinais que pedem correção de rota" tone="danger" />
       </div>
 
-      <div className="dashboard-card" style={{ marginTop: '20px' }}>
-        <h3>🎉 Aniversariantes do Dia</h3>
-        {birthdays.length === 0 ? (
-          <p style={{ color: '#64748b', marginTop: '10px' }}>Nenhum aniversariante hoje.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
-            {birthdays.map(voter => (
-              <div key={voter.id} style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                padding: '10px',
-                backgroundColor: '#f8fafc',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0'
-              }}>
-                <div>
-                  <strong style={{ display: 'block', color: '#0f172a' }}>{voter.nome}</strong>
-                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{voter.telefone || 'Sem telefone'}</span>
-                </div>
-                <button 
-                  onClick={() => handleWhatsApp(voter.telefone, voter.nome)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    backgroundColor: '#25D366',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                    fontSize: '0.9rem'
-                  }}
-                >
-                  <MessageCircle size={18} />
-                  Parabéns
-                </button>
+      <div className="campaign-main-grid">
+        <InsightPanel title="Ritmo de cadastros e apoios" subtitle="Últimos recortes do período selecionado">
+          <div className="campaign-chart-wrap">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="cadastrosGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4ade80" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#4ade80" stopOpacity={0.05} />
+                  </linearGradient>
+                  <linearGradient id="apoiosGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0f172a" stopOpacity={0.22} />
+                    <stop offset="95%" stopColor="#0f172a" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dbe4ee" />
+                <XAxis dataKey="label" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: '14px', border: '1px solid #e2e8f0' }} />
+                <Area type="monotone" dataKey="total" stroke="#4ade80" fill="url(#cadastrosGradient)" strokeWidth={3} name="Cadastros" />
+                <Area type="monotone" dataKey="support" stroke="#0f172a" fill="url(#apoiosGradient)" strokeWidth={2} name="Apoios" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </InsightPanel>
+
+        <InsightPanel title="Alertas operacionais" subtitle="Atenção para o que pode travar a campanha" compact>
+          <div className="campaign-alert-list">
+            {alerts.length === 0 ? (
+              <div className="campaign-empty-state">
+                <CheckCircle2 size={18} />
+                Nenhum alerta crítico no recorte atual.
               </div>
-            ))}
+            ) : (
+              alerts.map((alert) => (
+                <article key={alert.title} className={`campaign-alert-item ${alert.type}`}>
+                  <AlertTriangle size={18} />
+                  <div>
+                    <strong>{alert.title}</strong>
+                    <p>{alert.description}</p>
+                  </div>
+                </article>
+              ))
+            )}
           </div>
-        )}
+        </InsightPanel>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <h4>Total de Eleitores</h4>
-          <div className="stat-value">{stats.voters}</div>
-          <span className="stat-trend positive">Cadastrados</span>
-        </div>
-        {userType !== 'assessor' && (
-          <div className="stat-card">
-            <h4>Equipe Ativa</h4>
-            <div className="stat-value">{stats.team}</div>
-            <span className="stat-trend">Assessores em campo</span>
+      <div className="campaign-secondary-grid">
+        <InsightPanel title="Agenda do dia" subtitle="O que já está previsto para hoje" compact>
+          <div className="campaign-list-block">
+            {todayTasks.length === 0 ? (
+              <div className="campaign-empty-state">
+                <CalendarClock size={18} />
+                Nenhuma agenda registrada para hoje.
+              </div>
+            ) : (
+              todayTasks.slice(0, 5).map((task) => (
+                <article key={task.id} className="campaign-list-item">
+                  <div>
+                    <strong>{task.titulo || 'Compromisso sem título'}</strong>
+                    <p>{task.descricao || task.tipo || 'Ação programada para a equipe'}</p>
+                  </div>
+                  <span>{task.time || 'Hoje'}</span>
+                </article>
+              ))
+            )}
           </div>
-        )}
-        <div className="stat-card">
-          <h4>Tarefas Pendentes</h4>
-          <div className="stat-value">{stats.pendingTasks}</div>
-          <span className="stat-trend">Aguardando conclusão</span>
-        </div>
+        </InsightPanel>
+
+        <InsightPanel title="Próximos eventos" subtitle="Eventos futuros do calendário" compact>
+          <div className="campaign-list-block">
+            {upcomingEvents.length === 0 ? (
+              <div className="campaign-empty-state">
+                <CalendarClock size={18} />
+                Nenhum evento futuro encontrado.
+              </div>
+            ) : (
+              upcomingEvents.map((task) => (
+                <article key={task.id} className="campaign-list-item">
+                  <div>
+                    <strong>{task.titulo || 'Evento'}</strong>
+                    <p>{task.descricao || 'Evento da agenda principal'}</p>
+                  </div>
+                  <span>{task.data || 'Em breve'}</span>
+                </article>
+              ))
+            )}
+          </div>
+        </InsightPanel>
+
+        <InsightPanel title="Ranking de conversão" subtitle="Quem mais aproxima a meta no recorte atual" compact>
+          <div className="campaign-list-block">
+            {leaderboard.length === 0 ? (
+              <div className="campaign-empty-state">
+                <Users2 size={18} />
+                Ainda não há base suficiente para o ranking.
+              </div>
+            ) : (
+              leaderboard.map((item, index) => (
+                <article key={item.name} className="campaign-rank-item">
+                  <div className="campaign-rank-badge">{index + 1}</div>
+                  <div className="campaign-rank-copy">
+                    <strong>{item.name}</strong>
+                    <p>{item.confirmed} voto(s) confirmados em {item.total} cadastro(s)</p>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </InsightPanel>
       </div>
 
-      {/* Novos Gráficos */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginTop: '20px' }}>
-        
-        {/* Gráfico de Idade */}
-        <div className="dashboard-card">
-            <h3>Eleitores por Idade</h3>
-            <div style={{ width: '100%', height: 250 }}>
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                    <BarChart data={chartsData.age}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                        <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 12}} />
-                        <YAxis tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
-                        <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none' }} />
-                        <Bar dataKey="value" fill="#3b82f6" name="Eleitores" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
+      <div className="campaign-secondary-grid">
+        <InsightPanel title="Aniversariantes do dia" subtitle="Aproveite para ativar relacionamento" compact>
+          <div className="campaign-list-block">
+            {birthdays.length === 0 ? (
+              <div className="campaign-empty-state">
+                <MessageCircle size={18} />
+                Nenhum aniversariante hoje.
+              </div>
+            ) : (
+              birthdays.map((voter) => (
+                <article key={voter.id} className="campaign-list-item">
+                  <div>
+                    <strong>{voter.nome}</strong>
+                    <p>{voter.telefone || 'Sem telefone cadastrado'}</p>
+                  </div>
+                  <button
+                    onClick={() => handleWhatsApp(voter.telefone, voter.nome)}
+                    className="campaign-inline-action"
+                  >
+                    <MessageCircle size={16} />
+                    Parabenizar
+                  </button>
+                </article>
+              ))
+            )}
+          </div>
+        </InsightPanel>
+
+        <InsightPanel
+          title="Leitura do recorte"
+          subtitle={userType === 'assessor' ? 'Visão ajustada para a sua operação' : 'Visão consolidada da estrutura'}
+          compact
+        >
+          <div className="campaign-notes-list">
+            <div className="campaign-note-item">
+              <strong>Filtros aplicam-se em toda a central.</strong>
+              <p>Bairro, região, equipe, assessor e período já influenciam métricas, alertas e ranking.</p>
             </div>
-        </div>
-
-        {/* Gráfico de Sexo */}
-        <div className="dashboard-card">
-            <h3>Eleitores por Sexo</h3>
-            <div style={{ width: '100%', height: 250 }}>
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                    <PieChart>
-                        <Pie
-                            data={chartsData.sex}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={80}
-                            paddingAngle={5}
-                            dataKey="value"
-                        >
-                            {chartsData.sex.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                        </Pie>
-                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
-                        <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                    </PieChart>
-                </ResponsiveContainer>
+            <div className="campaign-note-item">
+              <strong>Indicadores sem etapa formal usam fallback seguro.</strong>
+              <p>A base já está pronta para receber o funil eleitoral da próxima fase sem refatoração da tela.</p>
             </div>
-        </div> 
-
-        {/* Gráfico de Zonas */}
-        <div className="dashboard-card">
-            <h3>Eleitores por Zona</h3>
-            <div style={{ width: '100%', height: 250 }}>
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                    <BarChart data={chartsData.zone}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                        <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 12}} />
-                        <YAxis tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
-                        <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none' }} />
-                        <Bar dataKey="value" fill="#f59e0b" name="Eleitores" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
+            <div className="campaign-note-item">
+              <strong>Meta ainda é sugestiva nesta etapa.</strong>
+              <p>Na Fase 3, ela passa a vir de configuração explícita por cargo, município e eleição.</p>
             </div>
-        </div>
-
-      </div>
-
-      {/* Gráfico de Bairros (Full Width) */}
-      <div className="dashboard-card" style={{ marginTop: '20px' }}>
-          <h3>Top Bairros</h3>
-          <div style={{ width: '100%', height: 300 }}>
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <BarChart data={chartsData.neighborhood} layout="vertical" margin={{ left: 20, right: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                      <XAxis type="number" tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
-                      <YAxis dataKey="name" type="category" width={150} tick={{fill: '#64748b', fontSize: 11}} />
-                      <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none' }} />
-                      <Bar dataKey="value" fill="#10b981" name="Eleitores" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-              </ResponsiveContainer>
           </div>
+        </InsightPanel>
       </div>
 
-      {/* Gráfico de Locais de Votação (Full Width) */}
-      <div className="dashboard-card" style={{ marginTop: '20px' }}>
-          <h3>Top Locais de Votação</h3>
-          <div style={{ width: '100%', height: 300 }}>
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <BarChart data={chartsData.localVotacao} layout="vertical" margin={{ left: 20, right: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                      <XAxis type="number" tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
-                      <YAxis dataKey="name" type="category" width={180} tick={{fill: '#64748b', fontSize: 11}} />
-                      <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none' }} />
-                      <Bar dataKey="value" fill="#8884d8" name="Eleitores" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-              </ResponsiveContainer>
-          </div>
-      </div>
-
-      <div className="dashboard-card" style={{ marginTop: '20px' }}>
-        <h3>Evolução de Cadastros</h3>
-        <div style={{ width: '100%', height: 300, marginTop: '20px' }}>
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} allowDecimals={false} />
-              <Tooltip 
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-              />
-              <Line type="monotone" dataKey="count" stroke="#4ADE80" strokeWidth={3} dot={{ r: 4, fill: '#4ADE80', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} name="Novos Eleitores" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      
-    </>
+      {loading ? <div className="dashboard-card">Carregando Central da Campanha...</div> : null}
+    </div>
   );
 }

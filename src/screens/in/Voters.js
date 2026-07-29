@@ -429,6 +429,17 @@ export default function Voters() {
                 <div style={{ fontSize: '0.9rem', color: '#64748b' }}>{voter.telefone || voter.email}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <div style={{
+                  fontSize: '0.78rem',
+                  fontWeight: '700',
+                  color: '#166534',
+                  backgroundColor: '#dcfce7',
+                  padding: '6px 10px',
+                  borderRadius: '999px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {voter.funnelStage || voter.etapa || 'Não contatado'}
+                </div>
                 <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
                   {voter.bairro || 'Sem bairro'}
                 </div>

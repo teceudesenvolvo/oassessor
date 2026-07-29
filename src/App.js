@@ -33,8 +33,13 @@ const VoteComparison = lazy(() => import('./screens/in/VoteComparison'));
 const VoterMap = lazy(() => import('./screens/in/VoterMap'));
 const PollingStationMap = lazy(() => import('./screens/in/PollingStationMap'));
 const VoterDetails = lazy(() => import('./screens/in/VoterDetails'));
+const ElectoralFunnel = lazy(() => import('./screens/in/ElectoralFunnel'));
+const VictoryPath = lazy(() => import('./screens/in/VictoryPath'));
+const Leaderships = lazy(() => import('./screens/in/Leaderships'));
+const Volunteers = lazy(() => import('./screens/in/Volunteers'));
 const Profile = lazy(() => import('./screens/in/Profile'));
 const Notifications = lazy(() => import('./screens/in/Notifications'));
+const DataMigration = lazy(() => import('./screens/in/DataMigration'));
 const EleitorForm = lazy(() => import('./screens/out/EleitorForm'));
 
 function App() {
@@ -72,6 +77,10 @@ function App() {
                 <Route path="team" element={<Team />} />
                 <Route path="agenda" element={<Agenda />} />
                 <Route path="voters" element={<Voters />} />
+                <Route path="electoral-funnel" element={<ElectoralFunnel />} />
+                <Route path="victory-path" element={<VictoryPath />} />
+                <Route path="leaderships" element={<Leaderships />} />
+                <Route path="volunteers" element={<Volunteers />} />
                 <Route path="voters/new" element={<NewVoter />} />
                 <Route path="voters/map" element={<VoterMap />} />
                 <Route path="voters/stations-map" element={<PollingStationMap />} />
@@ -79,6 +88,7 @@ function App() {
                 <Route path="voters/:id" element={<VoterDetails />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="notifications" element={<Notifications />} />
+                <Route path="data-migration" element={<DataMigration />} />
               </Route>
             </Route>
           </Routes>

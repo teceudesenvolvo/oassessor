@@ -8,6 +8,7 @@ const admin = require("firebase-admin");
 // const pagarmeApiKey = 'sk_6f45fa07486f49068bde5f4aef9f951e';
 const pagarmeApiKey = 'sk_test_9fd7fc9c963641fba4b39c9c97b15af5';
 const PAGARME_URL = 'https://api.pagar.me/core/v5';
+const DATA_URI_PATTERN = /^data:([^;,]+);base64,([\s\S]+)$/;
 
 const getPagarmeHeaders = () => {
     const auth = Buffer.from(`${pagarmeApiKey}:`).toString('base64');
@@ -18,6 +19,211 @@ const getPagarmeHeaders = () => {
 };
 
 admin.initializeApp();
+
+const extensionForMimeType = (mimeType) => {
+    const extensions = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+        'image/webp': 'webp',
+        'image/svg+xml': 'svg',
+        'application/pdf': 'pdf',
+        'audio/mpeg': 'mp3',
+        'audio/mp4': 'm4a',
+        'video/mp4': 'mp4'
+    };
+
+    return extensions[mimeType] || mimeType.split('/').pop().replace(/[^a-z0-9]/gi, '') || 'bin';
+};
+
+const safeStorageSegment = (value) =>
+    String(value).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'media';
+
+const safeFirestoreId = (value, prefix) => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return `${prefix}_empty`;
+    if (/^__.*__$/.test(normalized)) {
+        return `${prefix}_${Buffer.from(normalized).toString('hex')}`;
+    }
+    return normalized;
+};
+
+const moveInlineMediaToStorage = async (value, context, fieldPath = []) => {
+    if (typeof value === 'string') {
+        const match = value.match(DATA_URI_PATTERN);
+        if (!match) return value;
+
+        const [, mimeType, base64Data] = match;
+        const extension = extensionForMimeType(mimeType);
+        const fieldName = fieldPath.map(safeStorageSegment).join('__') || 'media';
+        const storagePath = [
+            'rtdb-migration',
+            safeStorageSegment(context.collection),
+            safeStorageSegment(context.documentId),
+            `${fieldName}.${extension}`
+        ].join('/');
+
+        await admin.storage().bucket().file(storagePath).save(
+            Buffer.from(base64Data, 'base64'),
+            {
+                resumable: false,
+                metadata: {
+                    contentType: mimeType,
+                    metadata: {
+                        migratedFrom: `rtdb/${context.collection}/${context.documentId}`,
+                        migratedAt: new Date().toISOString()
+                    }
+                }
+            }
+        );
+
+        context.mediaCount += 1;
+        return storagePath;
+    }
+
+    if (Array.isArray(value)) {
+        return Promise.all(value.map((item, index) =>
+            moveInlineMediaToStorage(item, context, [...fieldPath, String(index)])
+        ));
+    }
+
+    if (value && typeof value === 'object') {
+        const entries = await Promise.all(Object.entries(value).map(async ([key, item]) => [
+            key,
+            await moveInlineMediaToStorage(item, context, [...fieldPath, key])
+        ]));
+        return Object.fromEntries(entries);
+    }
+
+    return value;
+};
+
+exports.migrateRtdbToFirestore = onRequest(
+  { cors: true, invoker: 'public', timeoutSeconds: 3600, memory: '1GiB' },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+        return res.status(405).send({ error: 'Método não permitido.' });
+    }
+
+    try {
+        const authorization = req.get('Authorization') || '';
+        if (!authorization.startsWith('Bearer ')) {
+            return res.status(401).send({ error: 'Autenticação obrigatória.' });
+        }
+
+        const decodedToken = await admin.auth().verifyIdToken(authorization.slice(7));
+        const userSnapshot = await admin.database().ref(`users/${decodedToken.uid}`).once('value');
+        if (!userSnapshot.exists() || userSnapshot.val().tipoUser !== 'admin') {
+            return res.status(403).send({ error: 'Somente administradores podem executar a migração.' });
+        }
+
+        const sourceSnapshot = await admin.database().ref().once('value');
+        const sourceData = sourceSnapshot.val() || {};
+        const firestore = admin.firestore();
+        let batch = firestore.batch();
+        let pendingWrites = [];
+        let documents = 0;
+        let mediaFiles = 0;
+        let collections = 0;
+        const failures = [];
+
+        const commitBatch = async () => {
+            if (!pendingWrites.length) return;
+
+            try {
+                await batch.commit();
+            } catch (batchError) {
+                console.error('Falha ao gravar lote da migração. Tentando isolar documentos.', {
+                    pendingWrites: pendingWrites.map(({ path }) => path),
+                    error: batchError.message
+                });
+
+                for (const pendingWrite of pendingWrites) {
+                    try {
+                        await pendingWrite.ref.set(pendingWrite.data);
+                    } catch (writeError) {
+                        failures.push({
+                            path: pendingWrite.path,
+                            sourceCollection: pendingWrite.sourceCollection,
+                            sourceDocumentId: pendingWrite.sourceDocumentId,
+                            error: writeError.message || 'Falha ao gravar documento no Firestore.'
+                        });
+                        console.error('Documento ignorado durante migração RTDB -> Firestore.', {
+                            path: pendingWrite.path,
+                            sourceCollection: pendingWrite.sourceCollection,
+                            sourceDocumentId: pendingWrite.sourceDocumentId,
+                            error: writeError.message
+                        });
+                    }
+                }
+            }
+
+            batch = firestore.batch();
+            pendingWrites = [];
+        };
+
+        for (const [sourceCollectionName, collectionValue] of Object.entries(sourceData)) {
+            if (collectionValue === null || typeof collectionValue !== 'object') continue;
+            collections += 1;
+            const collectionName = safeFirestoreId(sourceCollectionName, 'rtdb_collection');
+
+            for (const [sourceDocumentId, sourceDocument] of Object.entries(collectionValue)) {
+                const documentId = safeFirestoreId(sourceDocumentId, 'rtdb_doc');
+                const mediaContext = {
+                    collection: sourceCollectionName,
+                    documentId: sourceDocumentId,
+                    mediaCount: 0
+                };
+                const transformed = await moveInlineMediaToStorage(sourceDocument, mediaContext);
+                const documentData = transformed && typeof transformed === 'object' && !Array.isArray(transformed)
+                    ? transformed
+                    : { value: transformed };
+                const documentRef = firestore.collection(collectionName).doc(documentId);
+
+                batch.set(documentRef, documentData);
+                pendingWrites.push({
+                    ref: documentRef,
+                    data: documentData,
+                    path: `${collectionName}/${documentId}`,
+                    sourceCollection: sourceCollectionName,
+                    sourceDocumentId
+                });
+                documents += 1;
+                mediaFiles += mediaContext.mediaCount;
+
+                if (pendingWrites.length === 400) await commitBatch();
+            }
+        }
+
+        await commitBatch();
+        await firestore.collection('_system_migrations').doc('rtdb-to-firestore').set({
+            completedAt: admin.firestore.FieldValue.serverTimestamp(),
+            executedBy: decodedToken.uid,
+            collections,
+            documents,
+            mediaFiles,
+            failuresCount: failures.length,
+            failures: failures.slice(0, 20)
+        });
+
+        const responsePayload = {
+            success: true,
+            collections,
+            documents,
+            mediaFiles,
+            failuresCount: failures.length,
+            failures: failures.slice(0, 20)
+        };
+
+        return res.status(failures.length ? 207 : 200).send(responsePayload);
+    } catch (error) {
+        console.error('Erro ao migrar RTDB para Firestore:', error);
+        return res.status(500).send({
+            error: error.message || 'Falha interna durante a migração.'
+        });
+    }
+  }
+);
 
 // Configure o transportador do Nodemailer (ex: Gmail)
 // IMPORTANTE: Para Gmail, use uma "Senha de App" (App Password) gerada na conta Google.
