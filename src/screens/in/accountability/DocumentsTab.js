@@ -51,12 +51,13 @@ const getDueStatus = (dueDate, fallback = 'recebido') => {
 };
 
 export default function DocumentsTab() {
-  const { scope, user } = useOutletContext();
+  const { scope, user, reload } = useOutletContext();
   const { records, saving, saveRecord, deleteRecord } = useAccountabilityEntity({
     user,
     scope,
     collectionKey: 'documents',
     entity: 'prestacao_documento',
+    onMutationComplete: reload,
     transformSave: (payload) => ({
       title: payload.title || payload.documentName || 'Documento',
       documentName: payload.documentName || '',

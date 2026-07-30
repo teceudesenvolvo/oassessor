@@ -16,12 +16,13 @@ const SUPPLIER_TYPE_OPTIONS = [
 ];
 
 export default function CatalogsTab() {
-  const { scope, user } = useOutletContext();
+  const { scope, user, reload } = useOutletContext();
   const { records, saving, saveRecord, deleteRecord } = useAccountabilityEntity({
     user,
     scope,
     collectionKey: 'catalogs',
     entity: 'prestacao_fornecedor',
+    onMutationComplete: reload,
     transformSave: (payload) => ({
       title: payload.name || payload.title || 'Fornecedor',
       name: payload.name || '',

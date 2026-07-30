@@ -76,7 +76,7 @@ const getPayableStatus = (payload) => {
 };
 
 export default function ExpensesTab() {
-  const { scope, user } = useOutletContext();
+  const { scope, user, reload } = useOutletContext();
   const [bankAccounts, setBankAccounts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
@@ -86,6 +86,7 @@ export default function ExpensesTab() {
     scope,
     collectionKey: 'expenses',
     entity: 'prestacao_despesa',
+    onMutationComplete: reload,
     transformSave: (payload) => ({
       title: payload.title || payload.description || 'Despesa',
       description: payload.description || '',

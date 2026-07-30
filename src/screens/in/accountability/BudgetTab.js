@@ -4,12 +4,13 @@ import AccountabilityEntityCenter from '../../../components/accountability/Accou
 import { useAccountabilityEntity } from '../../../hooks/useAccountabilityEntity';
 
 export default function BudgetTab() {
-  const { scope, user } = useOutletContext();
+  const { scope, user, reload } = useOutletContext();
   const { records, saving, saveRecord, deleteRecord } = useAccountabilityEntity({
     user,
     scope,
     collectionKey: 'budget',
     entity: 'prestacao_orcamento',
+    onMutationComplete: reload,
     transformSave: (payload) => ({
       title: payload.title || payload.category || 'Orçamento',
       category: payload.category || 'categoria geral',

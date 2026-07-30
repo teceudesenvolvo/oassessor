@@ -6,7 +6,7 @@ import {
 } from '../services/accountabilityService';
 import { logAuditEvent } from '../services/auditService';
 
-export function useAccountabilityEntity({ user, scope, collectionKey, entity, transformSave }) {
+export function useAccountabilityEntity({ user, scope, collectionKey, entity, transformSave, onMutationComplete }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [records, setRecords] = useState([]);
@@ -45,10 +45,13 @@ export function useAccountabilityEntity({ user, scope, collectionKey, entity, tr
         }
       });
       await reload();
+      if (onMutationComplete) {
+        await onMutationComplete();
+      }
     } finally {
       setSaving(false);
     }
-  }, [collectionKey, entity, reload, scope, transformSave, user]);
+  }, [collectionKey, entity, onMutationComplete, reload, scope, transformSave, user]);
 
   const deleteRecord = useCallback(async (recordId, reason) => {
     if (!scope?.adminId) return;
@@ -68,10 +71,13 @@ export function useAccountabilityEntity({ user, scope, collectionKey, entity, tr
         }
       });
       await reload();
+      if (onMutationComplete) {
+        await onMutationComplete();
+      }
     } finally {
       setSaving(false);
     }
-  }, [collectionKey, entity, reload, scope, user]);
+  }, [collectionKey, entity, onMutationComplete, reload, scope, user]);
 
   return {
     loading,

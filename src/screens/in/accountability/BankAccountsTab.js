@@ -27,12 +27,13 @@ const STATUS_OPTIONS = [
 ];
 
 export default function BankAccountsTab() {
-  const { scope, user } = useOutletContext();
+  const { scope, user, reload } = useOutletContext();
   const { records, saving, saveRecord, deleteRecord } = useAccountabilityEntity({
     user,
     scope,
     collectionKey: 'bankAccounts',
     entity: 'prestacao_conta_bancaria',
+    onMutationComplete: reload,
     transformSave: (payload) => ({
       bankName: payload.bankName || '',
       bankCode: payload.bankCode || '',

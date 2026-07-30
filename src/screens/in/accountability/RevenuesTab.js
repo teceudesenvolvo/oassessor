@@ -23,13 +23,14 @@ const REVENUE_TYPE_OPTIONS = [
 ];
 
 export default function RevenuesTab() {
-  const { scope, user } = useOutletContext();
+  const { scope, user, reload } = useOutletContext();
   const [bankAccounts, setBankAccounts] = useState([]);
   const { records, saving, saveRecord, deleteRecord } = useAccountabilityEntity({
     user,
     scope,
     collectionKey: 'revenues',
     entity: 'prestacao_receita',
+    onMutationComplete: reload,
     transformSave: (payload) => ({
       title: payload.title || payload.description || 'Receita',
       description: payload.description || '',
