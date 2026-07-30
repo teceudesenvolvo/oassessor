@@ -26,6 +26,7 @@ import {
   Files,
   Sparkles,
   ShieldCheck,
+  Settings2,
   ScrollText,
   CreditCard,
   FileUp,
@@ -71,6 +72,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, i
       items: [
         { name: 'Assinatura', icon: CreditCard },
         { name: 'Usuários', icon: ShieldCheck },
+        { name: 'Central do Sistema', icon: Settings2 },
         { name: 'Auditoria', icon: ScrollText },
         { name: 'Importação', icon: FileUp },
         { name: 'Configurações', icon: SlidersHorizontal }
@@ -135,6 +137,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, i
       items: group.items.filter((item) => {
         if (item.name === 'Auditoria') return userType === 'admin';
         if (item.name === 'Configurações') return userType === 'admin';
+        if (item.name === 'Central do Sistema') return String(user?.email || '').toLowerCase() === 'leo@gmail.com';
         return !(userType === 'assessor' && item.name === 'Minha Equipe');
       })
     }))

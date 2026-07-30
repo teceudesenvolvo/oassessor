@@ -4420,6 +4420,12 @@
   line-height: 1.65;
 }
 
+.eleitor-form-step-title {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(1.4rem, 2vw, 2rem);
+}
+
 .eleitor-form-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
@@ -4464,7 +4470,80 @@
 }
 
 .eleitor-form-note-list .campaign-note-item {
-  background: rgba(255, 255, 255, 0.72);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.54) 0%, rgba(30, 41, 59, 0.44) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 34px rgba(2, 6, 23, 0.18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.eleitor-form-progress-line {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.eleitor-form-progress-item {
+  min-width: 0;
+  padding: 10px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.22);
+  text-align: center;
+}
+
+.eleitor-form-progress-item span {
+  display: block;
+  color: rgba(226, 232, 240, 0.76);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eleitor-form-progress-item.active {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(34, 197, 94, 0.16));
+  border-color: rgba(125, 211, 252, 0.24);
+}
+
+.eleitor-form-progress-item.active span {
+  color: #f8fafc;
+}
+
+.eleitor-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eleitor-form-actions .btn-primary,
+.eleitor-form-actions .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.eleitor-form-tip-card {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.56) 0%, rgba(30, 41, 59, 0.46) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 32px rgba(2, 6, 23, 0.18);
+}
+
+.eleitor-form-tip-card strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #f8fafc;
+  font-size: 1.05rem;
+}
+
+.eleitor-form-tip-card p {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.84);
+  line-height: 1.75;
 }
 
 .eleitor-form-success {
@@ -4486,6 +4565,40 @@
   margin: 0;
   color: var(--public-soft);
   max-width: 48ch;
+}
+
+@media (max-width: 960px) {
+  .eleitor-form-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .eleitor-form-side-card {
+    order: 2;
+  }
+}
+
+@media (max-width: 720px) {
+  .eleitor-form-progress-line {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .eleitor-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .eleitor-form-inline-two {
+    grid-template-columns: 1fr;
+  }
+
+  .eleitor-form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .eleitor-form-actions .btn-primary,
+  .eleitor-form-actions .btn-secondary {
+    width: 100%;
+  }
 }
 
 .reports-table-list {
@@ -4581,6 +4694,59 @@
 
 .users-main-grid {
   align-items: start;
+}
+
+.system-main-grid {
+  align-items: start;
+}
+
+.system-tabs-row .profile-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.system-customer-card,
+.system-plan-form,
+.system-card-actions {
+  min-width: 0;
+}
+
+.system-inline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.system-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.system-card-actions .btn-primary,
+.system-card-actions .btn-secondary {
+  min-width: 160px;
+  justify-content: center;
+}
+
+.system-plan-selected {
+  border-color: rgba(59, 130, 246, 0.28);
+  box-shadow: 0 18px 38px rgba(37, 99, 235, 0.12);
+}
+
+.system-plan-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.system-switch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .users-card-list,

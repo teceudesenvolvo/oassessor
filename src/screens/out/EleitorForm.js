@@ -1,7 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { CheckCircle, MapPin, ShieldCheck, UserRound } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle,
+  ShieldCheck,
+  UserRound
+} from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ref, push, set, get } from '../../services/firestoreDatabase';
+import { get, push, ref, set, update } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import PublicPageShell from '../../components/PublicPageShell';
 
@@ -27,6 +33,45 @@ const initialFormState = {
   observacoes: ''
 };
 
+const FORM_STEPS = [
+  {
+    id: 1,
+    title: 'Identificação',
+    subtitle: 'Quem é a pessoa que estamos cadastrando.',
+    fields: ['nome', 'apelido', 'sexo', 'nascimento']
+  },
+  {
+    id: 2,
+    title: 'Contato',
+    subtitle: 'Vamos registrar os melhores canais para contato.',
+    fields: ['email', 'telefone']
+  },
+  {
+    id: 3,
+    title: 'Dados Eleitorais',
+    subtitle: 'Informações úteis para mobilização e operação.',
+    fields: ['cpf', 'titulo', 'zona', 'secao', 'localVotacao']
+  },
+  {
+    id: 4,
+    title: 'Endereço',
+    subtitle: 'Melhora mapas, visitas e filtros territoriais.',
+    fields: ['cep', 'endereco', 'numero', 'bairro', 'cidade', 'estado']
+  },
+  {
+    id: 5,
+    title: 'Observações',
+    subtitle: 'Contexto final para o time operacional.',
+    fields: ['observacoes']
+  },
+  {
+    id: 6,
+    title: 'Redes Sociais',
+    subtitle: 'Só o essencial para enriquecer o relacionamento.',
+    fields: ['instagram']
+  }
+];
+
 export default function EleitorForm() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -38,6 +83,8 @@ export default function EleitorForm() {
   const [localVotacaoLoading, setLocalVotacaoLoading] = useState(false);
   const [localVotacaoOptions, setLocalVotacaoOptions] = useState([]);
   const [formData, setFormData] = useState(initialFormState);
+  const [step, setStep] = useState(1);
+  const [draftId, setDraftId] = useState('');
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -47,6 +94,11 @@ export default function EleitorForm() {
     if (uid) setCreatorId(uid);
     if (email) setCreatorEmail(email);
   }, [location]);
+
+  const activeStep = useMemo(
+    () => FORM_STEPS.find((item) => item.id === step) || FORM_STEPS[0],
+    [step]
+  );
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -123,22 +175,16 @@ export default function EleitorForm() {
     for (let i = 0; i < 8; i += 1) sum += digits[i] * (i + 2);
     let rest = sum % 11;
     let dv1 = rest;
-    if (rest === 0) {
-      dv1 = uf === 1 || uf === 2 ? 1 : 0;
-    } else if (rest === 10) {
-      dv1 = 0;
-    }
+    if (rest === 0) dv1 = uf === 1 || uf === 2 ? 1 : 0;
+    else if (rest === 10) dv1 = 0;
     if (digits[10] !== dv1) return false;
 
     sum = 0;
     sum += digits[8] * 7 + digits[9] * 8 + dv1 * 9;
     rest = sum % 11;
     let dv2 = rest;
-    if (rest === 0) {
-      dv2 = uf === 1 || uf === 2 ? 1 : 0;
-    } else if (rest === 10) {
-      dv2 = 0;
-    }
+    if (rest === 0) dv2 = uf === 1 || uf === 2 ? 1 : 0;
+    else if (rest === 10) dv2 = 0;
     return digits[11] === dv2;
   };
 
@@ -181,29 +227,76 @@ export default function EleitorForm() {
     }
   };
 
-  const handleSave = async (event) => {
-    event.preventDefault();
+  const persistDraft = async (status = 'draft') => {
     if (!creatorId) {
-      alert('Erro: Link inválido (faltando ID do responsável).');
-      return;
+      throw new Error('Link inválido (faltando ID do responsável).');
     }
 
-    setSaving(true);
-    try {
+    const payload = {
+      ...formData,
+      creatorId,
+      creatorEmail,
+      updatedAt: new Date().toISOString(),
+      origin: 'public_form',
+      formStatus: status,
+      formStep: step
+    };
+
+    if (!draftId) {
       const votersRef = ref(database, 'eleitores');
       const newVoterRef = push(votersRef);
       await set(newVoterRef, {
-        ...formData,
-        creatorId,
-        creatorEmail,
-        createdAt: new Date().toISOString(),
-        origin: 'public_form'
+        ...payload,
+        createdAt: new Date().toISOString()
       });
+      setDraftId(newVoterRef.key);
+      return newVoterRef.key;
+    }
+
+    await update(ref(database, `eleitores/${draftId}`), payload);
+    return draftId;
+  };
+
+  const validateStep = () => {
+    if (step === 1 && !formData.nome.trim()) {
+      alert('Preencha pelo menos o nome completo para continuar.');
+      return false;
+    }
+    return true;
+  };
+
+  const handleNext = async (event) => {
+    event.preventDefault();
+    if (!validateStep()) return;
+
+    setSaving(true);
+    try {
+      await persistDraft(step === FORM_STEPS.length ? 'completed' : 'draft');
+      if (step < FORM_STEPS.length) {
+        setStep((prev) => prev + 1);
+      }
+    } catch (error) {
+      console.error('Erro ao salvar etapa:', error);
+      alert(error.message || 'Não foi possível salvar esta etapa.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSave = async (event) => {
+    event.preventDefault();
+    if (!validateStep()) return;
+
+    setSaving(true);
+    try {
+      await persistDraft('completed');
       setSuccess(true);
+      setStep(1);
+      setDraftId('');
       setFormData(initialFormState);
     } catch (error) {
       console.error('Erro ao cadastrar:', error);
-      alert('Erro ao cadastrar eleitor.');
+      alert(error.message || 'Erro ao cadastrar eleitor.');
     } finally {
       setSaving(false);
     }
@@ -224,6 +317,104 @@ export default function EleitorForm() {
       />
     </label>
   );
+
+  const renderStepFields = () => {
+    if (step === 1) {
+      return (
+        <>
+          {renderField('Nome completo', 'nome', { required: true, full: true, placeholder: 'Nome do eleitor' })}
+          {renderField('Apelido', 'apelido', { placeholder: 'Como gosta de ser chamado(a)' })}
+
+          <label className="public-form-field">
+            <span className="public-form-label">Sexo</span>
+            <select name="sexo" value={formData.sexo} onChange={handleChange} className="public-form-select eleitor-form-input eleitor-form-select">
+              <option value="">Selecione</option>
+              <option value="Masculino">Masculino</option>
+              <option value="Feminino">Feminino</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </label>
+
+          {renderField('Data de nascimento', 'nascimento', { type: 'date' })}
+        </>
+      );
+    }
+
+    if (step === 2) {
+      return (
+        <>
+          {renderField('E-mail', 'email', { type: 'email', placeholder: 'voce@email.com', full: true })}
+          {renderField('Telefone', 'telefone', { masked: true, placeholder: '(00) 00000-0000', full: true })}
+        </>
+      );
+    }
+
+    if (step === 3) {
+      return (
+        <>
+          {renderField('CPF', 'cpf', { masked: true, placeholder: '000.000.000-00', full: true })}
+          {renderField('Título de eleitor', 'titulo', { masked: true, onBlur: checkTitulo, placeholder: 'Apenas números', full: true })}
+          <div className="eleitor-form-inline-two full">
+            {renderField('Zona', 'zona', { masked: true, onBlur: checkLocalVotacao, placeholder: '000' })}
+            {renderField('Seção', 'secao', { masked: true, placeholder: '0000' })}
+          </div>
+          <label className="public-form-field full">
+            <span className="public-form-label">
+              Local de votação {localVotacaoLoading ? '(Buscando...)' : ''}
+            </span>
+            <select
+              name="localVotacao"
+              value={formData.localVotacao}
+              onChange={handleChange}
+              className="public-form-select eleitor-form-input eleitor-form-select"
+            >
+              <option value="">Selecione um local</option>
+              {formData.localVotacao && !localVotacaoOptions.some((place) => `${place.local || ''} - ${place.endereco || ''}` === formData.localVotacao) ? (
+                <option value={formData.localVotacao}>{formData.localVotacao}</option>
+              ) : null}
+              {localVotacaoOptions.map((place, index) => (
+                <option key={`${place.local}-${index}`} value={`${place.local || ''} - ${place.endereco || ''}`}>
+                  {place.local}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      );
+    }
+
+    if (step === 4) {
+      return (
+        <>
+          {renderField('CEP', 'cep', { masked: true, onBlur: checkCep, placeholder: cepLoading ? 'Buscando...' : '00000-000' })}
+          {renderField('Endereço', 'endereco')}
+          {renderField('Número', 'numero')}
+          {renderField('Bairro', 'bairro')}
+          {renderField('Cidade', 'cidade')}
+          {renderField('Estado', 'estado')}
+        </>
+      );
+    }
+
+    if (step === 5) {
+      return (
+        <label className="public-form-field full">
+          <span className="public-form-label">Observações</span>
+          <textarea
+            name="observacoes"
+            value={formData.observacoes}
+            onChange={handleChange}
+            className="public-form-textarea eleitor-form-input eleitor-form-textarea"
+            placeholder="Anotações adicionais, contexto de relacionamento ou observações úteis."
+          />
+        </label>
+      );
+    }
+
+    return (
+      <>{renderField('Instagram', 'instagram', { placeholder: '@usuario', full: true })}</>
+    );
+  };
 
   if (success) {
     return (
@@ -256,13 +447,8 @@ export default function EleitorForm() {
     <PublicPageShell
       activeKey="contact"
       kicker="Ficha pública de cadastro"
-      title="Cadastre um eleitor no mesmo padrão visual da plataforma."
-      subtitle="Preencha os dados abaixo com calma. O cadastro será enviado diretamente para a base vinculada ao responsável deste link."
-      actions={
-        <button type="button" className="public-glass-btn" onClick={() => navigate('/')}>
-          Voltar ao portal
-        </button>
-      }
+      title="Seu cadastro ajuda nossa equipe a manter você por perto e bem informado."
+      subtitle="Leva poucos instantes. Preencha em etapas rápidas para receber um acompanhamento mais organizado, próximo e eficiente."
       contentClassName="eleitor-form-shell"
       compactHero
     >
@@ -271,87 +457,36 @@ export default function EleitorForm() {
           <div className="eleitor-form-section-head">
             <span className="public-kicker">
               <UserRound size={16} />
-              Dados principais
+              Passo {step} de {FORM_STEPS.length}
             </span>
-            <p>Campos essenciais para iniciar o relacionamento e organizar a base com mais precisão.</p>
+            <h3 className="eleitor-form-step-title">{activeStep.title}</h3>
+            <p>{activeStep.subtitle}</p>
           </div>
 
-          <form onSubmit={handleSave} className="public-form-grid eleitor-form-grid">
-            {renderField('Nome completo', 'nome', { required: true, full: true, placeholder: 'Nome do eleitor' })}
-            {renderField('Apelido', 'apelido', { placeholder: 'Como gosta de ser chamado(a)' })}
-            {renderField('E-mail', 'email', { type: 'email', placeholder: 'voce@email.com' })}
-            {renderField('Telefone', 'telefone', { masked: true, placeholder: '(00) 00000-0000' })}
-            {renderField('Instagram', 'instagram', { placeholder: '@usuario' })}
-            {renderField('CPF', 'cpf', { masked: true, placeholder: '000.000.000-00' })}
+          <div className="eleitor-form-progress-line" aria-label="Progresso do formulário">
+            {FORM_STEPS.map((item) => (
+              <div key={item.id} className={`eleitor-form-progress-item ${step >= item.id ? 'active' : ''}`}>
+                <span>{item.title}</span>
+              </div>
+            ))}
+          </div>
 
-            <label className="public-form-field">
-              <span className="public-form-label">Sexo</span>
-              <select name="sexo" value={formData.sexo} onChange={handleChange} className="public-form-select eleitor-form-input eleitor-form-select">
-                <option value="">Selecione</option>
-                <option value="Masculino">Masculino</option>
-                <option value="Feminino">Feminino</option>
-                <option value="Outro">Outro</option>
-              </select>
-            </label>
+          <form onSubmit={step === FORM_STEPS.length ? handleSave : handleNext} className="public-form-grid eleitor-form-grid">
+            {renderStepFields()}
 
-            {renderField('Data de nascimento', 'nascimento', { type: 'date' })}
-            {renderField('Título de eleitor', 'titulo', { masked: true, onBlur: checkTitulo, placeholder: 'Apenas números' })}
+            <div className="public-form-field full eleitor-form-submit eleitor-form-actions">
+              {step > 1 ? (
+                <button type="button" className="btn-secondary" onClick={() => setStep((prev) => prev - 1)} disabled={saving}>
+                  <ArrowLeft size={18} />
+                  Voltar
+                </button>
+              ) : (
+                <span />
+              )}
 
-            <div className="eleitor-form-inline-two">
-              {renderField('Zona', 'zona', { masked: true, onBlur: checkLocalVotacao, placeholder: '000' })}
-              {renderField('Seção', 'secao', { masked: true, placeholder: '0000' })}
-            </div>
-
-            <label className="public-form-field full">
-              <span className="public-form-label">
-                Local de votação {localVotacaoLoading ? '(Buscando...)' : ''}
-              </span>
-              <select
-                name="localVotacao"
-                value={formData.localVotacao}
-                onChange={handleChange}
-                className="public-form-select eleitor-form-input eleitor-form-select"
-              >
-                <option value="">Selecione um local</option>
-                {formData.localVotacao && !localVotacaoOptions.some((place) => `${place.local || ''} - ${place.endereco || ''}` === formData.localVotacao) ? (
-                  <option value={formData.localVotacao}>{formData.localVotacao}</option>
-                ) : null}
-                {localVotacaoOptions.map((place, index) => (
-                  <option key={`${place.local}-${index}`} value={`${place.local || ''} - ${place.endereco || ''}`}>
-                    {place.local}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="eleitor-form-section-divider full">
-              <span className="public-kicker">
-                <MapPin size={16} />
-                Endereço
-              </span>
-            </div>
-
-            {renderField('CEP', 'cep', { masked: true, onBlur: checkCep, placeholder: cepLoading ? 'Buscando...' : '00000-000' })}
-            {renderField('Endereço', 'endereco')}
-            {renderField('Número', 'numero')}
-            {renderField('Bairro', 'bairro')}
-            {renderField('Cidade', 'cidade')}
-            {renderField('Estado', 'estado')}
-
-            <label className="public-form-field full">
-              <span className="public-form-label">Observações</span>
-              <textarea
-                name="observacoes"
-                value={formData.observacoes}
-                onChange={handleChange}
-                className="public-form-textarea eleitor-form-input eleitor-form-textarea"
-                placeholder="Anotações adicionais, contexto de relacionamento ou observações úteis."
-              />
-            </label>
-
-            <div className="public-form-field full eleitor-form-submit">
               <button type="submit" className="btn-primary public-primary-cta" disabled={saving}>
-                {saving ? 'Salvando...' : 'Confirmar cadastro'}
+                {saving ? 'Salvando...' : step === FORM_STEPS.length ? 'Finalizar cadastro' : 'Próximo passo'}
+                {!saving ? (step === FORM_STEPS.length ? <CheckCircle size={18} /> : <ArrowRight size={18} />) : null}
               </button>
             </div>
           </form>
@@ -363,21 +498,21 @@ export default function EleitorForm() {
               <ShieldCheck size={16} />
               Orientação
             </span>
-            <p>Preencha com atenção para melhorar a leitura da base e evitar retrabalho no time operacional.</p>
+            <p>O painel lateral foi reorganizado para guiar o cadastro sem poluir a leitura nem estourar o layout.</p>
           </div>
 
           <div className="campaign-notes-list eleitor-form-note-list">
-            <div className="campaign-note-item">
+            <div className="campaign-note-item eleitor-form-tip-card">
               <strong>Priorize telefone e zona</strong>
-              <p>Esses campos ajudam muito na ativação de campo, funil e organização territorial.</p>
+              <p>Esses campos aceleram a ativação de campo, o funil e a organização territorial.</p>
             </div>
-            <div className="campaign-note-item">
+            <div className="campaign-note-item eleitor-form-tip-card">
               <strong>Use endereço completo</strong>
-              <p>CEP, bairro e cidade bem preenchidos fortalecem mapas, visitas e filtros estratégicos.</p>
+              <p>CEP, bairro e cidade fortalecem mapas, visitas e filtros estratégicos.</p>
             </div>
-            <div className="campaign-note-item">
+            <div className="campaign-note-item eleitor-form-tip-card">
               <strong>Evite duplicidade</strong>
-              <p>Se já existir cadastro prévio, prefira complementar informações com o responsável pela base.</p>
+              <p>Se já existir cadastro prévio, prefira complementar as informações com o responsável pela base.</p>
             </div>
           </div>
         </aside>

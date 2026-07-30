@@ -50,6 +50,7 @@ const AuditCenter = lazy(() => import('./screens/in/AuditCenter'));
 const ImportCenter = lazy(() => import('./screens/in/ImportCenter'));
 const SettingsCenter = lazy(() => import('./screens/in/SettingsCenter'));
 const SubscriptionCenter = lazy(() => import('./screens/in/SubscriptionCenter'));
+const SystemCenter = lazy(() => import('./screens/in/SystemCenter'));
 const Profile = lazy(() => import('./screens/in/Profile'));
 const Notifications = lazy(() => import('./screens/in/Notifications'));
 const DataMigration = lazy(() => import('./screens/in/DataMigration'));
@@ -107,6 +108,7 @@ function App() {
                 <Route path="import" element={<ImportCenter />} />
                 <Route path="settings" element={<SettingsCenter />} />
                 <Route path="subscription" element={<SubscriptionCenter />} />
+                <Route path="system-center" element={<SystemCenter />} />
                 <Route path="voters/new" element={<NewVoter />} />
                 <Route path="voters/map" element={<VoterMap />} />
                 <Route path="voters/stations-map" element={<PollingStationMap />} />
