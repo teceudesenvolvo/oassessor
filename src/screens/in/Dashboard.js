@@ -70,6 +70,7 @@ export default function Dashboard() {
     else if (path.includes('/research')) setActiveTab('Pesquisas');
     else if (path.includes('/reports')) setActiveTab('Relatórios');
     else if (path.includes('/ai')) setActiveTab('IA');
+    else if (path.includes('/subscription')) setActiveTab('Assinatura');
     else if (path.includes('/users')) setActiveTab('Usuários');
     else if (path.includes('/audit')) setActiveTab('Auditoria');
     else if (path.includes('/import')) setActiveTab('Importação');
@@ -150,6 +151,7 @@ export default function Dashboard() {
     else if (tabName === 'Pesquisas') navigate('/dashboard/research');
     else if (tabName === 'Relatórios') navigate('/dashboard/reports');
     else if (tabName === 'IA') navigate('/dashboard/ai');
+    else if (tabName === 'Assinatura') navigate('/dashboard/subscription');
     else if (tabName === 'Usuários') navigate('/dashboard/users');
     else if (tabName === 'Auditoria') navigate('/dashboard/audit');
     else if (tabName === 'Importação') navigate('/dashboard/import');

@@ -821,7 +821,9 @@ exports.getAppPlans = onRequest({ cors: true, invoker: 'public' }, async (req, r
                 recommended: metadata.recommended === 'true',
                 price: (price / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
                 amount: price,
-                pagarmeId: plan.id // Keep the original Pagar.me ID
+                pagarmeId: plan.id,
+                itemId: plan.items?.[0]?.id || null,
+                status: plan.status || 'active'
             };
         });
 
@@ -833,6 +835,100 @@ exports.getAppPlans = onRequest({ cors: true, invoker: 'public' }, async (req, r
     } catch (error) {
         console.error("Erro ao buscar planos do Pagar.me:", error);
         res.status(500).send({ success: false, error: "Falha ao buscar planos." });
+    }
+});
+
+exports.updatePagarmePlan = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+    if (req.method !== 'POST') {
+        return res.status(405).send({ success: false, error: 'Method Not Allowed' });
+    }
+
+    const {
+        planId,
+        name,
+        status = 'active',
+        description = '',
+        payment_methods = ['credit_card', 'boleto']
+    } = req.body || {};
+
+    if (!planId || !name) {
+        return res.status(400).send({ success: false, error: 'planId e name são obrigatórios.' });
+    }
+
+    try {
+        const response = await fetch(`${PAGARME_URL}/plans/${planId}`, {
+            method: 'PUT',
+            headers: getPagarmeHeaders(),
+            body: JSON.stringify({
+                name,
+                status,
+                description,
+                payment_methods
+            })
+        });
+
+        const payload = await response.json();
+        if (!response.ok) {
+            return res.status(400).send({
+                success: false,
+                error: payload.message || JSON.stringify(payload.errors || payload)
+            });
+        }
+
+        return res.status(200).send({ success: true, plan: payload });
+    } catch (error) {
+        console.error('Erro ao atualizar plano no Pagar.me:', error);
+        return res.status(500).send({ success: false, error: error.message || 'Falha ao atualizar plano.' });
+    }
+});
+
+exports.updatePagarmePlanItem = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+    if (req.method !== 'POST') {
+        return res.status(405).send({ success: false, error: 'Method Not Allowed' });
+    }
+
+    const {
+        planId,
+        itemId,
+        name,
+        description = '',
+        quantity = 1,
+        amount,
+        status = 'active'
+    } = req.body || {};
+
+    if (!planId || !itemId || !name || !amount) {
+        return res.status(400).send({ success: false, error: 'planId, itemId, name e amount são obrigatórios.' });
+    }
+
+    try {
+        const response = await fetch(`${PAGARME_URL}/plans/${planId}/items/${itemId}`, {
+            method: 'PUT',
+            headers: getPagarmeHeaders(),
+            body: JSON.stringify({
+                name,
+                description,
+                quantity,
+                status,
+                pricing_scheme: {
+                    scheme_type: 'unit',
+                    price: Number(amount)
+                }
+            })
+        });
+
+        const payload = await response.json();
+        if (!response.ok) {
+            return res.status(400).send({
+                success: false,
+                error: payload.message || JSON.stringify(payload.errors || payload)
+            });
+        }
+
+        return res.status(200).send({ success: true, item: payload });
+    } catch (error) {
+        console.error('Erro ao atualizar item do plano no Pagar.me:', error);
+        return res.status(500).send({ success: false, error: error.message || 'Falha ao atualizar item do plano.' });
     }
 });
 
@@ -939,6 +1035,171 @@ exports.getSubscriptionDetails = onRequest({ cors: true, invoker: 'public' }, as
     } catch (error) {
         console.error("Erro ao buscar assinatura:", error);
         res.status(500).send({ error: error.message });
+    }
+});
+
+exports.cancelCurrentSubscription = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+    if (req.method !== 'POST') {
+        return res.status(405).send({ success: false, error: 'Method Not Allowed' });
+    }
+
+    const userId = req.body?.userId;
+    if (!userId) {
+        return res.status(400).send({ success: false, error: 'userId é obrigatório.' });
+    }
+
+    try {
+        const userRef = appFirestore().collection('users').doc(userId);
+        const userSnapshot = await userRef.get();
+        const userData = userSnapshot.data();
+
+        if (!userData?.subscriptionId) {
+            return res.status(404).send({ success: false, error: 'Usuário sem assinatura ativa vinculada.' });
+        }
+
+        const cancelResponse = await fetch(`${PAGARME_URL}/subscriptions/${userData.subscriptionId}`, {
+            method: 'DELETE',
+            headers: getPagarmeHeaders(),
+            body: JSON.stringify({
+                cancel_pending_invoices: true
+            })
+        });
+        const cancelData = await cancelResponse.json();
+
+        if (!cancelResponse.ok) {
+            return res.status(400).send({
+                success: false,
+                error: cancelData.message || JSON.stringify(cancelData.errors || cancelData)
+            });
+        }
+
+        await userRef.set({
+            subscriptionStatus: cancelData.status || 'canceled'
+        }, { merge: true });
+
+        return res.status(200).send({
+            success: true,
+            subscription: cancelData
+        });
+    } catch (error) {
+        console.error('Erro ao cancelar assinatura:', error);
+        return res.status(500).send({ success: false, error: error.message || 'Falha ao cancelar assinatura.' });
+    }
+});
+
+exports.changeSubscriptionPlan = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+    if (req.method !== 'POST') {
+        return res.status(405).send({ success: false, error: 'Method Not Allowed' });
+    }
+
+    const { userId, targetPlanId } = req.body || {};
+    if (!userId || !targetPlanId) {
+        return res.status(400).send({ success: false, error: 'userId e targetPlanId são obrigatórios.' });
+    }
+
+    try {
+        const userRef = appFirestore().collection('users').doc(userId);
+        const userSnapshot = await userRef.get();
+        const userData = userSnapshot.data();
+
+        if (!userData?.subscriptionId) {
+            return res.status(404).send({ success: false, error: 'Usuário sem assinatura vinculada.' });
+        }
+
+        const plansResponse = await fetch(`${PAGARME_URL}/plans?status=active&count=100`, {
+            headers: getPagarmeHeaders()
+        });
+        const plansData = await plansResponse.json();
+        const pagarmePlan = (plansData.data || []).find((plan) =>
+            (plan.metadata && plan.metadata.app_id === targetPlanId) || plan.id === targetPlanId
+        );
+
+        if (!pagarmePlan) {
+            return res.status(404).send({ success: false, error: 'Plano de destino não encontrado no gateway.' });
+        }
+
+        const currentSubscriptionResponse = await fetch(`${PAGARME_URL}/subscriptions/${userData.subscriptionId}`, {
+            headers: getPagarmeHeaders()
+        });
+        const currentSubscription = await currentSubscriptionResponse.json();
+
+        if (!currentSubscriptionResponse.ok) {
+            return res.status(400).send({
+                success: false,
+                error: currentSubscription.message || JSON.stringify(currentSubscription.errors || currentSubscription)
+            });
+        }
+
+        const cardId =
+            currentSubscription?.card?.id ||
+            currentSubscription?.card_id ||
+            currentSubscription?.current_transaction?.card?.id ||
+            userData?.cards?.[0]?.id ||
+            null;
+
+        const paymentMethod = currentSubscription?.payment_method || 'credit_card';
+        const createPayload = {
+            plan_id: pagarmePlan.id,
+            customer_id: userData.pagarmeCustomerId || currentSubscription?.customer?.id,
+            payment_method: paymentMethod
+        };
+
+        if (!createPayload.customer_id) {
+            return res.status(400).send({ success: false, error: 'Cliente do gateway não encontrado para esta conta.' });
+        }
+
+        if (paymentMethod === 'credit_card') {
+            if (!cardId) {
+                return res.status(400).send({ success: false, error: 'Nenhum cartão salvo foi encontrado para realizar a troca de plano.' });
+            }
+            createPayload.card_id = cardId;
+        }
+
+        const createResponse = await fetch(`${PAGARME_URL}/subscriptions`, {
+            method: 'POST',
+            headers: getPagarmeHeaders(),
+            body: JSON.stringify(createPayload)
+        });
+        const newSubscription = await createResponse.json();
+
+        if (!createResponse.ok) {
+            return res.status(400).send({
+                success: false,
+                error: newSubscription.message || JSON.stringify(newSubscription.errors || newSubscription)
+            });
+        }
+
+        const cancelOldResponse = await fetch(`${PAGARME_URL}/subscriptions/${userData.subscriptionId}`, {
+            method: 'DELETE',
+            headers: getPagarmeHeaders(),
+            body: JSON.stringify({
+                cancel_pending_invoices: true
+            })
+        });
+        const cancelOldData = await cancelOldResponse.json();
+
+        if (!cancelOldResponse.ok) {
+            return res.status(400).send({
+                success: false,
+                error: cancelOldData.message || JSON.stringify(cancelOldData.errors || cancelOldData)
+            });
+        }
+
+        await userRef.set({
+            subscriptionId: newSubscription.id,
+            subscriptionStatus: newSubscription.status || 'active',
+            planId: targetPlanId,
+            nomePlano: pagarmePlan.name,
+            limiteEleitores: pagarmePlan.metadata?.team || userData.limiteEleitores || ''
+        }, { merge: true });
+
+        return res.status(200).send({
+            success: true,
+            subscription: newSubscription
+        });
+    } catch (error) {
+        console.error('Erro ao trocar plano da assinatura:', error);
+        return res.status(500).send({ success: false, error: error.message || 'Falha ao trocar plano.' });
     }
 });
 

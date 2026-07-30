@@ -205,7 +205,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="dashboard-card" style={{ maxWidth: '800px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+    <div className="profile-shell">
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
@@ -215,55 +215,26 @@ export default function Profile() {
           scrollbar-width: none;
         }
       `}</style>
-      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-        <div style={{ 
-          width: '100px', 
-          height: '100px', 
-          backgroundColor: '#e2e8f0', 
-          borderRadius: '50%', 
-          margin: '0 auto 15px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-          border: '2px solid #fff',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-        }}>
+      <div className="profile-header-card">
+        <div className="profile-avatar-wrap">
           {profileData.photoBase64 ? (
             <img src={profileData.photoBase64} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <User size={50} color="#94a3b8" />
           )}
-          <label htmlFor="photo-upload" style={{ 
-            position: 'absolute', 
-            bottom: '0', 
-            right: '0', 
-            backgroundColor: '#2563eb', 
-            border: 'none', 
-            borderRadius: '50%', 
-            padding: '8px',
-            cursor: 'pointer',
-            color: 'white',
-            display: 'flex',
-            zIndex: 10
-          }}>
+          <label htmlFor="photo-upload" className="profile-avatar-action">
             <Camera size={16} />
           </label>
           <input id="photo-upload" type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
         </div>
-        <h3>{profileData.name || 'Usuário'}</h3>
-        <p style={{ color: '#64748b' }}>{profileData.cargo || 'Perfil de Acesso'}</p>
+        <div className="profile-header-copy">
+          <span className="profile-badge">Meu perfil</span>
+          <h3>{profileData.name || 'Usuário'}</h3>
+          <p>{profileData.cargo || 'Perfil de Acesso'}</p>
+        </div>
       </div>
 
-      <div className="hide-scrollbar" style={{ 
-        display: 'flex', 
-        gap: '10px', 
-        marginBottom: '30px', 
-        overflowX: 'auto', 
-        paddingBottom: '5px',
-        borderBottom: '1px solid #e2e8f0'
-      }}>
+      <div className="hide-scrollbar profile-tabs-row">
         {([
             { id: 'personal', label: 'Dados Pessoais' },
             { id: 'payment', label: 'Dados de Pagamento' },
@@ -278,25 +249,16 @@ export default function Profile() {
             <button 
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                style={{
-                    padding: '10px 15px',
-                    borderRadius: '8px 8px 0 0',
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    color: activeTab === tab.id ? '#2563eb' : '#64748b',
-                    fontWeight: activeTab === tab.id ? '600' : '400',
-                    borderBottom: activeTab === tab.id ? '2px solid #2563eb' : '2px solid transparent',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.2s'
-                }}
+                className={`profile-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
             >
                 {tab.label}
             </button>
         ))}
       </div>
 
-      {renderContent()}
+      <div className="profile-content-card">
+        {renderContent()}
+      </div>
     </div>
   );
 }

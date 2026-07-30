@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { equalTo, get, orderByChild, push, query, ref, set } from '../services/firestoreDatabase';
 import { database } from '../firebaseConfig';
 import { logAuditEvent } from '../services/auditService';
+import { checkVoterPlanLimit } from '../services/planLimits';
 
 export const IMPORT_STEPS = [
   'upload',
@@ -323,6 +324,12 @@ export function useImportWizard(user) {
 
     try {
       setIsImporting(true);
+      const limitCheck = await checkVoterPlanLimit(user, duplicates.readyToImport.length);
+      if (!limitCheck.allowed) {
+        alert(limitCheck.message);
+        return;
+      }
+
       const importedIds = [];
 
       for (const item of duplicates.readyToImport) {

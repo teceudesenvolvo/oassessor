@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Mail } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
-import Logo from '../../assets/logomarca.png';
+import PublicPageShell from '../../components/PublicPageShell';
 
-/**
- * Componente de Login principal utilizando React.
- * Os estilos foram movidos para uma tag <style> interna para garantir a compatibilidade do Preview.
- */
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -16,176 +12,104 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  // Estado para animação
-  const [animating, setAnimating] = useState(false);
-  const [clickPos, setClickPos] = useState({ x: 0, y: 0 });
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  const handleLogin = async (event) => {
+    event.preventDefault();
     setError('');
     setLoading(true);
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      setLoading(false);
-      setAnimating(true);
-      
-      // Aguarda a animação terminar antes de trocar de rota
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 800);
-
-    } catch (error) {
-      setLoading(false);
-      console.error("Erro no login:", error);
-      let msg = "Erro ao entrar. Verifique suas credenciais.";
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        msg = "E-mail ou senha incorretos.";
+      navigate('/dashboard');
+    } catch (loginError) {
+      console.error('Erro no login:', loginError);
+      let msg = 'Erro ao entrar. Verifique suas credenciais.';
+      if (
+        loginError.code === 'auth/invalid-credential' ||
+        loginError.code === 'auth/user-not-found' ||
+        loginError.code === 'auth/wrong-password'
+      ) {
+        msg = 'E-mail ou senha incorretos.';
       }
       setError(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const captureClick = (e) => {
-    setClickPos({ x: e.clientX, y: e.clientY });
-  };
-
   return (
-    <div className="login-page-wrapper">
+    <PublicPageShell
+      activeKey="login"
+      kicker="Acesso seguro à operação"
+      title="Entre na plataforma e retome o pulso da campanha."
+      subtitle="Acesse sua central com visão de equipe, base eleitoral, território e prioridades do dia em um só ambiente."
+      contentClassName="public-auth-shell"
+      compactHero
+      actions={
+        <>
+          <button type="button" className="public-glass-btn" onClick={() => navigate('/plans')}>Ver planos</button>
+          <button type="button" className="public-glass-btn" onClick={() => navigate('/contact')}>Preciso de ajuda</button>
+        </>
+      }
+    >
+      <div className="public-grid-2">
+        <article className="public-panel">
+          <h2>Por que entrar pelo oAssessor</h2>
+          <p>Comece o dia com leitura clara da base, tarefas críticas, agenda, equipes em campo e sinais operacionais que exigem decisão.</p>
+          <p>O produto foi desenhado para coordenação real, não apenas para cadastro isolado.</p>
+        </article>
 
-      <div className="login-card-web">
-        
-        {/* Seção Superior com Gradiente e Logo */}
-        <header className="login-header-section">
-          <div className="header-decoration">
-            <div className="blur-circle circle-1"></div>
-            <div className="blur-circle circle-2"></div>
-          </div>
-          
-          <div className="header-brand">
-            <img src={Logo} alt="Logo" className='logo-img' />
-            <p> ¹
-            </p>
-          </div>
-        </header>
+        <article className="public-form-card">
+          <h3>Entrar na plataforma</h3>
+          {error ? <div className="public-alert">{error}</div> : null}
 
-        {/* Formulário de Autenticação */}
-        <main className="login-form-content">
-          <form onSubmit={handleLogin} className="auth-form">
-            
-            {/* Input de Identificação */}
-            <div className="form-field">
-              <label className="field-label">E-mail</label>
-              <div className="input-container">
-                <Mail size={20} className="field-icon-left" />
-                <input 
-                  type="text" 
+          <form onSubmit={handleLogin} className="public-form-grid" style={{ marginTop: error ? '14px' : 0 }}>
+            <label className="public-form-field full">
+              <span className="public-form-label">E-mail</span>
+              <div className="public-inline-icon-field">
+                <input
+                  type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="exemplo@campanha.com"
-                  className="custom-input"
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="voce@campanha.com"
+                  className="public-form-input"
                   required
                 />
+                <span className="public-inline-action" aria-hidden="true">
+                  <Mail size={18} />
+                </span>
               </div>
-            </div>
+            </label>
 
-            {/* Input de Senha */}
-            <div className="form-field">
-              <div className="label-flex">
-                <label className="field-label">Senha</label>
-                <button type="button" className="forgot-pass-btn">Esqueceu?</button>
-              </div>
-              <div className="input-container">
-                <Lock size={20} className="field-icon-left" />
-                <input 
-                  type={showPassword ? "text" : "password"} 
+            <label className="public-form-field full">
+              <span className="public-form-label">Senha</span>
+              <div className="public-inline-icon-field">
+                <input
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="custom-input pr-12"
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Sua senha"
+                  className="public-form-input"
                   required
                 />
-                <button 
-                  type="button" 
-                  className="toggle-visibility"
-                  onClick={() => setShowPassword(!showPassword)}
+                <button
+                  type="button"
+                  className="public-inline-action"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-            </div>
+            </label>
 
-            {/* Mensagem de Erro */}
-            {error && (
-              <div style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '10px', textAlign: 'center', fontWeight: '500' }}>
-                {error}
-              </div>
-            )}
-
-            {/* Botão de Ação Principal */}
-            <button 
-              type="submit" 
-              className={`submit-login-btn ${loading ? 'btn-loading' : ''}`}
-              disabled={loading}
-              onClick={captureClick}
-            >
-              {loading ? (
-                <div className="spinner"></div>
-              ) : (
-                <>
-                  <span>Entrar na Plataforma</span>
-                  <ArrowRight size={20} className="btn-arrow" />
-                </>
-              )}
+            <button type="submit" className="btn-primary public-primary-cta" disabled={loading}>
+              {loading ? 'Entrando...' : 'Entrar agora'}
+              {!loading ? <ArrowRight size={18} /> : null}
             </button>
           </form>
-
-          {/* Rodapé de Registro */}
-          {/* <footer className="register-footer">
-            <p className="no-account-text">Ainda não tem acesso?</p>
-            <button className="create-account-btn">
-              Criar Conta
-            </button>
-          </footer> */}
-        </main>
-
-        {/* Selos de Segurança */}
-        <div className="security-badges">
-          <span className="badge-item">
-            <CheckCircle2 size={12} className="check-icon" /> 
-            Conexão Segura
-          </span>
-          <span className="badge-divider"></span>
-          <span className="badge-item">Privacidade Total</span>
-          <span className="badge-divider"></span>
-          <span className="badge-item">LGPD Compliant</span>
-        </div>
+        </article>
       </div>
-
-      {/* Elemento de Animação (Círculo Verde) */}
-      {animating && (
-        <div style={{
-          position: 'fixed',
-          top: clickPos.y,
-          left: clickPos.x,
-          width: '20px',
-          height: '20px',
-          backgroundColor: '#4ADE80', // Cor do botão
-          borderRadius: '50%',
-          transform: 'translate(-50%, -50%) scale(0)',
-          animation: 'expandCircle 0.8s forwards',
-          zIndex: 9999,
-          pointerEvents: 'none'
-        }}>
-          <style>{`
-            @keyframes expandCircle {
-              0% { transform: translate(-50%, -50%) scale(0); }
-              100% { transform: translate(-50%, -50%) scale(250); }
-            }
-          `}</style>
-        </div>
-      )}
-    </div>
+    </PublicPageShell>
   );
 }

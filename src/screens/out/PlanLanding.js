@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle, ArrowLeft } from 'lucide-react';
 import Navbar from '../../components/Navbar';
-
-const GET_PLANS_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/getAppPlans';
+import { fetchManagedPlans } from '../../services/appPlansService';
 
 export default function PlanLanding() {
   const { id } = useParams();
@@ -16,16 +15,13 @@ export default function PlanLanding() {
     if (!plan) {
       const fetchPlan = async () => {
         try {
-          const response = await fetch(GET_PLANS_URL);
-          const data = await response.json();
-          if (data.success) {
-            const foundPlan = data.plans.find(p => p.id === id);
-            if (foundPlan) {
-              setPlan(foundPlan);
-            } else {
-              console.warn("Plano não encontrado, redirecionando.");
-              navigate('/plans');
-            }
+          const managedPlans = await fetchManagedPlans({ includeHidden: false });
+          const foundPlan = managedPlans.find((item) => item.id === id);
+          if (foundPlan) {
+            setPlan(foundPlan);
+          } else {
+            console.warn("Plano não encontrado, redirecionando.");
+            navigate('/plans');
           }
         } catch (error) {
           console.error("Erro ao buscar detalhes do plano:", error);

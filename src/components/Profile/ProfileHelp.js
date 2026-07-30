@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HelpCircle, ChevronDown, ChevronUp, MessageCircle, Mail } from 'lucide-react';
+import { HelpCircle, ChevronDown, ChevronUp, MessageCircle, Mail, ExternalLink } from 'lucide-react';
 
 export default function ProfileHelp() {
   const [openFaq, setOpenFaq] = useState(null);
@@ -28,95 +28,72 @@ export default function ProfileHelp() {
   };
 
   const handleWhatsAppSupport = () => {
-    // Substitua pelo número real de suporte
-    window.open('https://wa.me/5511999999999', '_blank'); 
+    window.open('https://wa.me/5585997363433', '_blank');
   };
 
   const handleEmailSupport = () => {
-    window.location.href = 'mailto:suporte@oassessor.com.br';
+    window.location.href = 'mailto:contatos@blutecnologias.com.br';
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-      
-      {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-        <h3 style={{ color: '#0f172a', marginBottom: '10px' }}>Como podemos ajudar?</h3>
-        <p style={{ color: '#64748b' }}>Encontre respostas rápidas ou entre em contato com nosso time.</p>
+    <div className="profile-help-shell">
+      <div className="profile-section-heading">
+        <h3>Como podemos ajudar?</h3>
+        <p>Encontre respostas rápidas ou fale com nosso time comercial e de atendimento.</p>
       </div>
 
-      {/* Contact Options */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-        <div 
+      <div className="profile-help-grid">
+        <button
+          type="button"
           onClick={handleWhatsAppSupport}
-          style={{ 
-            backgroundColor: '#dcfce7', 
-            padding: '20px', 
-            borderRadius: '12px', 
-            cursor: 'pointer',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '10px',
-            border: '1px solid #bbf7d0',
-            transition: 'transform 0.2s'
-          }}
+          className="profile-help-card whatsapp"
         >
-          <MessageCircle size={32} color="#16a34a" />
-          <span style={{ fontWeight: '600', color: '#166534' }}>Suporte via WhatsApp</span>
-        </div>
+          <div className="profile-help-card-icon">
+            <MessageCircle size={24} />
+          </div>
+          <div className="profile-help-card-copy">
+            <strong>WhatsApp</strong>
+            <span>85 99736-3433</span>
+            <small>Atendimento consultivo com um toque.</small>
+          </div>
+          <ExternalLink size={18} />
+        </button>
 
-        <div 
+        <button
+          type="button"
           onClick={handleEmailSupport}
-          style={{ 
-            backgroundColor: '#e0f2fe', 
-            padding: '20px', 
-            borderRadius: '12px', 
-            cursor: 'pointer',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '10px',
-            border: '1px solid #bae6fd',
-            transition: 'transform 0.2s'
-          }}
+          className="profile-help-card email"
         >
-          <Mail size={32} color="#0284c7" />
-          <span style={{ fontWeight: '600', color: '#075985' }}>Suporte via E-mail</span>
-        </div>
+          <div className="profile-help-card-icon">
+            <Mail size={24} />
+          </div>
+          <div className="profile-help-card-copy">
+            <strong>E-mail</strong>
+            <span>contatos@blutecnologias.com.br</span>
+            <small>Fale com nosso time sobre operação, planos e implantação.</small>
+          </div>
+          <ExternalLink size={18} />
+        </button>
       </div>
 
-      {/* FAQ Section */}
-      <div>
-        <h4 style={{ color: '#0f172a', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="profile-help-faq">
+        <h4 className="profile-help-title">
           <HelpCircle size={20} /> Perguntas Frequentes
         </h4>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+        <div className="profile-help-faq-list">
           {faqs.map((faq, index) => (
-            <div key={index} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+            <div key={index} className="profile-faq-item">
               <button 
                 onClick={() => toggleFaq(index)}
-                style={{ 
-                  width: '100%', 
-                  padding: '15px', 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  background: 'white',
-                  border: 'none',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  fontWeight: '500',
-                  color: '#334155'
-                }}
+                className="profile-faq-question"
               >
                 {faq.question}
                 {openFaq === index ? <ChevronUp size={18} color="#64748b" /> : <ChevronDown size={18} color="#64748b" />}
               </button>
               
               {openFaq === index && (
-                <div style={{ padding: '15px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#64748b', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                <div className="profile-faq-answer">
                   {faq.answer}
                 </div>
               )}
@@ -124,7 +101,6 @@ export default function ProfileHelp() {
           ))}
         </div>
       </div>
-
     </div>
   );
 }

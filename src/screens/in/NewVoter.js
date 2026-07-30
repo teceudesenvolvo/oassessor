@@ -4,6 +4,7 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { ref, push, set, get } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
+import { checkVoterPlanLimit } from '../../services/planLimits';
 
 
 export default function NewVoter() {
@@ -185,6 +186,13 @@ export default function NewVoter() {
     if (!user) return;
     setSaving(true);
     try {
+      const limitCheck = await checkVoterPlanLimit(user, 1);
+      if (!limitCheck.allowed) {
+        alert(limitCheck.message);
+        navigate('/dashboard/subscription');
+        return;
+      }
+
       const votersRef = ref(database, 'eleitores');
       const newVoterRef = push(votersRef);
       await set(newVoterRef, {

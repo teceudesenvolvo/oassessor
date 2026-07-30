@@ -13,7 +13,6 @@ import {
   LogOut, 
   X,
   School,
-  BarChart2,
   Rows3,
   Route,
   Network,
@@ -28,6 +27,7 @@ import {
   Sparkles,
   ShieldCheck,
   ScrollText,
+  CreditCard,
   FileUp,
   SlidersHorizontal,
   ChevronLeft,
@@ -69,6 +69,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, i
     {
       label: 'Administração',
       items: [
+        { name: 'Assinatura', icon: CreditCard },
         { name: 'Usuários', icon: ShieldCheck },
         { name: 'Auditoria', icon: ScrollText },
         { name: 'Importação', icon: FileUp },
@@ -79,7 +80,6 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, i
       label: 'Mapas e utilitários',
       items: [
         { name: 'Mapa de Colégios', icon: School },
-        { name: 'Comparativo 2024', icon: BarChart2 },
         { name: 'Perfil', icon: User }
       ]
     }
