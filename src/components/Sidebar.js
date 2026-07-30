@@ -23,6 +23,7 @@ import {
   MessagesSquare,
   Map,
   ClipboardCheck,
+  ReceiptText,
   Files,
   Sparkles,
   ShieldCheck,
@@ -48,6 +49,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, i
         { name: 'Eleitores', icon: Vote },
         { name: 'Funil Eleitoral', icon: Rows3 },
         { name: 'Caminho para a Vitória', icon: Route },
+        { name: 'Prestação de Contas', icon: ReceiptText },
         { name: 'Relatórios', icon: Files },
         { name: 'IA', icon: Sparkles }
       ]

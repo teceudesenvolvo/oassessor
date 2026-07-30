@@ -60,6 +60,7 @@ export default function Dashboard() {
     else if (path.includes('/agenda')) setActiveTab('Agenda');
     else if (path.includes('/electoral-funnel')) setActiveTab('Funil Eleitoral');
     else if (path.includes('/victory-path')) setActiveTab('Caminho para a Vitória');
+    else if (path.includes('/prestacao-contas')) setActiveTab('Prestação de Contas');
     else if (path.includes('/leaderships')) setActiveTab('Lideranças');
     else if (path.includes('/volunteers')) setActiveTab('Voluntários');
     else if (path.includes('/visits')) setActiveTab('Visitas');
@@ -142,6 +143,7 @@ export default function Dashboard() {
     else if (tabName === 'Agenda') navigate('/dashboard/agenda');
     else if (tabName === 'Funil Eleitoral') navigate('/dashboard/electoral-funnel');
     else if (tabName === 'Caminho para a Vitória') navigate('/dashboard/victory-path');
+    else if (tabName === 'Prestação de Contas') navigate('/dashboard/prestacao-contas');
     else if (tabName === 'Lideranças') navigate('/dashboard/leaderships');
     else if (tabName === 'Voluntários') navigate('/dashboard/volunteers');
     else if (tabName === 'Visitas') navigate('/dashboard/visits');

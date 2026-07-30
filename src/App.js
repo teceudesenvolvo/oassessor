@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 
 // Importing Components
@@ -55,6 +55,20 @@ const Profile = lazy(() => import('./screens/in/Profile'));
 const Notifications = lazy(() => import('./screens/in/Notifications'));
 const DataMigration = lazy(() => import('./screens/in/DataMigration'));
 const EleitorForm = lazy(() => import('./screens/out/EleitorForm'));
+const AccountabilityLayout = lazy(() => import('./screens/in/accountability/AccountabilityLayout'));
+const AccountabilityOverview = lazy(() => import('./screens/in/accountability/OverviewTab'));
+const AccountabilityConfiguration = lazy(() => import('./screens/in/accountability/ConfigurationTab'));
+const AccountabilityBankAccounts = lazy(() => import('./screens/in/accountability/BankAccountsTab'));
+const AccountabilityRevenues = lazy(() => import('./screens/in/accountability/RevenuesTab'));
+const AccountabilityExpenses = lazy(() => import('./screens/in/accountability/ExpensesTab'));
+const AccountabilityCatalogs = lazy(() => import('./screens/in/accountability/CatalogsTab'));
+const AccountabilityDocuments = lazy(() => import('./screens/in/accountability/DocumentsTab'));
+const AccountabilityReconciliation = lazy(() => import('./screens/in/accountability/ReconciliationTab'));
+const AccountabilityBudget = lazy(() => import('./screens/in/accountability/BudgetTab'));
+const AccountabilityPendingIssues = lazy(() => import('./screens/in/accountability/PendingIssuesTab'));
+const AccountabilityReports = lazy(() => import('./screens/in/accountability/ReportsTab'));
+const AccountabilityReview = lazy(() => import('./screens/in/accountability/ReviewTab'));
+const AccountabilityClosing = lazy(() => import('./screens/in/accountability/ClosingTab'));
 
 function App() {
   const loadingFallback = <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
@@ -117,6 +131,22 @@ function App() {
                 <Route path="profile" element={<Profile />} />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="data-migration" element={<DataMigration />} />
+                <Route path="prestacao-contas" element={<AccountabilityLayout />}>
+                  <Route index element={<Navigate to="visao-geral" replace />} />
+                  <Route path="visao-geral" element={<AccountabilityOverview />} />
+                  <Route path="configuracao" element={<AccountabilityConfiguration />} />
+                  <Route path="contas-bancarias" element={<AccountabilityBankAccounts />} />
+                  <Route path="receitas" element={<AccountabilityRevenues />} />
+                  <Route path="despesas" element={<AccountabilityExpenses />} />
+                  <Route path="cadastros" element={<AccountabilityCatalogs />} />
+                  <Route path="documentos" element={<AccountabilityDocuments />} />
+                  <Route path="conciliacao" element={<AccountabilityReconciliation />} />
+                  <Route path="orcamento" element={<AccountabilityBudget />} />
+                  <Route path="pendencias" element={<AccountabilityPendingIssues />} />
+                  <Route path="relatorios" element={<AccountabilityReports />} />
+                  <Route path="revisao" element={<AccountabilityReview />} />
+                  <Route path="fechamento" element={<AccountabilityClosing />} />
+                </Route>
               </Route>
             </Route>
           </Routes>

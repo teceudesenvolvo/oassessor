@@ -3256,6 +3256,7 @@
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+  text-decoration: none;
   transition: all 0.22s ease;
 }
 
@@ -4747,6 +4748,201 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.accountability-header-card,
+.accountability-main-grid {
+  min-width: 0;
+}
+
+.accountability-header-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.accountability-progress-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.accountability-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(120px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.accountability-progress-item {
+  min-width: 120px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--glass-border);
+}
+
+.accountability-progress-item strong {
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+.accountability-progress-item.done {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.14), rgba(59, 130, 246, 0.12));
+  border-color: rgba(34, 197, 94, 0.24);
+}
+
+.accountability-progress-item.done strong {
+  color: #0f766e;
+}
+
+.accountability-tabs-row {
+  padding-bottom: 8px;
+}
+
+.accountability-tabs-row .profile-tab-btn {
+  text-decoration: none !important;
+}
+
+.accountability-status-success {
+  background: rgba(34, 197, 94, 0.14);
+  color: #15803d;
+}
+
+.accountability-status-danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+.accountability-status-highlight {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.accountability-record-item {
+  align-items: flex-start;
+}
+
+.accountability-record-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.accountability-scroll-list {
+  max-height: min(54vh, 520px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.accountability-attention-list .campaign-alert-item {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+}
+
+.accountability-attention-list .campaign-alert-item > div,
+.accountability-export-note,
+.accountability-header-grid .campaign-note-item,
+.accountability-record-item,
+.campaign-alert-item,
+.campaign-list-item,
+.campaign-note-item {
+  min-width: 0;
+}
+
+.accountability-attention-list .campaign-alert-item strong,
+.accountability-attention-list .campaign-alert-item p,
+.accountability-header-grid .campaign-note-item p,
+.accountability-record-item p,
+.campaign-alert-item p,
+.campaign-note-item p {
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.accountability-attention-list .campaign-alert-item strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+}
+
+.accountability-pending-list .campaign-alert-item {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: flex-start;
+}
+
+.accountability-pending-list .campaign-alert-item strong,
+.accountability-pending-list .campaign-alert-item p {
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+.accountability-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.accountability-export-actions .btn-primary,
+.accountability-export-actions .btn-secondary {
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.accountability-file-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.accountability-file-field small {
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.accountability-report-card {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.accountability-report-copy {
+  min-width: 0;
+}
+
+.accountability-report-copy strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
+
+.accountability-report-copy p {
+  margin: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.65;
+}
+
+.accountability-report-warning {
+  background: #fff7ed;
+}
+
+@media (min-width: 900px) {
+  .accountability-report-card {
+    grid-template-columns: minmax(320px, 1fr) auto;
+  }
+
+  .accountability-report-warning {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .users-card-list,

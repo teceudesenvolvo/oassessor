@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Camera } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { ref, get, update, query, orderByChild, equalTo } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
@@ -9,8 +10,10 @@ import ProfilePayment from '../../components/Profile/ProfilePayment';
 import ProfileSubscription from '../../components/Profile/ProfileSubscription';
 import ProfilePassword from '../../components/Profile/ProfilePassword';
 import ProfileHelp from '../../components/Profile/ProfileHelp';
+import ProfileAccountability from '../../components/Profile/ProfileAccountability';
 
 export default function Profile() {
+  const location = useLocation();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('personal');
   const [loading, setLoading] = useState(false);
@@ -30,6 +33,14 @@ export default function Profile() {
     estado: '',
     cards: []
   });
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const requestedTab = searchParams.get('tab');
+    if (requestedTab) {
+      setActiveTab(requestedTab);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (user) {
@@ -86,7 +97,24 @@ export default function Profile() {
             bairro: billing.bairro || userData.bairro || '',
             cidade: billing.cidade || userData.cidade || '',
             estado: billing.estado || userData.estado || '',
-            cards: userData.cards || []
+            cards: userData.cards || [],
+            accountabilityProfile: {
+              campaignName: userData.accountabilityProfile?.campaignName || '',
+              candidateName: userData.accountabilityProfile?.candidateName || '',
+              candidateCpf: userData.accountabilityProfile?.candidateCpf || '',
+              office: userData.accountabilityProfile?.office || '',
+              party: userData.accountabilityProfile?.party || '',
+              electionLabel: userData.accountabilityProfile?.electionLabel || '',
+              round: userData.accountabilityProfile?.round || '',
+              city: userData.accountabilityProfile?.city || '',
+              state: userData.accountabilityProfile?.state || '',
+              financialManager: userData.accountabilityProfile?.financialManager || '',
+              accountantName: userData.accountabilityProfile?.accountantName || '',
+              emailPrimary: userData.accountabilityProfile?.emailPrimary || '',
+              phonePrimary: userData.accountabilityProfile?.phonePrimary || '',
+              spendingLimitCents: userData.accountabilityProfile?.spendingLimitCents || '',
+              plannedBudgetCents: userData.accountabilityProfile?.plannedBudgetCents || ''
+            }
           }); 
         }
       };
@@ -153,12 +181,12 @@ export default function Profile() {
     const { name, value } = e.target;
     let val = value;
 
-    if (name === 'cpf') {
+    if (name === 'cpf' || name === 'accountabilityProfile.candidateCpf') {
       val = val.replace(/\D/g, '').slice(0, 11)
         .replace(/(\d{3})(\d)/, '$1.$2')
         .replace(/(\d{3})(\d)/, '$1.$2')
         .replace(/(\d{3})(\d{1,2})/, '$1-$2');
-    } else if (name === 'phone') {
+    } else if (name === 'phone' || name === 'accountabilityProfile.phonePrimary') {
       val = val.replace(/\D/g, '').slice(0, 11);
       val = val.replace(/^(\d{2})(\d)/g, '($1) $2');
       val = val.replace(/(\d)(\d{4})$/, '$1-$2');
@@ -167,7 +195,36 @@ export default function Profile() {
       val = val.replace(/^(\d{5})(\d)/, '$1-$2');
     }
 
+    if (name.startsWith('accountabilityProfile.')) {
+      const nestedKey = name.replace('accountabilityProfile.', '');
+      setProfileData((prev) => ({
+        ...prev,
+        accountabilityProfile: {
+          ...(prev.accountabilityProfile || {}),
+          [nestedKey]: val
+        }
+      }));
+      return;
+    }
+
     setProfileData(prev => ({ ...prev, [name]: val }));
+  };
+
+  const handleSaveAccountability = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const userRef = ref(database, `users/${user.uid}`);
+      await update(userRef, {
+        accountabilityProfile: profileData.accountabilityProfile || {}
+      });
+      alert('Dados da prestação atualizados com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar dados da prestação:', error);
+      alert('Erro ao atualizar dados da prestação.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderContent = () => {
@@ -195,6 +252,16 @@ export default function Profile() {
         );
       case 'subscription':
         return <ProfileSubscription profileData={profileData} user={user} />;
+      case 'accountability':
+        return (
+          <ProfileAccountability
+            profileData={profileData}
+            setProfileData={setProfileData}
+            loading={loading}
+            handleMaskedInput={handleMaskedInput}
+            handleSaveAccountability={handleSaveAccountability}
+          />
+        );
       case 'password':
         return <ProfilePassword />;
       case 'help':
@@ -239,6 +306,7 @@ export default function Profile() {
             { id: 'personal', label: 'Dados Pessoais' },
             { id: 'payment', label: 'Dados de Pagamento' },
             { id: 'subscription', label: 'Minha Assinatura' },
+            { id: 'accountability', label: 'Prestação de Contas' },
             { id: 'password', label: 'Alterar Senha' },
             { id: 'help', label: 'Ajuda' }
         ].filter(tab => {
