@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 export const ACCOUNTABILITY_TABS = [
   { key: 'visao-geral', label: 'Visão Geral' },
@@ -18,17 +18,38 @@ export const ACCOUNTABILITY_TABS = [
 ];
 
 export default function AccountabilityTabs() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentTab = ACCOUNTABILITY_TABS.find((tab) => location.pathname.includes(`/prestacao-contas/${tab.key}`))?.key || 'visao-geral';
+
   return (
-    <div className="profile-tabs-row accountability-tabs-row">
-      {ACCOUNTABILITY_TABS.map((tab) => (
-        <NavLink
-          key={tab.key}
-          to={`/dashboard/prestacao-contas/${tab.key}`}
-          className={({ isActive }) => `profile-tab-btn ${isActive ? 'active' : ''}`}
-        >
-          {tab.label}
-        </NavLink>
-      ))}
-    </div>
+    <>
+      <div className="accountability-mobile-select">
+        <label className="funnel-filter-field full">
+          <span>Navegação da prestação</span>
+          <select
+            className="campaign-filter-select"
+            value={currentTab}
+            onChange={(event) => navigate(`/dashboard/prestacao-contas/${event.target.value}`)}
+          >
+            {ACCOUNTABILITY_TABS.map((tab) => (
+              <option key={tab.key} value={tab.key}>{tab.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <nav className="accountability-sidebar-nav">
+        {ACCOUNTABILITY_TABS.map((tab) => (
+          <NavLink
+            key={tab.key}
+            to={`/dashboard/prestacao-contas/${tab.key}`}
+            className={({ isActive }) => `profile-tab-btn ${isActive ? 'active' : ''}`}
+          >
+            {tab.label}
+          </NavLink>
+        ))}
+      </nav>
+    </>
   );
 }

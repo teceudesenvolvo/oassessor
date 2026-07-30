@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { equalTo, get, orderByChild, query, ref } from '../../../services/firestoreDatabase';
+import { push, set } from '../../../services/firestoreDatabase';
 import AccountabilityEntityCenter from '../../../components/accountability/AccountabilityEntityCenter';
 import { useAccountabilityEntity } from '../../../hooks/useAccountabilityEntity';
 import { upsertScopedRecord, listScopedCollection } from '../../../services/accountabilityService';
@@ -30,9 +31,12 @@ const formatCurrencyInput = (value) => {
 };
 
 const STATUS_OPTIONS = [
+  { value: 'conta a pagar', label: 'Conta a pagar' },
   { value: 'aguardando pagamento', label: 'Aguardando pagamento' },
   { value: 'paga', label: 'Paga' },
   { value: 'conciliada', label: 'Conciliada' },
+  { value: 'vencendo', label: 'Vencendo' },
+  { value: 'vencida', label: 'Vencida' },
   { value: 'pendente de revisão', label: 'Pendente de revisão' },
   { value: 'com inconsistência', label: 'Com inconsistência' }
 ];
@@ -59,6 +63,18 @@ const CATEGORY_OPTIONS = [
   { value: 'outros', label: 'Outros' }
 ];
 
+const getPayableStatus = (payload) => {
+  if (!payload.isPayable || !payload.dueDate) return payload.status || 'aguardando pagamento';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(payload.dueDate);
+  due.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due - today) / 86400000);
+  if (diffDays < 0) return 'vencida';
+  if (diffDays <= 3) return 'vencendo';
+  return payload.status === 'paga' || payload.status === 'conciliada' ? payload.status : 'conta a pagar';
+};
+
 export default function ExpensesTab() {
   const { scope, user } = useOutletContext();
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -77,6 +93,8 @@ export default function ExpensesTab() {
       category: payload.category || 'serviços',
       amountCents: parseCurrencyToCents(payload.amountCents),
       date: payload.date || new Date().toISOString().slice(0, 10),
+      dueDate: payload.dueDate || '',
+      isPayable: Boolean(payload.isPayable),
       supplierId: payload.supplierId || '',
       supplierName: payload.supplierName || '',
       teamMemberId: payload.teamMemberId || '',
@@ -85,7 +103,7 @@ export default function ExpensesTab() {
       accountName: payload.accountName || '',
       documentId: payload.documentId || '',
       documentName: payload.documentName || '',
-      status: payload.status || 'aguardando pagamento'
+      status: getPayableStatus(payload)
     })
   });
 
@@ -177,6 +195,7 @@ export default function ExpensesTab() {
       });
     }
 
+    const finalStatus = getPayableStatus(payload);
     await saveRecord({
       ...payload,
       supplierId: payload.expenseType === 'fornecedor' ? payload.supplierId : '',
@@ -185,8 +204,23 @@ export default function ExpensesTab() {
       teamMemberName: payload.expenseType === 'pessoal' ? (selectedTeamMember?.name || '') : '',
       accountName: selectedAccount?.accountName || (selectedAccount ? `${selectedAccount.bankName || 'Conta'} • ${selectedAccount.accountNumber || ''}` : ''),
       documentId,
-      documentName
+      documentName,
+      status: finalStatus
     }, recordId);
+
+    if (payload.isPayable && payload.dueDate && ['conta a pagar', 'vencendo', 'vencida'].includes(finalStatus)) {
+      const notifRef = push(ref(database, 'notificacoes'));
+      await set(notifRef, {
+        adminId: scope.adminId,
+        userId: user.uid,
+        type: finalStatus === 'vencida' ? 'alert' : 'info',
+        read: false,
+        title: finalStatus === 'vencida' ? 'Conta vencida' : 'Conta a pagar com vencimento',
+        description: `${payload.title || 'Despesa'} vence em ${payload.dueDate}. Status atual: ${finalStatus}.`,
+        createdAt: new Date().toISOString(),
+        source: 'prestacao_despesa'
+      });
+    }
   };
 
   return (
@@ -205,6 +239,8 @@ export default function ExpensesTab() {
         category: 'serviços',
         amountCents: '',
         date: '',
+        dueDate: '',
+        isPayable: false,
         supplierId: '',
         supplierName: '',
         teamMemberId: '',
@@ -237,6 +273,17 @@ export default function ExpensesTab() {
           onChange: (event, prev) => ({ ...prev, amountCents: formatCurrencyInput(event.target.value) })
         },
         { name: 'date', label: 'Data', type: 'date' },
+        {
+          name: 'isPayable',
+          label: 'É conta a pagar?',
+          type: 'select',
+          options: [
+            { value: false, label: 'Não' },
+            { value: true, label: 'Sim' }
+          ],
+          onChange: (event, prev) => ({ ...prev, isPayable: event.target.value === 'true' })
+        },
+        { name: 'dueDate', label: 'Vencimento', type: 'date', hidden: (form) => !form.isPayable, helper: 'Obrigatório para monitorar contas a pagar.' },
         { name: 'accountId', label: 'Conta bancária', type: 'select', options: accountOptions, helper: 'A conta precisa estar cadastrada na aba Contas Bancárias.' },
         {
           name: 'supplierId',

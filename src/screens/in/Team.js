@@ -1,14 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { UserPlus, MoreVertical, X, Edit, Trash, Share2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { UserPlus, MoreVertical, X, Edit, Trash, Share2, Shield, Mail, Phone, BadgeCheck } from 'lucide-react';
 import { ref, query, orderByChild, equalTo, onValue, push, set, update, remove } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 import { useTeamPerformance } from '../../hooks/useTeamPerformance';
+import { USER_ROLE_DEFAULTS, USER_ROLE_OPTIONS } from '../../hooks/useUsersManagement';
 import MetricCard from '../../components/dashboard/MetricCard';
 
-// URL da Cloud Function para envio de e-mail (substitua pela URL real se disponível)
-const CLOUD_FUNCTION_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/sendInviteEmail'; 
+const CLOUD_FUNCTION_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/sendInviteEmail';
 const DELETE_USER_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/deleteUser';
+
+const EMPTY_FORM = {
+  nome: '',
+  email: '',
+  cargo: '',
+  cpf: '',
+  telefone: '',
+  tipoUser: 'assessor',
+  permissions: USER_ROLE_DEFAULTS.assessor
+};
 
 export default function Team() {
   const { user } = useAuth();
@@ -19,28 +29,21 @@ export default function Team() {
   const [saving, setSaving] = useState(false);
   const [emailFallback, setEmailFallback] = useState(null);
   const [menuOpen, setMenuOpen] = useState(null);
+  const [showAccessModal, setShowAccessModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState(null);
-  const [formData, setFormData] = useState({
-    nome: '',
-    email: '',
-    cargo: '',
-    cpf: '',
-    telefone: '',
-    tipoUser: 'assessor'
-  });
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
   useEffect(() => {
     if (!user) return;
 
-    // Busca usuários onde adminId é igual ao ID do usuário logado
     const teamRef = ref(database, 'assessores');
     const q = query(teamRef, orderByChild('adminId'), equalTo(user.uid));
 
     const unsubscribe = onValue(q, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const teamList = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+        const teamList = Object.keys(data).map((key) => ({ id: key, ...data[key] }));
         setMembers(teamList);
       } else {
         setMembers([]);
@@ -51,21 +54,34 @@ export default function Team() {
     return () => unsubscribe();
   }, [user]);
 
-  const handleMaskChange = (e) => {
-    const { name, value } = e.target;
-    let val = value;
+  const statsByMember = useMemo(
+    () => memberStats.reduce((acc, item) => {
+      acc[item.id] = item;
+      return acc;
+    }, {}),
+    [memberStats]
+  );
+
+  const handleMaskChange = (event) => {
+    const { name, value } = event.target;
+    let maskedValue = value;
 
     if (name === 'cpf') {
-      val = val.replace(/\D/g, '').slice(0, 11)
+      maskedValue = maskedValue.replace(/\D/g, '').slice(0, 11)
         .replace(/(\d{3})(\d)/, '$1.$2')
         .replace(/(\d{3})(\d)/, '$1.$2')
         .replace(/(\d{3})(\d{1,2})/, '$1-$2');
     } else if (name === 'telefone') {
-      val = val.replace(/\D/g, '').slice(0, 11);
-      val = val.replace(/^(\d{2})(\d)/g, '($1) $2');
-      val = val.replace(/(\d)(\d{4})$/, '$1-$2');
+      maskedValue = maskedValue.replace(/\D/g, '').slice(0, 11);
+      maskedValue = maskedValue.replace(/^(\d{2})(\d)/g, '($1) $2');
+      maskedValue = maskedValue.replace(/(\d)(\d{4})$/, '$1-$2');
     }
-    setFormData(prev => ({ ...prev, [name]: val }));
+
+    setFormData((prev) => ({ ...prev, [name]: maskedValue }));
+  };
+
+  const resetForm = () => {
+    setFormData(EMPTY_FORM);
   };
 
   const handleShareInvite = (link) => {
@@ -80,32 +96,29 @@ export default function Team() {
 
   const sendInviteEmail = async (name, emailAddress, link) => {
     try {
-      // Tenta enviar via Cloud Function (simulado aqui, pois depende do backend configurado)
-      // Se não houver URL configurada, forçamos o erro para cair no fallback
       if (CLOUD_FUNCTION_URL === 'https://us-central1-seu-projeto.cloudfunctions.net/sendInviteEmail') {
-         throw new Error("Cloud Function URL não configurada.");
+        throw new Error('Cloud Function URL não configurada.');
       }
 
       const response = await fetch(CLOUD_FUNCTION_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-              email: emailAddress,
-              nome: name,
-              inviteLink: link
-          })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailAddress,
+          nome: name,
+          inviteLink: link
+        })
       });
 
       if (!response.ok) {
-          throw new Error(`Falha no envio (${response.status})`);
+        throw new Error(`Falha no envio (${response.status})`);
       }
 
       alert('O convite foi enviado por email com sucesso.');
     } catch (error) {
       console.warn('Falha no envio automático, usando fallback:', error);
-      
-      // Fallback: Exibe modal para envio manual para evitar bloqueio do navegador
-      const subject = "Convite para O Assessor";
+
+      const subject = 'Convite para O Assessor';
       const inviteLink = `oassessor.vercel.app/cadastro?email=${encodeURIComponent(emailAddress)}`;
       const body = `Olá ${name},\n\nVocê foi convidado para fazer parte da equipe no aplicativo O Assessor.\n\nPara concluir seu cadastro, clique no link abaixo:\n\n${inviteLink}\n\nAtenciosamente,\nEquipe O Assessor`;
       const mailto = `mailto:${emailAddress}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -114,8 +127,8 @@ export default function Team() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     if (!user) return;
 
     if (!formData.nome || !formData.email) {
@@ -127,17 +140,13 @@ export default function Team() {
 
     try {
       if (isEditing && selectedMemberId) {
-        // Atualizar membro existente
         await update(ref(database, `assessores/${selectedMemberId}`), formData);
         await update(ref(database, `users/${selectedMemberId}`), formData);
         alert('Membro atualizado com sucesso!');
       } else {
-        // Criar novo membro
         const teamRef = ref(database, 'assessores');
         const newMemberRef = push(teamRef);
         const newId = newMemberRef.key;
-        
-        // Gera o link de convite
         const inviteLink = `https://oassessor.vercel.app/cadastro?email=${encodeURIComponent(formData.email)}`;
 
         const assessorData = {
@@ -146,92 +155,116 @@ export default function Team() {
           creatorId: user.uid,
           status: 'invited',
           createdAt: new Date().toISOString(),
-          inviteLink: inviteLink
+          inviteLink
         };
 
-        // 1. Salvar na coleção 'assessores'
         await set(newMemberRef, assessorData);
-
-        // 2. Salvar na coleção 'users' (espelhando a lógica do App React Native)
-        // Isso cria o registro do usuário antecipadamente
-        const userRef = ref(database, `users/${newId}`);
-        await set(userRef, assessorData);
-
-        // 3. Enviar E-mail (Automático ou Fallback)
+        await set(ref(database, `users/${newId}`), assessorData);
         await sendInviteEmail(formData.nome, formData.email, inviteLink);
       }
 
       setShowModal(false);
       resetForm();
     } catch (error) {
-      console.error("Erro ao salvar:", error);
-      alert("Erro ao salvar dados.");
+      console.error('Erro ao salvar:', error);
+      alert('Erro ao salvar dados.');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id, email) => {
-    if (window.confirm('Tem certeza que deseja excluir este membro?')) {
-      // 1. Tenta excluir do Authentication via Cloud Function (se tiver email)
-      if (email) {
-        try {
-          const response = await fetch(DELETE_USER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-          });
+    if (!window.confirm('Tem certeza que deseja excluir este membro?')) return;
 
-          if (!response.ok) {
-            const errText = await response.text();
-            console.warn(`Aviso: Falha ao excluir do Auth (${response.status}):`, errText);
-          }
-        } catch (authError) {
-          console.warn("Erro ao chamar Cloud Function de exclusão (ignorando para remover do banco):", authError);
-        }
-      }
-
+    if (email) {
       try {
-        // 2. Remove do Realtime Database
-        await remove(ref(database, `assessores/${id}`));
-        await remove(ref(database, `users/${id}`));
-        setMenuOpen(null);
-      } catch (error) {
-        console.error("Erro ao excluir:", error);
-        alert("Erro ao excluir membro.");
+        const response = await fetch(DELETE_USER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.warn(`Aviso: Falha ao excluir do Auth (${response.status}):`, errorText);
+        }
+      } catch (authError) {
+        console.warn('Erro ao chamar Cloud Function de exclusão (ignorando para remover do banco):', authError);
       }
+    }
+
+    try {
+      await remove(ref(database, `assessores/${id}`));
+      await remove(ref(database, `users/${id}`));
+      setMenuOpen(null);
+    } catch (error) {
+      console.error('Erro ao excluir:', error);
+      alert('Erro ao excluir membro.');
     }
   };
 
-  const handleEdit = (member) => {
+  const openMemberModal = (member = null) => {
+    if (member) {
+      setFormData({
+        nome: member.nome || '',
+        email: member.email || '',
+        cargo: member.cargo || '',
+        cpf: member.cpf || '',
+        telefone: member.telefone || '',
+        tipoUser: member.tipoUser || 'assessor',
+        permissions: member.permissions || USER_ROLE_DEFAULTS[member.tipoUser || 'assessor'] || USER_ROLE_DEFAULTS.assessor
+      });
+      setSelectedMemberId(member.id);
+      setIsEditing(true);
+    } else {
+      resetForm();
+      setSelectedMemberId(null);
+      setIsEditing(false);
+    }
+
+    setShowModal(true);
+    setMenuOpen(null);
+  };
+
+  const handleManageAccess = (member) => {
     setFormData({
       nome: member.nome || '',
       email: member.email || '',
       cargo: member.cargo || '',
       cpf: member.cpf || '',
       telefone: member.telefone || '',
-      tipoUser: member.tipoUser || 'assessor'
+      tipoUser: member.tipoUser || 'assessor',
+      permissions: member.permissions || USER_ROLE_DEFAULTS[member.tipoUser || 'assessor'] || USER_ROLE_DEFAULTS.assessor
     });
     setSelectedMemberId(member.id);
-    setIsEditing(true);
-    setShowModal(true);
+    setShowAccessModal(true);
     setMenuOpen(null);
   };
 
-  const handleNewMember = () => {
-    resetForm();
-    setIsEditing(false);
-    setSelectedMemberId(null);
-    setShowModal(true);
-  };
+  const handleSaveAccess = async () => {
+    if (!selectedMemberId) return;
 
-  const resetForm = () => {
-    setFormData({ nome: '', email: '', cargo: '', cpf: '', telefone: '', tipoUser: 'assessor' });
+    setSaving(true);
+    try {
+      await update(ref(database, `assessores/${selectedMemberId}`), {
+        tipoUser: formData.tipoUser,
+        permissions: formData.permissions,
+        updatedAt: new Date().toISOString()
+      });
+      await update(ref(database, `users/${selectedMemberId}`), {
+        tipoUser: formData.tipoUser,
+        permissions: formData.permissions,
+        updatedAt: new Date().toISOString()
+      });
+      setShowAccessModal(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="dashboard-card">
-      <div className="campaign-metrics-grid" style={{ marginBottom: '24px' }}>
+    <div className="dashboard-card team-screen">
+      <div className="campaign-metrics-grid team-metrics-grid">
         <MetricCard title="Produtividade média" value={`${summary.avgConversion.toFixed(1)}%`} helper="Conversão média da equipe" tone="success" />
         <MetricCard title="Tarefas pendentes" value={summary.totalPendingTasks} helper="Pendências somadas da equipe" />
         <MetricCard title="Visitas" value={summary.totalVisits} helper="Tarefas do tipo visita" tone="highlight" />
@@ -240,238 +273,278 @@ export default function Team() {
         <MetricCard title="Meta da equipe" value={metaPrincipal || 0} helper="Meta principal atual da campanha" />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h3>Minha Equipe</h3>
-        <button className="btn-primary" onClick={handleNewMember} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <UserPlus size={16} />
-          Novo Membro
-        </button>
-      </div>
-      
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid #eee', textAlign: 'left', color: '#64748b' }}>
-            <th style={{ padding: '12px' }}>Nome</th>
-            <th style={{ padding: '12px' }}>Função</th>
-            <th style={{ padding: '12px' }}>Status</th>
-            <th style={{ padding: '12px' }}>Produtividade</th>
-            <th style={{ padding: '12px' }}>Tarefas</th>
-            <th style={{ padding: '12px' }}>Visitas</th>
-            <th style={{ padding: '12px' }}>Apoios</th>
-            <th style={{ padding: '12px' }}>Conversão</th>
-            <th style={{ padding: '12px' }}>Meta</th>
-            <th style={{ padding: '12px' }}>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(loading || performanceLoading) && <tr><td colSpan="10" style={{padding: '20px', textAlign: 'center'}}>Carregando equipe...</td></tr>}
-          {!loading && members.length === 0 && (
-             <tr><td colSpan="10" style={{padding: '20px', textAlign: 'center', color: '#64748b'}}>Nenhum membro encontrado.</td></tr>
+      <section className="team-panel">
+        <div className="team-panel-header">
+          <div>
+            <span className="team-panel-kicker">Operação</span>
+            <h3>Minha Equipe</h3>
+            <p>Gerencie convites, papéis, produtividade e acessos sem poluir a leitura da tela.</p>
+          </div>
+
+          <button className="btn-primary team-add-button" onClick={() => openMemberModal()}>
+            <UserPlus size={16} />
+            Novo membro
+          </button>
+        </div>
+
+        <div className="team-members-grid">
+          {(loading || performanceLoading) && (
+            <div className="team-empty-state">Carregando equipe...</div>
           )}
-          {members.map(member => (
-            <tr key={member.id} style={{ borderBottom: '1px solid #f9f9f9' }}>
-              <td style={{ padding: '12px', fontWeight: '500' }}>{member.nome || member.email}</td>
-              <td style={{ padding: '12px', color: '#64748b' }}>{member.cargo || 'Assessor'}</td>
-              <td style={{ padding: '12px' }}>
-                <span style={{ 
-                  padding: '4px 10px', 
-                  borderRadius: '12px', 
-                  fontSize: '0.75rem',
-                  fontWeight: 'bold',
-                  backgroundColor: member.status === 'invited' ? '#fef3c7' : '#dcfce7',
-                  color: member.status === 'invited' ? '#d97706' : '#166534'
-                }}>
-                  {member.status === 'invited' ? 'Convidado' : 'Ativo'}
-                </span>
-              </td>
-              <td style={{ padding: '12px', color: '#0f172a', fontWeight: 700 }}>
-                {memberStats.find((item) => item.id === member.id)?.confirmedVotes || 0}
-              </td>
-              <td style={{ padding: '12px', color: '#64748b' }}>
-                {memberStats.find((item) => item.id === member.id)?.pendingTasks || 0}
-              </td>
-              <td style={{ padding: '12px', color: '#64748b' }}>
-                {memberStats.find((item) => item.id === member.id)?.visits || 0}
-              </td>
-              <td style={{ padding: '12px', color: '#64748b' }}>
-                {memberStats.find((item) => item.id === member.id)?.supportCount || 0}
-              </td>
-              <td style={{ padding: '12px', color: '#166534', fontWeight: 700 }}>
-                {(memberStats.find((item) => item.id === member.id)?.conversion || 0).toFixed(1)}%
-              </td>
-              <td style={{ padding: '12px', color: '#64748b' }}>
-                {Math.round(memberStats.find((item) => item.id === member.id)?.progressToGoal || 0)}%
-              </td>
-              <td style={{ padding: '12px', position: 'relative' }}>
-                <button 
-                  onClick={() => setMenuOpen(menuOpen === member.id ? null : member.id)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                >
-                  <MoreVertical size={16} color="#64748b" />
-                </button>
-                
-                {menuOpen === member.id && (
-                  <div style={{
-                    position: 'absolute',
-                    right: '0',
-                    top: '40px',
-                    backgroundColor: 'white',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                    borderRadius: '8px',
-                    zIndex: 10,
-                    minWidth: '120px',
-                    overflow: 'hidden',
-                    border: '1px solid #f1f5f9'
-                  }}>
-                    <button 
-                      onClick={() => handleShareInvite(member.inviteLink)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        width: '100%',
-                        padding: '10px 15px',
-                        border: 'none',
-                        background: 'white',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        fontSize: '0.9rem',
-                        color: '#2563eb',
-                        borderBottom: '1px solid #f1f5f9'
-                      }}
-                    >
-                      <Share2 size={14} /> Copiar Convite
-                    </button>
-                    <button 
-                      onClick={() => handleEdit(member)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        width: '100%',
-                        padding: '10px 15px',
-                        border: 'none',
-                        background: 'white',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        fontSize: '0.9rem',
-                        color: '#475569',
-                        borderBottom: '1px solid #f1f5f9'
-                      }}
-                    >
-                      <Edit size={14} /> Editar
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(member.id, member.email)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        width: '100%',
-                        padding: '10px 15px',
-                        border: 'none',
-                        background: 'white',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        fontSize: '0.9rem',
-                        color: '#ef4444'
-                      }}
-                    >
-                      <Trash size={14} /> Excluir
-                    </button>
+
+          {!loading && !performanceLoading && members.length === 0 && (
+            <div className="team-empty-state">Nenhum membro encontrado.</div>
+          )}
+
+          {!loading && members.map((member) => {
+            const stats = statsByMember[member.id] || {};
+            const isInvited = member.status === 'invited';
+
+            return (
+              <article key={member.id} className="team-member-card">
+                <div className="team-member-card-top">
+                  <div className="team-member-identity">
+                    <div className="team-member-avatar">
+                      {(member.nome || member.email || 'A').slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="team-member-copy">
+                      <strong>{member.nome || member.email}</strong>
+                      <span>{member.cargo || 'Assessor'}</span>
+                    </div>
                   </div>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
 
-      {/* Modal de Convite */}
+                  <div className="team-member-top-actions">
+                    <span className={`team-status-chip ${isInvited ? 'warning' : 'success'}`}>
+                      {isInvited ? 'Convidado' : 'Ativo'}
+                    </span>
+
+                    <div className="team-action-menu">
+                      <button
+                        type="button"
+                        className="team-menu-trigger"
+                        onClick={() => setMenuOpen(menuOpen === member.id ? null : member.id)}
+                        aria-label="Abrir ações do membro"
+                      >
+                        <MoreVertical size={18} />
+                      </button>
+
+                      {menuOpen === member.id && (
+                        <div className="team-menu-dropdown">
+                          <button type="button" onClick={() => handleShareInvite(member.inviteLink)}>
+                            <Share2 size={15} />
+                            Copiar convite
+                          </button>
+                          <button type="button" onClick={() => handleManageAccess(member)}>
+                            <Shield size={15} />
+                            Gerenciar acessos
+                          </button>
+                          <button type="button" onClick={() => openMemberModal(member)}>
+                            <Edit size={15} />
+                            Editar
+                          </button>
+                          <button type="button" className="danger" onClick={() => handleDelete(member.id, member.email)}>
+                            <Trash size={15} />
+                            Excluir
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="team-member-meta">
+                  <span><Mail size={14} /> {member.email || 'E-mail não informado'}</span>
+                  <span><Phone size={14} /> {member.telefone || 'Telefone não informado'}</span>
+                  <span><BadgeCheck size={14} /> {USER_ROLE_OPTIONS.find((role) => role.value === member.tipoUser)?.label || 'Assessor'}</span>
+                </div>
+
+                <div className="team-member-stats">
+                  <div>
+                    <strong>{stats.confirmedVotes || 0}</strong>
+                    <span>Votos</span>
+                  </div>
+                  <div>
+                    <strong>{stats.pendingTasks || 0}</strong>
+                    <span>Tarefas</span>
+                  </div>
+                  <div>
+                    <strong>{stats.visits || 0}</strong>
+                    <span>Visitas</span>
+                  </div>
+                  <div>
+                    <strong>{stats.supportCount || 0}</strong>
+                    <span>Apoios</span>
+                  </div>
+                  <div>
+                    <strong>{(stats.conversion || 0).toFixed(1)}%</strong>
+                    <span>Conversão</span>
+                  </div>
+                  <div>
+                    <strong>{Math.round(stats.progressToGoal || 0)}%</strong>
+                    <span>Meta</span>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
       {showModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
-          display: 'flex', justifyContent: 'center', alignItems: 'center'
-        }}>
-          <div style={{
-            backgroundColor: 'white', padding: '25px', borderRadius: '12px',
-            width: '90%', maxWidth: '400px', position: 'relative'
-          }}>
-            <button 
-              onClick={() => setShowModal(false)}
-              style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              <X size={20} color="#64748b" />
-            </button>
-            
-            <h3 style={{ marginBottom: '20px' }}>{isEditing ? 'Editar Membro' : 'Novo Membro'}</h3>
-            
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div className="input-group">
-                <label>Nome</label>
-                <input type="text" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} className="custom-input" required placeholder="Nome do assessor" />
+        <div className="funnel-modal-backdrop dashboard-modal-backdrop" onClick={() => setShowModal(false)}>
+          <div className="funnel-modal team-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="funnel-modal-header">
+              <div>
+                <h3>{isEditing ? 'Editar membro da equipe' : 'Novo membro da equipe'}</h3>
+                <p>Convide, atualize dados cadastrais e mantenha a operação organizada.</p>
               </div>
-              
-              <div className="input-group">
-                <label>E-mail</label>
-                <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="custom-input" required placeholder="email@exemplo.com" />
-              </div>
-
-              <div className="input-group">
-                <label>CPF</label>
-                <input type="text" name="cpf" value={formData.cpf} onChange={handleMaskChange} className="custom-input" placeholder="000.000.000-00" />
-              </div>
-
-              <div className="input-group">
-                <label>Telefone</label>
-                <input type="text" name="telefone" value={formData.telefone} onChange={handleMaskChange} className="custom-input" placeholder="(00) 00000-0000" />
-              </div>
-
-              <div className="input-group">
-                <label>Cargo</label>
-                <input type="text" value={formData.cargo} onChange={e => setFormData({...formData, cargo: e.target.value})} className="custom-input" placeholder="Ex: Assessor" />
-              </div>
-
-              <button type="submit" className="btn-primary" disabled={saving} style={{ marginTop: '10px', justifyContent: 'center' }}>
-                {saving ? 'Salvando...' : (isEditing ? 'Salvar Alterações' : 'Enviar Convite')}
+              <button type="button" className="accountability-modal-close" onClick={() => setShowModal(false)} aria-label="Fechar modal">
+                <X size={18} />
               </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="team-modal-form">
+              <div className="team-modal-grid">
+                <div className="input-group">
+                  <label>Nome</label>
+                  <input type="text" value={formData.nome} onChange={(event) => setFormData({ ...formData, nome: event.target.value })} className="custom-input" required placeholder="Nome do assessor" />
+                </div>
+
+                <div className="input-group">
+                  <label>E-mail</label>
+                  <input type="email" value={formData.email} onChange={(event) => setFormData({ ...formData, email: event.target.value })} className="custom-input" required placeholder="email@exemplo.com" />
+                </div>
+
+                <div className="input-group">
+                  <label>CPF</label>
+                  <input type="text" name="cpf" value={formData.cpf} onChange={handleMaskChange} className="custom-input" placeholder="000.000.000-00" />
+                </div>
+
+                <div className="input-group">
+                  <label>Telefone</label>
+                  <input type="text" name="telefone" value={formData.telefone} onChange={handleMaskChange} className="custom-input" placeholder="(00) 00000-0000" />
+                </div>
+
+                <div className="input-group">
+                  <label>Cargo</label>
+                  <input type="text" value={formData.cargo} onChange={(event) => setFormData({ ...formData, cargo: event.target.value })} className="custom-input" placeholder="Ex: Assessor" />
+                </div>
+
+                <div className="input-group">
+                  <label>Tipo de usuário</label>
+                  <select
+                    value={formData.tipoUser}
+                    onChange={(event) => setFormData((prev) => ({
+                      ...prev,
+                      tipoUser: event.target.value,
+                      permissions: USER_ROLE_DEFAULTS[event.target.value] || prev.permissions
+                    }))}
+                    className="custom-input"
+                  >
+                    {USER_ROLE_OPTIONS.map((role) => (
+                      <option key={role.value} value={role.value}>{role.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="funnel-modal-actions">
+                <button type="button" className="btn-secondary team-modal-secondary" onClick={() => setShowModal(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" disabled={saving}>
+                  {saving ? 'Salvando...' : (isEditing ? 'Salvar alterações' : 'Enviar convite')}
+                </button>
+              </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Modal de Fallback de Email */}
+      {showAccessModal && (
+        <div className="funnel-modal-backdrop dashboard-modal-backdrop" onClick={() => setShowAccessModal(false)}>
+          <div className="funnel-modal team-modal team-access-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="funnel-modal-header">
+              <div>
+                <h3>Níveis de acesso</h3>
+                <p>Defina o papel e os acessos principais deste membro da equipe.</p>
+              </div>
+              <button type="button" className="accountability-modal-close" onClick={() => setShowAccessModal(false)} aria-label="Fechar modal">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="input-group team-modal-field">
+              <label>Tipo de usuário</label>
+              <select
+                value={formData.tipoUser}
+                onChange={(event) => setFormData((prev) => ({
+                  ...prev,
+                  tipoUser: event.target.value,
+                  permissions: USER_ROLE_DEFAULTS[event.target.value] || prev.permissions
+                }))}
+                className="custom-input"
+              >
+                {USER_ROLE_OPTIONS.map((role) => (
+                  <option key={role.value} value={role.value}>{role.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="users-permissions-grid team-permissions-grid">
+              {Object.keys(formData.permissions || {}).map((permissionKey) => (
+                <button
+                  key={permissionKey}
+                  type="button"
+                  className={`users-permission-chip ${formData.permissions?.[permissionKey] ? 'active' : ''}`}
+                  onClick={() => setFormData((prev) => ({
+                    ...prev,
+                    permissions: {
+                      ...prev.permissions,
+                      [permissionKey]: !prev.permissions?.[permissionKey]
+                    }
+                  }))}
+                >
+                  {permissionKey}
+                </button>
+              ))}
+            </div>
+
+            <div className="funnel-modal-actions">
+              <button type="button" className="btn-secondary team-modal-secondary" onClick={() => setShowAccessModal(false)}>
+                Cancelar
+              </button>
+              <button type="button" className="btn-primary" onClick={handleSaveAccess} disabled={saving}>
+                {saving ? 'Salvando...' : 'Salvar acessos'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {emailFallback && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1100,
-          display: 'flex', justifyContent: 'center', alignItems: 'center'
-        }}>
-          <div style={{
-            backgroundColor: 'white', padding: '25px', borderRadius: '12px',
-            width: '90%', maxWidth: '400px', position: 'relative', textAlign: 'center'
-          }}>
-            <button 
-              onClick={() => setEmailFallback(null)}
-              style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              <X size={20} color="#64748b" />
-            </button>
-            
-            <h3 style={{ marginBottom: '15px', color: '#f59e0b' }}>Envio Manual Necessário</h3>
-            <p style={{ marginBottom: '20px', color: '#64748b', fontSize: '0.9rem' }}>
-              O envio automático falhou. Clique abaixo para abrir seu aplicativo de e-mail e enviar o convite.
-            </p>
-            
-            <a 
-              href={emailFallback}
-              className="btn-primary"
-              style={{ display: 'flex', justifyContent: 'center', textDecoration: 'none', alignItems: 'center' }}
-              onClick={() => setEmailFallback(null)}
-            >
-              Abrir E-mail
-            </a>
+        <div className="funnel-modal-backdrop dashboard-modal-backdrop" onClick={() => setEmailFallback(null)}>
+          <div className="funnel-modal team-modal team-fallback-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="funnel-modal-header">
+              <div>
+                <h3>Envio manual necessário</h3>
+                <p>O envio automático falhou. Abra seu aplicativo de e-mail para concluir o convite.</p>
+              </div>
+              <button type="button" className="accountability-modal-close" onClick={() => setEmailFallback(null)} aria-label="Fechar modal">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="team-fallback-box">
+              <p>Se preferir, você também pode copiar o e-mail e enviar o convite manualmente.</p>
+              <a
+                href={emailFallback}
+                className="btn-primary team-fallback-link"
+                onClick={() => setEmailFallback(null)}
+              >
+                Abrir e-mail
+              </a>
+            </div>
           </div>
         </div>
       )}

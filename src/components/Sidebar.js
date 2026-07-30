@@ -25,7 +25,6 @@ import {
   ClipboardCheck,
   ReceiptText,
   Files,
-  Sparkles,
   ShieldCheck,
   Settings2,
   ScrollText,
@@ -50,8 +49,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, i
         { name: 'Funil Eleitoral', icon: Rows3 },
         { name: 'Caminho para a Vitória', icon: Route },
         { name: 'Prestação de Contas', icon: ReceiptText },
-        { name: 'Relatórios', icon: Files },
-        { name: 'IA', icon: Sparkles }
+        { name: 'Relatórios', icon: Files }
       ]
     },
     {

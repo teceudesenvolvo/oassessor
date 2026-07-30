@@ -29,8 +29,12 @@ export default function AccountabilityLayout() {
   return (
     <div className="campaign-dashboard">
       <AccountabilityHeader header={summary.header} checks={summary.checks} onReload={reload} />
-      <AccountabilityTabs />
-      <Outlet context={{ summary, scope, user, reload }} />
+      <div className="accountability-shell">
+        <AccountabilityTabs />
+        <div className="accountability-content">
+          <Outlet context={{ summary, scope, user, reload }} />
+        </div>
+      </div>
     </div>
   );
 }

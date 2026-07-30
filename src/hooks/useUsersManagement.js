@@ -26,7 +26,7 @@ const DEFAULT_PERMISSIONS = {
   settings: false
 };
 
-const roleDefaults = {
+export const USER_ROLE_DEFAULTS = {
   admin: { ...DEFAULT_PERMISSIONS, team: true, territory: true, communication: true, reports: true, settings: true },
   candidate: { ...DEFAULT_PERMISSIONS, team: true, territory: true, communication: true, reports: true },
   coordinator: { ...DEFAULT_PERMISSIONS, team: true, territory: true, communication: true, reports: true },
@@ -67,7 +67,7 @@ export function useUsersManagement(user) {
                 ...value,
                 nome: value.nome || value.name || value.email || 'Usuário',
                 tipoUser: value.tipoUser || 'assessor',
-                permissions: value.permissions || roleDefaults[value.tipoUser || 'assessor'] || DEFAULT_PERMISSIONS
+                permissions: value.permissions || USER_ROLE_DEFAULTS[value.tipoUser || 'assessor'] || DEFAULT_PERMISSIONS
               }))
             : [];
 
@@ -79,7 +79,7 @@ export function useUsersManagement(user) {
                 cargo: adminProfile.cargo || 'Administrador',
                 tipoUser: 'admin',
                 status: 'Ativo',
-                permissions: roleDefaults.admin,
+                permissions: USER_ROLE_DEFAULTS.admin,
                 isPrimaryAdmin: true
               }]
             : [];
@@ -121,7 +121,7 @@ export function useUsersManagement(user) {
   }, [users]);
 
   const saveUser = async (payload, selectedId = null) => {
-    const permissions = payload.permissions || roleDefaults[payload.tipoUser] || DEFAULT_PERMISSIONS;
+    const permissions = payload.permissions || USER_ROLE_DEFAULTS[payload.tipoUser] || DEFAULT_PERMISSIONS;
     const currentEntry = selectedId ? users.find((entry) => entry.id === selectedId) : null;
     const data = {
       nome: payload.nome,
@@ -219,7 +219,7 @@ export function useUsersManagement(user) {
     loading,
     users,
     stats,
-    roleDefaults,
+    roleDefaults: USER_ROLE_DEFAULTS,
     saveUser,
     deleteUser
   };

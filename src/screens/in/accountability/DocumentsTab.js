@@ -1,5 +1,7 @@
 import React from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { push, ref, set } from '../../../services/firestoreDatabase';
+import { database } from '../../../firebaseConfig';
 import AccountabilityEntityCenter from '../../../components/accountability/AccountabilityEntityCenter';
 import { useAccountabilityEntity } from '../../../hooks/useAccountabilityEntity';
 
@@ -27,6 +29,27 @@ const CATEGORY_OPTIONS = [
   { value: 'outros', label: 'Outros' }
 ];
 
+const DUE_STATUS_OPTIONS = [
+  { value: 'recebido', label: 'Recebido' },
+  { value: 'pendente', label: 'Pendente' },
+  { value: 'validado', label: 'Validado' },
+  { value: 'vencendo', label: 'Vencendo' },
+  { value: 'vencido', label: 'Vencido' },
+  { value: 'com inconsistência', label: 'Com inconsistência' }
+];
+
+const getDueStatus = (dueDate, fallback = 'recebido') => {
+  if (!dueDate) return fallback;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due - today) / 86400000);
+  if (diffDays < 0) return 'vencido';
+  if (diffDays <= 3) return 'vencendo';
+  return fallback;
+};
+
 export default function DocumentsTab() {
   const { scope, user } = useOutletContext();
   const { records, saving, saveRecord, deleteRecord } = useAccountabilityEntity({
@@ -43,7 +66,8 @@ export default function DocumentsTab() {
       mimeType: payload.mimeType || '',
       fileSize: Number(payload.fileSize || 0),
       date: payload.date || new Date().toISOString().slice(0, 10),
-      status: payload.status || 'recebido'
+      dueDate: payload.dueDate || '',
+      status: getDueStatus(payload.dueDate, payload.status || 'recebido')
     })
   });
 
@@ -60,13 +84,31 @@ export default function DocumentsTab() {
       fileSize = payload.documentFile.size || 0;
     }
 
+    const finalStatus = getDueStatus(payload.dueDate, payload.status || 'recebido');
+
     await saveRecord({
       ...payload,
       documentUrl,
       documentName: documentName || payload.title || 'Documento',
       mimeType,
-      fileSize
+      fileSize,
+      status: finalStatus
     }, recordId);
+
+    if (payload.dueDate && !recordId && ['vencendo', 'vencido'].includes(finalStatus)) {
+      const notifRef = push(ref(database, 'notificacoes'));
+      await set(notifRef, {
+        adminId: scope.adminId,
+        userId: user.uid,
+        type: finalStatus === 'vencido' ? 'alert' : 'info',
+        read: false,
+        title: finalStatus === 'vencido' ? 'Documento vencido' : 'Documento próximo do vencimento',
+        description: `${documentName || payload.title || 'Documento'} com vencimento em ${payload.dueDate}.`,
+        createdAt: new Date().toISOString(),
+        source: 'prestacao_documento',
+        sourceId: recordId || notifRef.key
+      });
+    }
   };
 
   return (
@@ -78,14 +120,15 @@ export default function DocumentsTab() {
       saving={saving}
       onSave={handleSaveDocument}
       onDelete={deleteRecord}
-      initialForm={{ title: '', documentName: '', category: 'comprovante', description: '', documentUrl: '', date: '', status: 'recebido', documentFile: null }}
+      initialForm={{ title: '', documentName: '', category: 'comprovante', description: '', documentUrl: '', date: '', dueDate: '', status: 'recebido', documentFile: null }}
       fields={[
         { name: 'title', label: 'Título', placeholder: 'Ex.: Extrato bancário de julho' },
         { name: 'category', label: 'Tipo', type: 'select', options: CATEGORY_OPTIONS },
         { name: 'documentFile', label: 'Anexar arquivo', type: 'file', full: true, accept: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv' },
         { name: 'documentUrl', label: 'Link / caminho', placeholder: 'Opcional quando houver upload direto' },
         { name: 'date', label: 'Data', type: 'date' },
-        { name: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
+        { name: 'dueDate', label: 'Vencimento', type: 'date', helper: 'Use quando o documento exigir controle de prazo.' },
+        { name: 'status', label: 'Status', type: 'select', options: DUE_STATUS_OPTIONS },
         { name: 'description', label: 'Descrição', type: 'textarea', full: true, placeholder: 'Contexto do arquivo, origem e observações de conferência.' }
       ]}
     />
