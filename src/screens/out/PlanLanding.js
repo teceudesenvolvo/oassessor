@@ -1,8 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { CheckCircle, ArrowLeft } from 'lucide-react';
-import Navbar from '../../components/Navbar';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, CheckCircle2, Crown, ShieldCheck, Sparkles, Users, Database, Headphones } from 'lucide-react';
+import PublicPageShell from '../../components/PublicPageShell';
 import { fetchManagedPlans } from '../../services/appPlansService';
+
+const fallbackBenefits = [
+  {
+    icon: Crown,
+    title: 'Estrutura premium de campanha',
+    description: 'Um ambiente completo para operar a campanha com mais previsibilidade, leitura e governança.'
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Mais controle e segurança',
+    description: 'Fluxos organizados, acessos estruturados e visão centralizada para reduzir ruído na operação.'
+  },
+  {
+    icon: Headphones,
+    title: 'Suporte prioritário',
+    description: 'Atendimento pensado para o ritmo real da campanha, com mais proximidade nas decisões críticas.'
+  }
+];
 
 export default function PlanLanding() {
   const { id } = useParams();
@@ -12,99 +30,181 @@ export default function PlanLanding() {
   const [loading, setLoading] = useState(!plan);
 
   useEffect(() => {
-    if (!plan) {
-      const fetchPlan = async () => {
-        try {
-          const managedPlans = await fetchManagedPlans({ includeHidden: false });
-          const foundPlan = managedPlans.find((item) => item.id === id);
-          if (foundPlan) {
-            setPlan(foundPlan);
-          } else {
-            console.warn("Plano não encontrado, redirecionando.");
-            navigate('/plans');
-          }
-        } catch (error) {
-          console.error("Erro ao buscar detalhes do plano:", error);
+    if (plan) return;
+
+    const fetchPlan = async () => {
+      try {
+        const managedPlans = await fetchManagedPlans({ includeHidden: false });
+        const foundPlan = managedPlans.find((item) => item.id === id);
+        if (foundPlan) {
+          setPlan(foundPlan);
+        } else {
           navigate('/plans');
-        } finally {
-          setLoading(false);
         }
-      };
-      fetchPlan();
-    }
-  }, [id, plan, navigate]);
+      } catch (error) {
+        console.error('Erro ao buscar detalhes do plano:', error);
+        navigate('/plans');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlan();
+  }, [id, navigate, plan]);
+
+  const planHighlights = useMemo(() => {
+    if (!plan) return [];
+
+    return [
+      {
+        icon: Sparkles,
+        label: 'Ideal para',
+        value: plan.ideal || 'Campanhas que exigem leitura e execução com mais profundidade'
+      },
+      {
+        icon: Users,
+        label: 'Equipe',
+        value: plan.team || 'Estrutura de equipe personalizada para a operação'
+      },
+      {
+        icon: Database,
+        label: 'Base',
+        value: plan.database || 'Escala flexível para crescer com a campanha'
+      },
+      {
+        icon: ShieldCheck,
+        label: 'Suporte',
+        value: 'Prioritário e orientado à operação'
+      }
+    ];
+  }, [plan]);
 
   if (loading) {
     return (
-        <>
-            <header className="hero-section" style={{ minHeight: 'auto', paddingBottom: '20px' }}>
-                <Navbar />
-            </header>
-            <div style={{ textAlign: 'center', padding: '60px' }}>Carregando detalhes do plano...</div>
-        </>
+      <PublicPageShell
+        activeKey="plans"
+        compactHero
+        kicker="Oferta comercial premium"
+        title="Carregando os detalhes do plano"
+        subtitle="Estamos preparando a visão completa da oferta escolhida."
+        actions={
+          <>
+            <button type="button" className="public-glass-btn" onClick={() => navigate('/plans')}>Voltar aos planos</button>
+            <button type="button" className="public-glass-btn" onClick={() => navigate('/contact')}>Falar com vendas</button>
+          </>
+        }
+      >
+        <div className="public-empty">Carregando detalhes do plano...</div>
+      </PublicPageShell>
     );
   }
 
   if (!plan) return null;
 
   return (
-    <>
-      <header className="hero-section" style={{ minHeight: 'auto', paddingBottom: '40px' }}>
-        <Navbar />
-      </header>
-      
-      <div className="container" style={{ maxWidth: '1000px', margin: '40px auto', padding: '0 20px' }}>
-        <button onClick={() => navigate('/plans')} className="btn-secondary" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <ArrowLeft size={18} /> Voltar para Planos
-        </button>
-
-        <div className="dashboard-card" style={{ display: 'flex', flexDirection: 'column', gap: '30px', padding: '40px' }}>
-            <div style={{ textAlign: 'center' }}>
-                <h1 style={{ color: '#0f172a', marginBottom: '10px' }}>{plan.title}</h1>
-                <p style={{ fontSize: '1.2rem', color: '#64748b' }}>{plan.subtitle}</p>
+    <PublicPageShell
+      activeKey="plans"
+      compactHero
+      kicker={`Oferta ${plan.recommended ? 'recomendada' : 'premium'} para operação eleitoral`}
+      title={`${plan.title} para campanhas que querem mais leitura, mais cadência e mais controle.`}
+      subtitle={plan.subtitle || 'Uma estrutura comercial pensada para equipes que precisam crescer sem perder clareza operacional.'}
+      actions={
+        <>
+          <button type="button" className="public-glass-btn" onClick={() => navigate('/plans')}>
+            <ArrowLeft size={16} />
+            Voltar aos planos
+          </button>
+          <button type="button" className="public-glass-btn" onClick={() => navigate('/contact')}>Falar com vendas</button>
+        </>
+      }
+      contentClassName="public-plan-landing-content"
+    >
+      <div className="public-plan-landing-grid">
+        <section className={`public-plan-landing-hero ${plan.recommended ? 'recommended' : ''}`}>
+          <div className="public-plan-landing-head">
+            <span className="public-plan-landing-badge">
+              <Crown size={16} />
+              {plan.recommended ? 'Mais escolhido' : 'Plano premium'}
+            </span>
+            <div className="public-plan-landing-price">
+              <span>Investimento mensal</span>
+              <strong>{plan.price}</strong>
+              <small>Cancele quando quiser e ajuste conforme a campanha evoluir.</small>
             </div>
+          </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '40px', alignItems: 'center' }}>
-                <div>
-                    <h3 style={{ marginBottom: '20px', color: '#334155' }}>O que está incluído:</h3>
-                    <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                        <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <CheckCircle size={20} color="#16a34a" />
-                            <span>{plan.ideal}</span>
-                        </li>
-                        <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <CheckCircle size={20} color="#16a34a" />
-                            <span>{plan.team}</span>
-                        </li>
-                        <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <CheckCircle size={20} color="#16a34a" />
-                            <span>{plan.database}</span>
-                        </li>
-                        <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <CheckCircle size={20} color="#16a34a" />
-                            <span>Suporte Prioritário</span>
-                        </li>
-                    </ul>
+          <div className="public-plan-landing-cta">
+            <button
+              type="button"
+              className="btn-primary public-primary-cta"
+              onClick={() => navigate(`/checkout/${plan.id}`, { state: { plan } })}
+            >
+              Contratar agora
+              <ArrowRight size={18} />
+            </button>
+            <button type="button" className="public-glass-btn" onClick={() => navigate('/plans')}>
+              Comparar outros planos
+            </button>
+          </div>
+
+          <div className="public-plan-landing-feature-grid">
+            {planHighlights.map((item) => {
+              const Icon = item.icon;
+              return (
+                <article key={item.label} className="public-plan-landing-feature">
+                  <div className="public-plan-landing-feature-icon">
+                    <Icon size={18} />
+                  </div>
+                  <div>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="public-plan-landing-side">
+          <article className="public-plan-landing-panel">
+            <h2>O que está incluído</h2>
+            <div className="public-plan-landing-checks">
+              {[
+                plan.ideal,
+                plan.team,
+                plan.database,
+                'Suporte prioritário para a operação',
+                'Ambiente pronto para evoluir com a campanha'
+              ].filter(Boolean).map((item) => (
+                <div key={item} className="public-plan-landing-check">
+                  <CheckCircle2 size={18} />
+                  <span>{item}</span>
                 </div>
+              ))}
+            </div>
+          </article>
 
-                <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '16px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-                    <p style={{ color: '#64748b', marginBottom: '10px' }}>Valor Mensal</p>
-                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#0f172a', marginBottom: '5px' }}>
-                        {plan.price}
+          <article className="public-plan-landing-panel">
+            <h2>Por que esse plano acelera</h2>
+            <div className="public-plan-landing-benefits">
+              {fallbackBenefits.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.title} className="public-plan-landing-benefit">
+                    <div className="public-plan-landing-benefit-icon">
+                      <Icon size={18} />
                     </div>
-                    <p style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '30px' }}>Cancele quando quiser</p>
-                    
-                    <button 
-                        className="btn-primary" 
-                        style={{ width: '100%', justifyContent: 'center', padding: '15px', fontSize: '1.1rem' }}
-                        onClick={() => navigate(`/checkout/${plan.id}`, { state: { plan } })}
-                    >
-                        Contratar Agora
-                    </button>
-                </div>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <p>{item.description}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-        </div>
+          </article>
+        </section>
       </div>
-    </>
+    </PublicPageShell>
   );
 }

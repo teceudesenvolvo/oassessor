@@ -10,8 +10,13 @@ const normalizeBoolean = (value, fallback = false) => {
 };
 
 export async function loadPlanOverrides() {
-  const snapshot = await get(ref(database, 'system_plan_overrides'));
-  return snapshot.exists() ? snapshot.val() : {};
+  try {
+    const snapshot = await get(ref(database, 'system_plan_overrides'));
+    return snapshot.exists() ? snapshot.val() : {};
+  } catch (error) {
+    console.warn('Falha ao carregar overrides públicos de planos. Seguindo com os planos base.', error);
+    return {};
+  }
 }
 
 export async function fetchManagedPlans({ includeHidden = true } = {}) {

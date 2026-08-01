@@ -6,6 +6,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    match /system_plan_overrides/{planId} {
+      allow read: if true;
+      allow create, update, delete: if signedIn();
+    }
+
     match /registros_temporarios/{document=**} {
       allow read, create, update, delete: if true;
     }
