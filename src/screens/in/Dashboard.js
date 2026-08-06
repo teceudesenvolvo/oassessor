@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [notificationsLoading, setNotificationsLoading] = useState(true);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('oassessor-theme') || 'light');
+  const [showAppPrompt, setShowAppPrompt] = useState(false);
   const [showTransition, setShowTransition] = useState(() => {
     return !sessionStorage.getItem('dashboard_welcome_shown');
   });
@@ -52,6 +53,17 @@ export default function Dashboard() {
       return () => clearTimeout(timer);
     }
   }, [showTransition]);
+
+  useEffect(() => {
+    const storageKey = 'oassessor-app-prompt-last-seen';
+    const now = Date.now();
+    const lastSeen = Number(localStorage.getItem(storageKey) || 0);
+    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+
+    if (!lastSeen || now - lastSeen >= twoDaysMs) {
+      setShowAppPrompt(true);
+    }
+  }, []);
 
   // Sincroniza a aba ativa com a URL atual
   useEffect(() => {
@@ -263,6 +275,51 @@ export default function Dashboard() {
       </main>
 
       {isMobileMenuOpen && <div className="sidebar-overlay" onClick={toggleMobileMenu}></div>}
+      {showAppPrompt ? (
+        <div className="funnel-modal-backdrop dashboard-modal-backdrop" onClick={() => setShowAppPrompt(false)}>
+          <div className="system-app-prompt-modal" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="accountability-modal-close"
+              onClick={() => {
+                localStorage.setItem('oassessor-app-prompt-last-seen', String(Date.now()));
+                setShowAppPrompt(false);
+              }}
+              aria-label="Fechar modal"
+            >
+              ×
+            </button>
+            <span className="dashboard-page-kicker">Aplicativo oAssessor</span>
+            <h3>Leve a operação para o celular</h3>
+            <p>
+              Instale o aplicativo para acompanhar notificações, agenda, base e atualizações rápidas da campanha onde você estiver.
+            </p>
+            <div className="system-card-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  localStorage.setItem('oassessor-app-prompt-last-seen', String(Date.now()));
+                  setShowAppPrompt(false);
+                }}
+              >
+                Agora não
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  localStorage.setItem('oassessor-app-prompt-last-seen', String(Date.now()));
+                  setShowAppPrompt(false);
+                  navigate('/download-app');
+                }}
+              >
+                Baixar aplicativo
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <NotificationsModal
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}

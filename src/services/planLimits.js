@@ -2,6 +2,7 @@ import { equalTo, get, orderByChild, query, ref } from './firestoreDatabase';
 import { database } from '../firebaseConfig';
 
 const normalizeText = (value) => String(value || '').trim();
+const BLOCK_GRACE_DAYS = 5;
 
 export const extractLimitNumber = (value) => {
   const match = normalizeText(value).match(/\d+/g);
@@ -59,6 +60,51 @@ export const loadScopedCampaignUsage = async (user) => {
     ownerIds: [...ownerIds],
     ownerEmails: [...ownerEmails],
     voterCount
+  };
+};
+
+export const loadScopedCampaignUsageByOwner = async ({ ownerId, ownerEmail }) => {
+  if (!ownerId && !ownerEmail) {
+    return {
+      ownerIds: [],
+      ownerEmails: [],
+      voterCount: 0,
+      assessorCount: 0,
+      teamSize: 0
+    };
+  }
+
+  const ownerIds = new Set([ownerId].filter(Boolean));
+  const ownerEmails = new Set([ownerEmail].filter(Boolean));
+
+  const adminScopedAssessors = ownerId
+    ? await get(query(ref(database, 'assessores'), orderByChild('adminId'), equalTo(ownerId)))
+    : { exists: () => false };
+
+  const assessors = adminScopedAssessors.exists()
+    ? Object.values(adminScopedAssessors.val() || {})
+    : [];
+
+  assessors.forEach((assessor) => {
+    if (assessor.userId) ownerIds.add(assessor.userId);
+    if (assessor.email) ownerEmails.add(assessor.email);
+  });
+
+  const votersSnapshot = await get(ref(database, 'eleitores'));
+  const allVoters = votersSnapshot.exists()
+    ? Object.values(votersSnapshot.val())
+    : [];
+
+  const voterCount = allVoters.filter((entry) =>
+    ownerIds.has(entry.creatorId) || ownerEmails.has(entry.creatorEmail)
+  ).length;
+
+  return {
+    ownerIds: [...ownerIds],
+    ownerEmails: [...ownerEmails],
+    voterCount,
+    assessorCount: assessors.length,
+    teamSize: 1 + assessors.length
   };
 };
 
@@ -146,4 +192,46 @@ export const comparePlanAmount = (currentAmount, targetAmount) => {
   if (targetAmount > currentAmount) return 'upgrade';
   if (targetAmount < currentAmount) return 'downgrade';
   return 'same';
+};
+
+const parseDate = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+export const evaluateAccountBilling = (profile = {}, plan = null, now = new Date()) => {
+  const trialDays = Number(profile.trialDays ?? plan?.trialDays ?? 0);
+  const graceDays = Number(profile.graceDays ?? plan?.graceDays ?? BLOCK_GRACE_DAYS);
+  const isFreePlan = Boolean(profile.isFreePlan ?? plan?.isFree ?? false);
+  const subscriptionStatus = String(profile.subscriptionStatus || '').toLowerCase();
+  const billingStatus = String(profile.billingStatus || subscriptionStatus || (isFreePlan ? 'free' : 'active')).toLowerCase();
+  const trialEndsAt = parseDate(profile.trialEndsAt);
+  const nextBillingDate = parseDate(profile.nextBillingDate);
+  const delinquentSince = parseDate(profile.delinquentSince || profile.lastInvoiceDueAt);
+  const effectiveNow = parseDate(now) || new Date();
+
+  const msPerDay = 86400000;
+  const trialActive = Boolean(trialEndsAt && trialEndsAt.getTime() >= effectiveNow.getTime());
+  const overdueBaseDate = delinquentSince || nextBillingDate;
+  const overdueDays = overdueBaseDate
+    ? Math.max(0, Math.floor((effectiveNow.getTime() - overdueBaseDate.getTime()) / msPerDay))
+    : 0;
+  const blockedByStatus = ['blocked', 'past_due_blocked'].includes(billingStatus);
+  const pendingByStatus = ['pending_payment', 'pending', 'failed', 'past_due', 'overdue', 'unpaid'].includes(billingStatus);
+  const blocked = !isFreePlan && !trialActive && (blockedByStatus || (pendingByStatus && overdueDays > graceDays));
+
+  return {
+    isFreePlan,
+    trialDays,
+    graceDays,
+    trialEndsAt: trialEndsAt ? trialEndsAt.toISOString() : null,
+    nextBillingDate: nextBillingDate ? nextBillingDate.toISOString() : null,
+    delinquentSince: overdueBaseDate ? overdueBaseDate.toISOString() : null,
+    trialActive,
+    overdueDays,
+    blocked,
+    accessStatus: blocked ? 'blocked' : trialActive ? 'trialing' : isFreePlan ? 'free' : 'active',
+    billingStatusLabel: blocked ? 'Bloqueado' : trialActive ? 'Em teste' : isFreePlan ? 'Plano gratuito' : formatSubscriptionStatus(profile.subscriptionStatus || billingStatus)
+  };
 };

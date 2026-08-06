@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
+import BrandLoader from './components/BrandLoader';
 
 // Importing Components
 const Footer = lazy(() => import('./components/Footer'));
@@ -71,7 +72,12 @@ const AccountabilityReview = lazy(() => import('./screens/in/accountability/Revi
 const AccountabilityClosing = lazy(() => import('./screens/in/accountability/ClosingTab'));
 
 function App() {
-  const loadingFallback = <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+  const loadingFallback = (
+    <BrandLoader
+      title="Preparando a plataforma"
+      subtitle="Carregando módulos, interface e inteligência para a próxima ação."
+    />
+  );
 
   return (
     <Router>

@@ -2,6 +2,18 @@ import { get, ref } from './firestoreDatabase';
 import { database } from '../firebaseConfig';
 
 const GET_PLANS_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/getAppPlans';
+const FEATURE_LIMIT_KEYS = [
+  'leaderships',
+  'volunteers',
+  'visits',
+  'demands',
+  'events',
+  'communication',
+  'territory',
+  'research',
+  'team',
+  'agenda'
+];
 
 const normalizeBoolean = (value, fallback = false) => {
   if (typeof value === 'boolean') return value;
@@ -28,13 +40,21 @@ export async function fetchManagedPlans({ includeHidden = true } = {}) {
   const basePlans = plansResponse?.success ? plansResponse.plans || [] : [];
   const mergedPlans = basePlans.map((plan) => {
     const override = overrides?.[plan.id] || {};
+    const featureLimits = FEATURE_LIMIT_KEYS.reduce((accumulator, key) => {
+      accumulator[key] = override.featureLimits?.[key] ?? plan.featureLimits?.[key] ?? '';
+      return accumulator;
+    }, {});
     const visible = override.visible !== undefined ? normalizeBoolean(override.visible, true) : plan.status !== 'inactive';
 
     return {
       ...plan,
       ...override,
+      featureLimits,
       visible,
       recommended: override.recommended !== undefined ? normalizeBoolean(override.recommended, false) : plan.recommended,
+      isFree: override.isFree !== undefined ? normalizeBoolean(override.isFree, false) : normalizeBoolean(plan.isFree, false),
+      trialDays: Number(override.trialDays ?? plan.trialDays ?? 0),
+      graceDays: Number(override.graceDays ?? plan.graceDays ?? 5),
       title: override.title || plan.title,
       subtitle: override.subtitle || plan.subtitle,
       ideal: override.ideal || plan.ideal,

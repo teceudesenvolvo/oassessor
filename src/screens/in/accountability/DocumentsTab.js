@@ -13,13 +13,6 @@ const readFileAsDataUrl = (file) =>
     reader.readAsDataURL(file);
   });
 
-const STATUS_OPTIONS = [
-  { value: 'recebido', label: 'Recebido' },
-  { value: 'pendente', label: 'Pendente' },
-  { value: 'validado', label: 'Validado' },
-  { value: 'com inconsistência', label: 'Com inconsistência' }
-];
-
 const CATEGORY_OPTIONS = [
   { value: 'comprovante', label: 'Comprovante' },
   { value: 'nota fiscal', label: 'Nota fiscal' },

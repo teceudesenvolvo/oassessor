@@ -60,6 +60,140 @@ const findUserProfileByUid = async (uid) => {
     return assessor?.data() || null;
 };
 
+const parseDateValue = (value) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const addDays = (date, days) => {
+    const base = parseDateValue(date) || new Date();
+    const next = new Date(base);
+    next.setDate(next.getDate() + Number(days || 0));
+    return next;
+};
+
+const normalizeBoolean = (value, fallback = false) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') return value === 'true';
+    return fallback;
+};
+
+const findUserDocumentByUid = async (uid) => {
+    const directRef = appFirestore().collection('users').doc(uid);
+    const directSnapshot = await directRef.get();
+    if (directSnapshot.exists) {
+        return { ref: directRef, id: directSnapshot.id, data: directSnapshot.data() || {} };
+    }
+
+    const indexedSnapshot = await appFirestore()
+        .collection('users')
+        .where('userId', '==', uid)
+        .limit(1)
+        .get();
+
+    if (!indexedSnapshot.empty) {
+        const documentSnapshot = indexedSnapshot.docs[0];
+        return { ref: documentSnapshot.ref, id: documentSnapshot.id, data: documentSnapshot.data() || {} };
+    }
+
+    return null;
+};
+
+const getPlanOverrideById = async (planId) => {
+    if (!planId) return {};
+    const snapshot = await appFirestore().collection('system_plan_overrides').doc(planId).get();
+    return snapshot.exists ? (snapshot.data() || {}) : {};
+};
+
+const buildBillingSnapshot = async (userData = {}) => {
+    const planOverride = await getPlanOverrideById(userData.planId);
+    const isFreePlan = normalizeBoolean(userData.isFreePlan, normalizeBoolean(planOverride.isFree, false));
+    const trialDays = Number(userData.trialDays ?? planOverride.trialDays ?? 0);
+    const graceDays = Number(userData.graceDays ?? planOverride.graceDays ?? 5);
+    const seededTrialEndsAt = userData.trialEndsAt || (trialDays > 0 && userData.createdAt ? addDays(userData.createdAt, trialDays).toISOString() : null);
+    const trialEndsAt = parseDateValue(seededTrialEndsAt);
+    const now = new Date();
+    const trialActive = Boolean(trialEndsAt && trialEndsAt.getTime() >= now.getTime());
+
+    if (isFreePlan) {
+        return {
+            isFreePlan: true,
+            trialDays,
+            graceDays,
+            trialEndsAt: seededTrialEndsAt,
+            billingStatus: 'free',
+            accountAccessStatus: 'free',
+            accessBlockedAt: null,
+            delinquentSince: null,
+            overdueDays: 0
+        };
+    }
+
+    if (trialActive && !userData.subscriptionId) {
+        return {
+            isFreePlan: false,
+            trialDays,
+            graceDays,
+            trialEndsAt: seededTrialEndsAt,
+            billingStatus: 'trialing',
+            accountAccessStatus: 'trialing',
+            accessBlockedAt: null,
+            delinquentSince: null,
+            overdueDays: 0
+        };
+    }
+
+    if (!userData.subscriptionId) {
+        return {
+            isFreePlan: false,
+            trialDays,
+            graceDays,
+            trialEndsAt: seededTrialEndsAt,
+            billingStatus: 'pending_payment',
+            accountAccessStatus: 'active',
+            accessBlockedAt: null,
+            delinquentSince: null,
+            overdueDays: 0
+        };
+    }
+
+    const [subResponse, invoicesResponse] = await Promise.all([
+        fetch(`${PAGARME_URL}/subscriptions/${userData.subscriptionId}`, { headers: getPagarmeHeaders() }),
+        fetch(`${PAGARME_URL}/invoices?subscription_id=${userData.subscriptionId}&count=10`, { headers: getPagarmeHeaders() })
+    ]);
+
+    const subscription = await subResponse.json();
+    const invoicesPayload = await invoicesResponse.json();
+    const invoices = invoicesPayload.data || [];
+    const billingStatus = String(subscription?.status || userData.subscriptionStatus || 'active').toLowerCase();
+    const actionableStatuses = new Set(['pending', 'pending_payment', 'failed', 'processing', 'overdue', 'unpaid']);
+    const latestOpenInvoice = invoices
+        .filter((invoice) => actionableStatuses.has(String(invoice.status || '').toLowerCase()))
+        .sort((left, right) => new Date(right.due_at || right.created_at || 0).getTime() - new Date(left.due_at || left.created_at || 0).getTime())[0] || null;
+
+    const delinquentBase = latestOpenInvoice?.due_at || latestOpenInvoice?.created_at || userData.delinquentSince || null;
+    const delinquentSince = parseDateValue(delinquentBase);
+    const overdueDays = delinquentSince
+        ? Math.max(0, Math.floor((now.getTime() - delinquentSince.getTime()) / 86400000))
+        : 0;
+    const blocked = actionableStatuses.has(billingStatus) && overdueDays > graceDays;
+
+    return {
+        isFreePlan: false,
+        trialDays,
+        graceDays,
+        trialEndsAt: seededTrialEndsAt,
+        subscriptionStatus: subscription?.status || userData.subscriptionStatus || 'active',
+        nextBillingDate: subscription?.next_billing_at || subscription?.current_period_end || userData.nextBillingDate || null,
+        billingStatus: blocked ? 'blocked' : billingStatus,
+        accountAccessStatus: blocked ? 'blocked' : actionableStatuses.has(billingStatus) ? 'warning' : 'active',
+        accessBlockedAt: blocked ? now.toISOString() : null,
+        delinquentSince: delinquentSince ? delinquentSince.toISOString() : null,
+        overdueDays
+    };
+};
+
 const extensionForMimeType = (mimeType) => {
     const extensions = {
         'image/jpeg': 'jpg',
@@ -716,6 +850,15 @@ exports.createSubscription = onRequest(
           subscriptionId: subscription.id,
           pagarmeCustomerId: subscription.customer.id,
           planId: planId, // Salva o ID do plano do nosso app
+          nomePlano: pagarmePlan.name,
+          subscriptionStatus: subscription.status || 'active',
+          trialDays: Number(pagarmePlan.metadata?.trialDays || 0),
+          graceDays: Number(pagarmePlan.metadata?.graceDays || 5),
+          isFreePlan: pagarmePlan.metadata?.isFree === 'true',
+          trialEndsAt: Number(pagarmePlan.metadata?.trialDays || 0) > 0
+            ? addDays(new Date(), Number(pagarmePlan.metadata?.trialDays || 0)).toISOString()
+            : null,
+          nextBillingDate: subscription.next_billing_at || subscription.current_period_end || null,
         }, { merge: true });
 
         res.status(200).send({ success: true, subscriptionId: subscription.id, status: subscription.status });
@@ -818,6 +961,9 @@ exports.getAppPlans = onRequest({ cors: true, invoker: 'public' }, async (req, r
                 ideal: metadata.ideal || '',
                 team: metadata.team || '',
                 database: metadata.database || '',
+                trialDays: Number(metadata.trialDays || 0),
+                graceDays: Number(metadata.graceDays || 5),
+                isFree: metadata.isFree === 'true',
                 recommended: metadata.recommended === 'true',
                 price: (price / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
                 amount: price,
@@ -1038,6 +1184,38 @@ exports.getSubscriptionDetails = onRequest({ cors: true, invoker: 'public' }, as
     }
 });
 
+exports.syncSubscriptionHealth = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+    if (req.method !== 'POST') {
+        return res.status(405).send({ success: false, error: 'Method Not Allowed' });
+    }
+
+    const userId = req.body?.userId;
+    if (!userId) {
+        return res.status(400).send({ success: false, error: 'userId é obrigatório.' });
+    }
+
+    try {
+        const userDocument = await findUserDocumentByUid(userId);
+        if (!userDocument) {
+            return res.status(404).send({ success: false, error: 'Conta não encontrada.' });
+        }
+
+        const billingSnapshot = await buildBillingSnapshot(userDocument.data);
+        await userDocument.ref.set({
+            ...billingSnapshot,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        return res.status(200).send({
+            success: true,
+            billing: billingSnapshot
+        });
+    } catch (error) {
+        console.error('Erro ao sincronizar saúde da assinatura:', error);
+        return res.status(500).send({ success: false, error: error.message || 'Falha ao sincronizar cobrança.' });
+    }
+});
+
 exports.cancelCurrentSubscription = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
     if (req.method !== 'POST') {
         return res.status(405).send({ success: false, error: 'Method Not Allowed' });
@@ -1190,7 +1368,14 @@ exports.changeSubscriptionPlan = onRequest({ cors: true, invoker: 'public' }, as
             subscriptionStatus: newSubscription.status || 'active',
             planId: targetPlanId,
             nomePlano: pagarmePlan.name,
-            limiteEleitores: pagarmePlan.metadata?.team || userData.limiteEleitores || ''
+            limiteEleitores: pagarmePlan.metadata?.team || userData.limiteEleitores || '',
+            trialDays: Number(pagarmePlan.metadata?.trialDays || 0),
+            graceDays: Number(pagarmePlan.metadata?.graceDays || 5),
+            isFreePlan: pagarmePlan.metadata?.isFree === 'true',
+            trialEndsAt: Number(pagarmePlan.metadata?.trialDays || 0) > 0
+                ? addDays(new Date(), Number(pagarmePlan.metadata?.trialDays || 0)).toISOString()
+                : null,
+            nextBillingDate: newSubscription.next_billing_at || newSubscription.current_period_end || null
         }, { merge: true });
 
         return res.status(200).send({

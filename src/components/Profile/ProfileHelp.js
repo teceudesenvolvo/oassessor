@@ -1,45 +1,64 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { HelpCircle, ChevronDown, ChevronUp, MessageCircle, Mail, ExternalLink } from 'lucide-react';
+import { get, ref } from '../../services/firestoreDatabase';
+import { database } from '../../firebaseConfig';
+
+const DEFAULT_CHANNELS = {
+  whatsapp: '5585997363433',
+  email: 'contatos@blutecnologias.com.br',
+  whatsappLabel: 'Atendimento consultivo com um toque.',
+  emailLabel: 'Fale com nosso time sobre operação, planos e implantação.'
+};
 
 export default function ProfileHelp() {
   const [openFaq, setOpenFaq] = useState(null);
+  const [faqs, setFaqs] = useState([]);
+  const [channels, setChannels] = useState(DEFAULT_CHANNELS);
 
-  const faqs = [
-    {
-      question: "Como adiciono um novo eleitor?",
-      answer: "Vá para a aba 'Eleitores' no menu lateral e clique no botão 'Novo Eleitor'. Preencha os dados obrigatórios e salve."
-    },
-    {
-      question: "Como convidar membros para minha equipe?",
-      answer: "Na aba 'Minha Equipe', clique em 'Novo Membro'. Insira o nome e e-mail do assessor. Ele receberá um convite por e-mail para definir a senha."
-    },
-    {
-      question: "Posso exportar meus dados?",
-      answer: "Sim, na lista de eleitores você pode clicar no ícone de PDF para exportar a lista atual filtrada."
-    },
-    {
-      question: "Como funciona a cobrança?",
-      answer: "A cobrança é feita mensalmente no cartão de crédito cadastrado. Você pode alterar o cartão na aba 'Dados de Pagamento' do seu perfil."
-    }
-  ];
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [faqSnapshot, channelsSnapshot] = await Promise.all([
+          get(ref(database, 'supportFaqs')),
+          get(ref(database, 'supportChannels/public'))
+        ]);
+
+        if (faqSnapshot.exists()) {
+          const items = Object.entries(faqSnapshot.val())
+            .map(([id, value]) => ({ id, ...value }))
+            .filter((item) => item.active !== false)
+            .sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
+          setFaqs(items);
+        }
+
+        if (channelsSnapshot.exists()) {
+          setChannels((prev) => ({ ...prev, ...(channelsSnapshot.val() || {}) }));
+        }
+      } catch (error) {
+        console.error('Erro ao carregar FAC/SAC:', error);
+      }
+    };
+
+    load();
+  }, []);
 
   const toggleFaq = (index) => {
     setOpenFaq(openFaq === index ? null : index);
   };
 
   const handleWhatsAppSupport = () => {
-    window.open('https://wa.me/5585997363433', '_blank');
+    window.open(`https://wa.me/${channels.whatsapp}`, '_blank');
   };
 
   const handleEmailSupport = () => {
-    window.location.href = 'mailto:contatos@blutecnologias.com.br';
+    window.location.href = `mailto:${channels.email}`;
   };
 
   return (
     <div className="profile-help-shell">
       <div className="profile-section-heading">
         <h3>Como podemos ajudar?</h3>
-        <p>Encontre respostas rápidas ou fale com nosso time comercial e de atendimento.</p>
+        <p>Encontre respostas rápidas no FAC ou fale com nosso atendimento pelo SAC.</p>
       </div>
 
       <div className="profile-help-grid">
@@ -53,8 +72,8 @@ export default function ProfileHelp() {
           </div>
           <div className="profile-help-card-copy">
             <strong>WhatsApp</strong>
-            <span>85 99736-3433</span>
-            <small>Atendimento consultivo com um toque.</small>
+            <span>{channels.whatsapp}</span>
+            <small>{channels.whatsappLabel}</small>
           </div>
           <ExternalLink size={18} />
         </button>
@@ -69,8 +88,8 @@ export default function ProfileHelp() {
           </div>
           <div className="profile-help-card-copy">
             <strong>E-mail</strong>
-            <span>contatos@blutecnologias.com.br</span>
-            <small>Fale com nosso time sobre operação, planos e implantação.</small>
+            <span>{channels.email}</span>
+            <small>{channels.emailLabel}</small>
           </div>
           <ExternalLink size={18} />
         </button>
@@ -78,20 +97,20 @@ export default function ProfileHelp() {
 
       <div className="profile-help-faq">
         <h4 className="profile-help-title">
-          <HelpCircle size={20} /> Perguntas Frequentes
+          <HelpCircle size={20} /> FAC · Perguntas Frequentes
         </h4>
 
         <div className="profile-help-faq-list">
           {faqs.map((faq, index) => (
-            <div key={index} className="profile-faq-item">
-              <button 
+            <div key={faq.id || index} className="profile-faq-item">
+              <button
                 onClick={() => toggleFaq(index)}
                 className="profile-faq-question"
               >
                 {faq.question}
                 {openFaq === index ? <ChevronUp size={18} color="#64748b" /> : <ChevronDown size={18} color="#64748b" />}
               </button>
-              
+
               {openFaq === index && (
                 <div className="profile-faq-answer">
                   {faq.answer}

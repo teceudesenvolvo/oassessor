@@ -2,15 +2,51 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { get, ref, set, update } from '../services/firestoreDatabase';
 import { database } from '../firebaseConfig';
 import { fetchManagedPlans } from '../services/appPlansService';
-import { extractLimitNumber } from '../services/planLimits';
+import { evaluateAccountBilling, extractLimitNumber, loadScopedCampaignUsageByOwner } from '../services/planLimits';
 
 const CREATE_PLAN_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/createPagarmePlan';
 const UPDATE_PLAN_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/updatePagarmePlan';
 const UPDATE_PLAN_ITEM_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/updatePagarmePlanItem';
 const CHANGE_PLAN_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/changeSubscriptionPlan';
+const SYNC_SUBSCRIPTION_HEALTH_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/syncSubscriptionHealth';
+const FEATURE_LIMIT_KEYS = [
+  'leaderships',
+  'volunteers',
+  'visits',
+  'demands',
+  'events',
+  'communication',
+  'territory',
+  'research',
+  'team',
+  'agenda'
+];
 
 const formatCurrency = (amount = 0) =>
   Number(amount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const isGatewayUnavailableError = (error) => {
+  const message = String(error?.message || error || '').toLowerCase();
+  return (
+    error instanceof TypeError ||
+    message.includes('load failed') ||
+    message.includes('failed to fetch') ||
+    message.includes('404')
+  );
+};
+
+const postJson = async (url, payload) => {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.success) {
+    throw new Error(result.error || result.message || `Falha ao executar ${url}`);
+  }
+  return result;
+};
 
 const normalizeCollection = (snapshot) =>
   snapshot.exists() ? Object.entries(snapshot.val()).map(([id, value]) => ({ id, ...value })) : [];
@@ -19,16 +55,26 @@ const normalizeUser = (entry) => {
   const planLimit = extractLimitNumber(entry.limiteEleitores);
   return {
     ...entry,
+    documentId: entry.id,
     authUserId: entry.userId || entry.id,
     name: entry.nome || entry.name || entry.email || 'Usuário',
     role: entry.tipoUser || 'assessor',
     status: entry.status || 'Ativo',
+    adminId: entry.adminId || null,
     planId: entry.planId || null,
     planName: entry.nomePlano || entry.planName || null,
     planLimit,
     email: entry.email || '',
     phone: entry.telefone || entry.phone || '',
-    createdAt: entry.createdAt || entry.updatedAt || null
+    createdAt: entry.createdAt || entry.updatedAt || null,
+    billingStatus: entry.billingStatus || '',
+    nextBillingDate: entry.nextBillingDate || null,
+    trialDays: Number(entry.trialDays || 0),
+    graceDays: Number(entry.graceDays || 5),
+    trialEndsAt: entry.trialEndsAt || null,
+    delinquentSince: entry.delinquentSince || entry.lastInvoiceDueAt || null,
+    isFreePlan: Boolean(entry.isFreePlan),
+    accessBlockedAt: entry.accessBlockedAt || null
   };
 };
 
@@ -37,6 +83,14 @@ export function useSystemCenter(user) {
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState([]);
   const [plans, setPlans] = useState([]);
+  const [assessors, setAssessors] = useState([]);
+  const [supportFaqs, setSupportFaqs] = useState([]);
+  const [supportChannels, setSupportChannels] = useState({
+    whatsapp: '5585997363433',
+    email: 'contatos@blutecnologias.com.br',
+    whatsappLabel: 'Atendimento consultivo com um toque.',
+    emailLabel: 'Fale com nosso time sobre operação, planos e implantação.'
+  });
 
   const canAccess = String(user?.email || '').toLowerCase() === 'leo@gmail.com';
 
@@ -48,13 +102,88 @@ export function useSystemCenter(user) {
 
     setLoading(true);
     try {
-      const [usersSnapshot, plansResponse] = await Promise.all([
+      const [usersSnapshot, plansResponse, assessorsSnapshot] = await Promise.all([
         get(ref(database, 'users')),
-        fetchManagedPlans({ includeHidden: true })
+        fetchManagedPlans({ includeHidden: true }),
+        get(ref(database, 'assessores'))
       ]);
 
-      setUsers(normalizeCollection(usersSnapshot).map(normalizeUser));
+      const rawUsers = normalizeCollection(usersSnapshot).map(normalizeUser);
+      const assessorsList = normalizeCollection(assessorsSnapshot);
+      const assessorKeys = new Set(
+        assessorsList.flatMap((entry) => [
+          String(entry.id || '').toLowerCase(),
+          String(entry.userId || '').toLowerCase(),
+          String(entry.email || '').toLowerCase()
+        ].filter(Boolean))
+      );
+
+      const ownerCandidates = rawUsers.filter((entry) => {
+        const keyId = String(entry.documentId || '').toLowerCase();
+        const keyAuth = String(entry.authUserId || '').toLowerCase();
+        const keyEmail = String(entry.email || '').toLowerCase();
+        const isTeamParticipant =
+          assessorKeys.has(keyId) ||
+          assessorKeys.has(keyAuth) ||
+          assessorKeys.has(keyEmail) ||
+          (entry.adminId && entry.adminId !== entry.authUserId);
+        const isAdministrator = String(entry.role || '').toLowerCase() === 'admin';
+
+        return isAdministrator && !isTeamParticipant;
+      });
+
+      const usageByOwner = await Promise.all(
+        ownerCandidates.map(async (entry) => {
+          const usage = await loadScopedCampaignUsageByOwner({
+            ownerId: entry.authUserId,
+            ownerEmail: entry.email
+          }).catch(() => ({
+            voterCount: 0,
+            assessorCount: 0,
+            teamSize: 1
+          }));
+
+          const matchingPlan = plansResponse.find((plan) => plan.id === entry.planId) || null;
+          const billing = evaluateAccountBilling(entry, matchingPlan);
+
+          return {
+            ...entry,
+            voterUsage: usage.voterCount,
+            assessorCount: usage.assessorCount,
+            teamSize: usage.teamSize,
+            accountAccessStatus: billing.accessStatus,
+            billingLabel: billing.billingStatusLabel,
+            overdueDays: billing.overdueDays,
+            blocked: billing.blocked,
+            trialActive: billing.trialActive,
+            effectiveTrialDays: billing.trialDays,
+            effectiveGraceDays: billing.graceDays,
+            nextBillingDate: billing.nextBillingDate || entry.nextBillingDate || null,
+            trialEndsAt: billing.trialEndsAt || entry.trialEndsAt || null,
+            delinquentSince: billing.delinquentSince || entry.delinquentSince || null,
+            isFreePlan: billing.isFreePlan
+          };
+        })
+      );
+
+      setAssessors(assessorsList);
+      setUsers(usageByOwner);
       setPlans(plansResponse || []);
+
+      const [faqSnapshot, channelsSnapshot] = await Promise.all([
+        get(ref(database, 'supportFaqs')),
+        get(ref(database, 'supportChannels/public'))
+      ]);
+
+      setSupportFaqs(
+        normalizeCollection(faqSnapshot)
+          .filter((item) => item.active !== false)
+          .sort((left, right) => Number(left.order || 0) - Number(right.order || 0))
+      );
+
+      if (channelsSnapshot.exists()) {
+        setSupportChannels((prev) => ({ ...prev, ...(channelsSnapshot.val() || {}) }));
+      }
     } catch (error) {
       console.error('Erro ao carregar central do sistema:', error);
     } finally {
@@ -68,14 +197,14 @@ export function useSystemCenter(user) {
 
   const customers = useMemo(
     () =>
-      users.filter((entry) => entry.subscriptionId || entry.planId || entry.pagarmeCustomerId),
+      users.filter((entry) => entry.subscriptionId || entry.planId || entry.pagarmeCustomerId || entry.isFreePlan),
     [users]
   );
 
   const summary = useMemo(() => {
     const hiddenPlans = plans.filter((plan) => plan.visible === false).length;
     const activePlans = plans.filter((plan) => plan.visible !== false).length;
-    const activeCustomers = customers.filter((entry) => String(entry.subscriptionStatus || entry.status).toLowerCase() !== 'cancelada').length;
+    const activeCustomers = customers.filter((entry) => !entry.blocked).length;
     const mrr = customers.reduce((accumulator, entry) => {
       const plan = plans.find((item) => item.id === entry.planId);
       return accumulator + Number(plan?.amount || 0);
@@ -87,7 +216,9 @@ export function useSystemCenter(user) {
       totalSales: customers.filter((entry) => entry.subscriptionId).length,
       activePlans,
       hiddenPlans,
-      mrr: formatCurrency(mrr / 100)
+      mrr: formatCurrency(mrr / 100),
+      blockedAccounts: customers.filter((entry) => entry.blocked).length,
+      trialAccounts: customers.filter((entry) => entry.trialActive).length
     };
   }, [customers, plans, users]);
 
@@ -102,7 +233,7 @@ export function useSystemCenter(user) {
           email: entry.email,
           planName: entry.planName || plans.find((item) => item.id === entry.planId)?.title || 'Sem plano',
           amount: formatCurrency((plans.find((item) => item.id === entry.planId)?.amount || 0) / 100),
-          status: entry.subscriptionStatus || entry.status || 'Ativo',
+          status: entry.billingLabel || entry.subscriptionStatus || entry.status || 'Ativo',
           createdAt: entry.createdAt
         })),
     [customers, plans]
@@ -140,34 +271,34 @@ export function useSystemCenter(user) {
     setSaving(true);
     try {
       const amount = Number(payload.amount || 0);
+      const featureLimits = FEATURE_LIMIT_KEYS.reduce((accumulator, key) => {
+        accumulator[key] = payload.featureLimits?.[key] || '';
+        return accumulator;
+      }, {});
       if (!payload.title || !amount) {
         throw new Error('Informe nome e valor do plano.');
       }
 
       if (payload.mode === 'create') {
-        const response = await fetch(CREATE_PLAN_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: payload.title,
-            description: payload.subtitle || '',
-            amount,
-            interval: 'month',
-            interval_count: 1,
-            metadata: {
-              app_id: payload.slug || payload.title.toLowerCase().replace(/\s+/g, '-'),
-              subtitle: payload.subtitle || '',
-              ideal: payload.ideal || '',
-              team: payload.team || '',
-              database: payload.database || '',
-              recommended: String(Boolean(payload.recommended))
-            }
-          })
+        const result = await postJson(CREATE_PLAN_URL, {
+          name: payload.title,
+          description: payload.subtitle || '',
+          amount,
+          interval: 'month',
+          interval_count: 1,
+          metadata: {
+            app_id: payload.slug || payload.title.toLowerCase().replace(/\s+/g, '-'),
+            subtitle: payload.subtitle || '',
+            ideal: payload.ideal || '',
+            team: payload.team || '',
+            database: payload.database || '',
+            trialDays: String(Number(payload.trialDays || 0)),
+            graceDays: String(Number(payload.graceDays || 5)),
+            isFree: String(Boolean(payload.isFree)),
+            recommended: String(Boolean(payload.recommended)),
+            featureLimits: JSON.stringify(featureLimits)
+          }
         });
-        const result = await response.json();
-        if (!response.ok || !result.success) {
-          throw new Error(result.error || 'Não foi possível criar o plano.');
-        }
 
         const createdPlan = result.plan;
         const overrideId = createdPlan.metadata?.app_id || createdPlan.id;
@@ -178,43 +309,39 @@ export function useSystemCenter(user) {
           ideal: payload.ideal || '',
           team: payload.team || '',
           database: payload.database || '',
+          featureLimits,
           amount,
+          trialDays: Number(payload.trialDays || 0),
+          graceDays: Number(payload.graceDays || 5),
+          isFree: Boolean(payload.isFree),
           recommended: Boolean(payload.recommended),
           createdAt: new Date().toISOString(),
           createdBy: user?.email || null
         });
       } else {
-        const response = await fetch(UPDATE_PLAN_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        let gatewaySyncPending = false;
+        try {
+          await postJson(UPDATE_PLAN_URL, {
             planId: payload.pagarmeId,
             name: payload.title,
             description: payload.subtitle || '',
             status: payload.gatewayStatus || 'active'
-          })
-        });
-        const result = await response.json();
-        if (!response.ok || !result.success) {
-          throw new Error(result.error || 'Não foi possível atualizar o plano.');
-        }
+          });
 
-        if (payload.itemId) {
-          const itemResponse = await fetch(UPDATE_PLAN_ITEM_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          if (payload.itemId) {
+            await postJson(UPDATE_PLAN_ITEM_URL, {
               planId: payload.pagarmeId,
               itemId: payload.itemId,
               name: payload.title,
               description: payload.subtitle || '',
               amount
-            })
-          });
-          const itemResult = await itemResponse.json();
-          if (!itemResponse.ok || !itemResult.success) {
-            throw new Error(itemResult.error || 'Não foi possível atualizar o valor do plano.');
+            });
           }
+        } catch (error) {
+          if (!isGatewayUnavailableError(error)) {
+            throw error;
+          }
+          gatewaySyncPending = true;
         }
 
         await persistPlanOverride(payload.id, {
@@ -224,9 +351,25 @@ export function useSystemCenter(user) {
           ideal: payload.ideal || '',
           team: payload.team || '',
           database: payload.database || '',
+          featureLimits,
           amount,
+          trialDays: Number(payload.trialDays || 0),
+          graceDays: Number(payload.graceDays || 5),
+          isFree: Boolean(payload.isFree),
           recommended: Boolean(payload.recommended)
         });
+
+        if (gatewaySyncPending) {
+          await persistPlanOverride(payload.id, {
+            gatewaySyncPending: true,
+            gatewaySyncMessage: 'Function de sincronização do gateway indisponível ou não publicada.'
+          });
+        } else {
+          await persistPlanOverride(payload.id, {
+            gatewaySyncPending: false,
+            gatewaySyncMessage: null
+          });
+        }
       }
 
       await reload();
@@ -274,20 +417,132 @@ export function useSystemCenter(user) {
     }
   }, [reload]);
 
+  const saveAccountProfile = useCallback(async ({ documentId, payload }) => {
+    if (!documentId) {
+      throw new Error('Conta inválida.');
+    }
+
+    setSaving(true);
+    try {
+      await update(ref(database, `users/${documentId}`), {
+        nome: payload.name || '',
+        email: payload.email || '',
+        telefone: payload.phone || '',
+        tipoUser: payload.role || 'admin',
+        status: payload.status || 'Ativo',
+        trialDays: Number(payload.trialDays || 0),
+        graceDays: Number(payload.graceDays || 5),
+        trialEndsAt: payload.trialEndsAt || null,
+        nextBillingDate: payload.nextBillingDate || null,
+        billingStatus: payload.billingStatus || 'active',
+        isFreePlan: Boolean(payload.isFreePlan),
+        updatedAt: new Date().toISOString()
+      });
+      await reload();
+    } finally {
+      setSaving(false);
+    }
+  }, [reload]);
+
+  const syncBillingStatus = useCallback(async (documentId) => {
+    const target = users.find((entry) => entry.documentId === documentId);
+    if (!target?.authUserId) return null;
+
+    setSaving(true);
+    try {
+      const response = await fetch(SYNC_SUBSCRIPTION_HEALTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: target.authUserId })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Não foi possível sincronizar a cobrança.');
+      }
+      await reload();
+      return result;
+    } finally {
+      setSaving(false);
+    }
+  }, [reload, users]);
+
+  const saveSupportFaq = useCallback(async (payload) => {
+    if (!canAccess) return;
+    setSaving(true);
+    try {
+      const data = {
+        question: payload.question || '',
+        answer: payload.answer || '',
+        order: Number(payload.order || 0),
+        active: payload.active !== false,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.email || null
+      };
+
+      if (payload.id) {
+        await update(ref(database, `supportFaqs/${payload.id}`), data);
+      } else {
+        const newRef = ref(database, `supportFaqs/${Date.now()}`);
+        await set(newRef, {
+          ...data,
+          createdAt: new Date().toISOString(),
+          createdBy: user?.email || null
+        });
+      }
+      await reload();
+    } finally {
+      setSaving(false);
+    }
+  }, [canAccess, reload, user]);
+
+  const deleteSupportFaq = useCallback(async (id) => {
+    if (!canAccess || !id) return;
+    setSaving(true);
+    try {
+      await set(ref(database, `supportFaqs/${id}`), null);
+      await reload();
+    } finally {
+      setSaving(false);
+    }
+  }, [canAccess, reload]);
+
+  const saveSupportChannels = useCallback(async (payload) => {
+    if (!canAccess) return;
+    setSaving(true);
+    try {
+      await update(ref(database, 'supportChannels/public'), {
+        ...payload,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.email || null
+      });
+      await reload();
+    } finally {
+      setSaving(false);
+    }
+  }, [canAccess, reload, user]);
+
   return {
     loading,
     saving,
     canAccess,
     users,
+    assessors,
     customers,
     plans,
     sales,
     summary,
     planDistribution,
+    supportFaqs,
+    supportChannels,
     reload,
     togglePlanVisibility,
     savePlan,
     changeCustomerPlan,
-    updateCustomerLimit
+    updateCustomerLimit,
+    saveAccountProfile,
+    syncBillingStatus,
+    saveSupportFaq,
+    deleteSupportFaq,
+    saveSupportChannels
   };
 }

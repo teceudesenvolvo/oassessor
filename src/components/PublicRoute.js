@@ -1,12 +1,13 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../useAuth';
+import BrandLoader from './BrandLoader';
 
-// Componente de carregamento simples para aguardar a verificação de auth
 const LoadingSpinner = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f8fafc' }}>
-    <p style={{ fontFamily: 'Inter, sans-serif', color: '#0f172a' }}>Carregando...</p>
-  </div>
+  <BrandLoader
+    title="Preparando seu acesso"
+    subtitle="Conferindo autenticação e organizando a melhor entrada na plataforma."
+  />
 );
 
 export default function PublicRoute() {
