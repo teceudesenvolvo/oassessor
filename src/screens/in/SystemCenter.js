@@ -112,6 +112,7 @@ export default function SystemCenter() {
     supportChannels,
     reload,
     togglePlanVisibility,
+    deletePlan,
     savePlan,
     changeCustomerPlan,
     updateCustomerLimit,
@@ -796,7 +797,7 @@ export default function SystemCenter() {
 
       {activeTab === 'plans' ? (
         <div className="campaign-main-grid system-main-grid">
-          <InsightPanel title="Portfólio de planos" subtitle="Exiba, oculte e selecione uma oferta para edição">
+          <InsightPanel title="Portfólio de planos" subtitle="Exiba, oculte e gerencie cada oferta em um popup dedicado">
             <div className="system-toolbar">
               <label className="system-search-field">
                 <Search size={16} />
@@ -807,13 +808,25 @@ export default function SystemCenter() {
                   onChange={(event) => setSearch((prev) => ({ ...prev, plans: event.target.value }))}
                 />
               </label>
-              <span className="users-role-pill">{filteredPlans.length} plano(s)</span>
+              <div className="users-card-tags">
+                <span className="users-role-pill">{filteredPlans.length} plano(s)</span>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => {
+                    handlePlanCreateMode();
+                    setSelectedPlanId('__new__');
+                  }}
+                >
+                  Novo plano
+                </button>
+              </div>
             </div>
 
-            <div className="users-card-list scrollable-panel long-list-panel">
+            <div className="system-plan-grid">
               {filteredPlans.length ? (
                 filteredPlans.map((plan) => (
-                  <article key={plan.id} className={`users-card ${selectedPlan?.id === plan.id ? 'system-plan-selected' : ''}`}>
+                  <article key={plan.id} className={`users-card system-plan-card ${selectedPlan?.id === plan.id ? 'system-plan-selected' : ''}`}>
                     <div className="users-card-head">
                       <div>
                         <strong>{plan.title}</strong>
@@ -825,6 +838,30 @@ export default function SystemCenter() {
                         </button>
                         <button type="button" className="funnel-link-btn" onClick={() => togglePlanVisibility(plan)}>
                           {plan.visible === false ? <Eye size={16} /> : <EyeOff size={16} />}
+                        </button>
+                        <button
+                          type="button"
+                          className="funnel-link-btn"
+                          style={{ color: '#dc2626' }}
+                          onClick={async () => {
+                            const confirmed = window.confirm(`Deseja apagar o plano “${plan.title}”?`);
+                            if (!confirmed) return;
+
+                            try {
+                              const result = await deletePlan(plan);
+                              if (selectedPlanId === plan.id) handlePlanCreateMode();
+                              alert(
+                                result?.pendingGatewaySync
+                                  ? 'Plano removido da gestão local. A exclusão no gateway ficou pendente e deverá ser sincronizada quando a Cloud Function estiver disponível.'
+                                  : 'Plano apagado com sucesso.'
+                              );
+                            } catch (error) {
+                              console.error('Erro ao apagar plano:', error);
+                              alert(error.message || 'Não foi possível apagar o plano.');
+                            }
+                          }}
+                        >
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </div>
@@ -838,52 +875,49 @@ export default function SystemCenter() {
                         Sincronização com o gateway pendente. Publique as Cloud Functions para aplicar esta edição no Pagar.me.
                       </div>
                     ) : null}
-                    <div className="system-entity-grid">
-                      <div className="system-entity-cell">
-                        <span>Slug / app_id</span>
-                        <strong>{plan.id}</strong>
-                      </div>
-                      <div className="system-entity-cell">
-                        <span>Pagar.me planId</span>
-                        <strong>{plan.pagarmeId || 'Não informado'}</strong>
-                      </div>
-                    <div className="system-entity-cell">
-                      <span>Item ID</span>
-                      <strong>{plan.itemId || 'Não informado'}</strong>
+                    <div className="system-inline-alert info">
+                      Abra o popup de edição para revisar limites, cobrança, período de teste, gateway e demais detalhes operacionais.
                     </div>
-                    <div className="system-entity-cell">
-                      <span>Limite / base</span>
-                      <strong>{plan.database || 'Não informado'}</strong>
-                    </div>
-                    <div className="system-entity-cell">
-                      <span>Teste grátis</span>
-                      <strong>{plan.trialDays || 0} dia(s)</strong>
-                    </div>
-                    <div className="system-entity-cell">
-                      <span>Carência</span>
-                      <strong>{plan.graceDays || 5} dia(s)</strong>
-                    </div>
-                    <div className="system-entity-cell">
-                      <span>Tipo de plano</span>
-                      <strong>{plan.isFree ? 'Gratuito' : 'Pago'}</strong>
-                    </div>
-                  </div>
                 </article>
                 ))
               ) : (
-                <article className="users-card">
+                <article className="users-card system-plan-card">
                   <div className="users-card-head">
                     <div>
                       <strong>Nenhum plano encontrado</strong>
-                      <p>Refine a busca ou crie uma nova oferta usando o painel de edição ao lado.</p>
+                      <p>Refine a busca ou crie uma nova oferta pelo botão acima.</p>
                     </div>
                   </div>
                 </article>
               )}
             </div>
           </InsightPanel>
+        </div>
+      ) : null}
 
-          <InsightPanel title={planForm.mode === 'create' ? 'Criar novo plano' : 'Editar plano'} subtitle="Controle comercial e operacional da oferta">
+      {activeTab === 'plans' && selectedPlanId ? (
+        <div className="funnel-modal-backdrop system-user-modal-backdrop" onClick={handlePlanCreateMode}>
+          <div className="funnel-modal system-user-modal system-plan-editor-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="funnel-modal-header">
+              <div>
+                <p className="campaign-kicker">
+                  <BadgeDollarSign size={16} />
+                  Gestão comercial do plano
+                </p>
+                <h3>{planForm.mode === 'create' ? 'Novo plano' : planForm.title || 'Editar plano'}</h3>
+                <p>Revise cobrança, visibilidade, limites, período de teste e integração com o gateway.</p>
+              </div>
+              <button type="button" className="accountability-modal-close" onClick={handlePlanCreateMode}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {selectedPlan?.gatewaySyncPending ? (
+              <div className="system-inline-alert warning">
+                Sincronização com o gateway pendente. Publique as Cloud Functions para aplicar esta edição no Pagar.me.
+              </div>
+            ) : null}
+
             <form className="system-plan-form" onSubmit={submitPlan}>
               <div className="campaign-filters-grid">
                 <label className="campaign-filter-field">
@@ -1015,14 +1049,14 @@ export default function SystemCenter() {
 
               <div className="funnel-modal-actions">
                 <button type="button" className="btn-secondary" onClick={handlePlanCreateMode}>
-                  Novo plano
+                  Cancelar
                 </button>
                 <button type="submit" className="btn-primary" disabled={saving}>
                   {saving ? 'Salvando...' : planForm.mode === 'create' ? 'Criar plano' : 'Salvar alterações'}
                 </button>
               </div>
             </form>
-          </InsightPanel>
+          </div>
         </div>
       ) : null}
 

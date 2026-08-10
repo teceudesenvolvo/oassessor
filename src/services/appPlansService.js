@@ -38,6 +38,7 @@ export async function fetchManagedPlans({ includeHidden = true } = {}) {
   ]);
 
   const basePlans = plansResponse?.success ? plansResponse.plans || [] : [];
+  const overrideEntries = Object.entries(overrides || {});
   const mergedPlans = basePlans.map((plan) => {
     const override = overrides?.[plan.id] || {};
     const featureLimits = FEATURE_LIMIT_KEYS.reduce((accumulator, key) => {
@@ -68,5 +69,46 @@ export async function fetchManagedPlans({ includeHidden = true } = {}) {
     };
   });
 
-  return includeHidden ? mergedPlans : mergedPlans.filter((plan) => plan.visible !== false && plan.status !== 'inactive');
+  const baseIds = new Set(mergedPlans.map((plan) => plan.id));
+  const localOnlyPlans = overrideEntries
+    .filter(([planId, override]) => !baseIds.has(planId) && !override?.deletedAt)
+    .map(([planId, override]) => {
+      const featureLimits = FEATURE_LIMIT_KEYS.reduce((accumulator, key) => {
+        accumulator[key] = override.featureLimits?.[key] ?? '';
+        return accumulator;
+      }, {});
+
+      const amount = Number(override.amount || 0);
+
+      return {
+        id: planId,
+        overrideId: planId,
+        title: override.title || planId,
+        subtitle: override.subtitle || '',
+        ideal: override.ideal || '',
+        team: override.team || '',
+        database: override.database || '',
+        amount,
+        price: amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        status: override.status || 'active',
+        visible: normalizeBoolean(override.visible, true),
+        recommended: normalizeBoolean(override.recommended, false),
+        isFree: normalizeBoolean(override.isFree, amount === 0),
+        trialDays: Number(override.trialDays ?? 0),
+        graceDays: Number(override.graceDays ?? 5),
+        featureLimits,
+        localOnly: true,
+        pagarmeId: override.pagarmeId || null,
+        itemId: override.itemId || null,
+        gatewaySyncPending: Boolean(override.gatewaySyncPending),
+        createdAt: override.createdAt || null,
+        updatedAt: override.updatedAt || null
+      };
+    });
+
+  const availablePlans = [...mergedPlans, ...localOnlyPlans].filter((plan) => !plan.deletedAt);
+
+  return includeHidden
+    ? availablePlans
+    : availablePlans.filter((plan) => plan.visible !== false && plan.status !== 'inactive');
 }

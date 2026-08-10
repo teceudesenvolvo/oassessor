@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar } from 'recharts';
-import { Gauge, Save, Target, Trophy } from 'lucide-react';
+import { CalendarClock, Flag, Gauge, Save, Target, Trophy } from 'lucide-react';
 import { useAuth } from '../../useAuth';
 import { useVictoryPath } from '../../hooks/useVictoryPath';
 import InsightPanel from '../../components/dashboard/InsightPanel';
@@ -41,8 +41,8 @@ export default function VictoryPath() {
   }, [analytics]);
 
   const handleChange = (event) => {
-    const { name, value } = event.target;
-    setMetaConfig((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = event.target;
+    setMetaConfig((prev) => ({ ...prev, [name]: type === 'checkbox' ? String(checked) : value }));
   };
 
   const handleSave = async (event) => {
@@ -102,9 +102,22 @@ export default function VictoryPath() {
             <input className="campaign-filter-select" name="metaSegura" type="number" min="0" value={metaConfig.metaSegura} onChange={handleChange} placeholder="0" />
           </label>
           <label className="funnel-filter-field">
-            <span>Data da eleição</span>
+            <span>Data do 1º turno</span>
             <input className="campaign-filter-select" name="dataEleicao" type="date" value={metaConfig.dataEleicao} onChange={handleChange} />
           </label>
+          <label className="funnel-filter-field">
+            <span>Haverá 2º turno?</span>
+            <select className="campaign-filter-select" name="temSegundoTurno" value={metaConfig.temSegundoTurno} onChange={handleChange}>
+              <option value="false">Não</option>
+              <option value="true">Sim</option>
+            </select>
+          </label>
+          {metaConfig.temSegundoTurno === 'true' ? (
+            <label className="funnel-filter-field">
+              <span>Data do 2º turno</span>
+              <input className="campaign-filter-select" name="dataSegundoTurno" type="date" value={metaConfig.dataSegundoTurno} onChange={handleChange} />
+            </label>
+          ) : null}
           <div className="victory-form-actions">
             <button type="submit" className="btn-primary" disabled={saving}>
               <Save size={16} />
@@ -138,7 +151,19 @@ export default function VictoryPath() {
         <MetricCard title="Votos necessários" value={analytics.votesNeeded} helper="Faltam para atingir a meta principal" tone="warning" />
         <MetricCard title="Ritmo diário" value={analytics.dailyRhythm.toFixed(2)} helper="Confirmações por dia desde o início da base" />
         <MetricCard title="Projeção" value={analytics.projectedVotes} helper="Estimativa até a data da eleição" tone="success" />
-        <MetricCard title="Dias restantes" value={analytics.daysRemaining} helper="Até a eleição configurada" tone="danger" />
+        <MetricCard
+          title={analytics.hasSecondTurn ? 'Dias até o 2º turno' : 'Dias restantes'}
+          value={analytics.daysRemaining}
+          helper={analytics.hasSecondTurn ? `1º turno em ${analytics.daysToFirstTurn} dia(s)` : 'Até a eleição configurada'}
+          tone="danger"
+        />
+      </div>
+
+      <div className="campaign-metrics-grid">
+        <MetricCard title="Cadastros por dia" value={analytics.perDayUntilFinalTurn.cadastros.toFixed(1)} helper={`Total necessário: ${analytics.cadastrosNeeded}`} tone="highlight" />
+        <MetricCard title="Visitas por dia" value={analytics.perDayUntilFinalTurn.visits.toFixed(1)} helper={`Total necessário: ${analytics.visitsNeeded}`} />
+        <MetricCard title="Eventos por dia" value={analytics.perDayUntilFinalTurn.events.toFixed(2)} helper={`Total necessário: ${analytics.eventsNeeded}`} tone="warning" />
+        <MetricCard title="Lideranças por dia" value={analytics.perDayUntilFinalTurn.leaderships.toFixed(2)} helper={`Total necessário: ${analytics.leadershipsNeeded}`} tone="success" />
       </div>
 
       <div className="campaign-main-grid">
@@ -184,6 +209,68 @@ export default function VictoryPath() {
             <div className="campaign-note-item">
               <strong>Orientação</strong>
               <p>{statusText}</p>
+            </div>
+            <div className="campaign-note-item">
+              <strong>Plano de execução</strong>
+              <p>{analytics.operationalFocus}</p>
+            </div>
+          </div>
+        </InsightPanel>
+      </div>
+
+      <div className="campaign-main-grid">
+        <InsightPanel title="Motor de meta eleitoral" subtitle="O que a campanha precisa produzir para bater a meta">
+          <div className="campaign-notes-list">
+            <div className="campaign-note-item">
+              <strong>
+                <CalendarClock size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                Janela até o 1º turno
+              </strong>
+              <p>
+                {analytics.daysToFirstTurn} dia(s) para produzir {analytics.perDayUntilFirstTurn.cadastros.toFixed(1)} cadastros,
+                {' '}{analytics.perDayUntilFirstTurn.visits.toFixed(1)} visitas, {analytics.perDayUntilFirstTurn.events.toFixed(2)} eventos e
+                {' '}{analytics.perDayUntilFirstTurn.leaderships.toFixed(2)} lideranças por dia.
+              </p>
+            </div>
+            <div className="campaign-note-item">
+              <strong>
+                <Flag size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                Janela final da campanha
+              </strong>
+              <p>
+                {analytics.daysRemaining} dia(s) no horizonte total para manter {analytics.weeklyPace.cadastros.toFixed(0)} cadastros,
+                {' '}{analytics.weeklyPace.visits.toFixed(0)} visitas, {analytics.weeklyPace.events.toFixed(1)} eventos e
+                {' '}{analytics.weeklyPace.leaderships.toFixed(1)} lideranças por semana.
+              </p>
+            </div>
+            <div className="campaign-note-item">
+              <strong>Base e eficiência atual</strong>
+              <p>
+                {analytics.totalCadastros} cadastro(s), {analytics.totalVisits} visita(s), {analytics.totalEvents} evento(s) e
+                {' '}{analytics.totalLeaderships} liderança(s) registradas, com conversão histórica estimada em
+                {' '}{(analytics.conversionRate * 100).toFixed(1)}%.
+              </p>
+            </div>
+          </div>
+        </InsightPanel>
+
+        <InsightPanel title="Leituras acionáveis" subtitle="Frentes que precisam crescer para alcançar a meta" compact>
+          <div className="campaign-notes-list">
+            <div className="campaign-note-item">
+              <strong>Cadastros totais a construir</strong>
+              <p>{analytics.cadastrosNeeded} novo(s) cadastro(s) para sustentar a meta com a conversão atual.</p>
+            </div>
+            <div className="campaign-note-item">
+              <strong>Visitas necessárias</strong>
+              <p>{analytics.visitsNeeded} visita(s) estimadas com base na produtividade média já registrada.</p>
+            </div>
+            <div className="campaign-note-item">
+              <strong>Eventos necessários</strong>
+              <p>{analytics.eventsNeeded} evento(s) estimados para dar vazão ao volume de cadastros exigido.</p>
+            </div>
+            <div className="campaign-note-item">
+              <strong>Lideranças necessárias</strong>
+              <p>{analytics.leadershipsNeeded} liderança(s) mobilizadas para distribuir o volume de votos buscado.</p>
             </div>
           </div>
         </InsightPanel>

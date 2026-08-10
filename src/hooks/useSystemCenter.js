@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { get, ref, set, update } from '../services/firestoreDatabase';
+import { get, ref, remove, set, update } from '../services/firestoreDatabase';
 import { database } from '../firebaseConfig';
 import { fetchManagedPlans } from '../services/appPlansService';
 import { evaluateAccountBilling, extractLimitNumber, loadScopedCampaignUsageByOwner } from '../services/planLimits';
@@ -9,6 +9,7 @@ const UPDATE_PLAN_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/up
 const UPDATE_PLAN_ITEM_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/updatePagarmePlanItem';
 const CHANGE_PLAN_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/changeSubscriptionPlan';
 const SYNC_SUBSCRIPTION_HEALTH_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/syncSubscriptionHealth';
+const DELETE_PLAN_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/deletePagarmePlan';
 const FEATURE_LIMIT_KEYS = [
   'leaderships',
   'volunteers',
@@ -24,6 +25,26 @@ const FEATURE_LIMIT_KEYS = [
 
 const formatCurrency = (amount = 0) =>
   Number(amount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const parsePlanAmountInput = (value) => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
+
+  const raw = String(value || '').trim();
+  if (!raw) return NaN;
+
+  if (/^\d+$/.test(raw)) {
+    return Number(raw);
+  }
+
+  const normalized = raw
+    .replace(/\s+/g, '')
+    .replace(/R\$/gi, '')
+    .replace(/\./g, '')
+    .replace(',', '.');
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) : NaN;
+};
 
 const isGatewayUnavailableError = (error) => {
   const message = String(error?.message || error || '').toLowerCase();
@@ -43,7 +64,10 @@ const postJson = async (url, payload) => {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.success) {
-    throw new Error(result.error || result.message || `Falha ao executar ${url}`);
+    const details = result.details
+      ? ` Detalhes: ${typeof result.details === 'string' ? result.details : JSON.stringify(result.details)}`
+      : '';
+    throw new Error((result.error || result.message || `Falha ao executar ${url}`) + details);
   }
   return result;
 };
@@ -267,41 +291,91 @@ export function useSystemCenter(user) {
     }
   }, [persistPlanOverride, reload]);
 
+  const deletePlan = useCallback(async (plan) => {
+    if (!plan?.id) {
+      throw new Error('Plano inválido.');
+    }
+
+    setSaving(true);
+    try {
+      if (plan.pagarmeId) {
+        try {
+          await postJson(DELETE_PLAN_URL, {
+            planId: plan.pagarmeId
+          });
+        } catch (error) {
+          if (!isGatewayUnavailableError(error)) {
+            throw error;
+          }
+
+          await persistPlanOverride(plan.id, {
+            deletedAt: new Date().toISOString(),
+            deletionSyncPending: true,
+            visible: false,
+            status: 'inactive'
+          });
+          await reload();
+          return {
+            pendingGatewaySync: true
+          };
+        }
+      }
+
+      await remove(ref(database, `system_plan_overrides/${plan.id}`)).catch(() => null);
+      await reload();
+      return {
+        pendingGatewaySync: false
+      };
+    } finally {
+      setSaving(false);
+    }
+  }, [persistPlanOverride, reload]);
+
   const savePlan = useCallback(async (payload) => {
     setSaving(true);
     try {
-      const amount = Number(payload.amount || 0);
+      const amount = parsePlanAmountInput(payload.amount);
       const featureLimits = FEATURE_LIMIT_KEYS.reduce((accumulator, key) => {
         accumulator[key] = payload.featureLimits?.[key] || '';
         return accumulator;
       }, {});
-      if (!payload.title || !amount) {
+      if (!payload.title || Number.isNaN(amount)) {
         throw new Error('Informe nome e valor do plano.');
+      }
+      if (!payload.isFree && amount <= 0) {
+        throw new Error('Planos pagos precisam ter um valor maior que zero.');
       }
 
       if (payload.mode === 'create') {
-        const result = await postJson(CREATE_PLAN_URL, {
-          name: payload.title,
-          description: payload.subtitle || '',
-          amount,
-          interval: 'month',
-          interval_count: 1,
-          metadata: {
-            app_id: payload.slug || payload.title.toLowerCase().replace(/\s+/g, '-'),
-            subtitle: payload.subtitle || '',
-            ideal: payload.ideal || '',
-            team: payload.team || '',
-            database: payload.database || '',
-            trialDays: String(Number(payload.trialDays || 0)),
-            graceDays: String(Number(payload.graceDays || 5)),
-            isFree: String(Boolean(payload.isFree)),
-            recommended: String(Boolean(payload.recommended)),
-            featureLimits: JSON.stringify(featureLimits)
-          }
-        });
+        const generatedSlug = payload.slug || payload.title.toLowerCase().replace(/\s+/g, '-');
+        let createdPlan = null;
+        let overrideId = generatedSlug;
 
-        const createdPlan = result.plan;
-        const overrideId = createdPlan.metadata?.app_id || createdPlan.id;
+        if (!payload.isFree || amount > 0) {
+          const result = await postJson(CREATE_PLAN_URL, {
+            name: payload.title,
+            description: payload.subtitle || '',
+            amount,
+            interval: 'month',
+            interval_count: 1,
+            metadata: {
+              app_id: generatedSlug,
+              subtitle: payload.subtitle || '',
+              ideal: payload.ideal || '',
+              team: payload.team || '',
+              database: payload.database || '',
+              trialDays: String(Number(payload.trialDays || 0)),
+              graceDays: String(Number(payload.graceDays || 5)),
+              isFree: String(Boolean(payload.isFree)),
+              recommended: String(Boolean(payload.recommended)),
+              featureLimits: JSON.stringify(featureLimits)
+            }
+          });
+
+          createdPlan = result.plan;
+          overrideId = createdPlan.metadata?.app_id || createdPlan.id || generatedSlug;
+        }
+
         await set(ref(database, `system_plan_overrides/${overrideId}`), {
           visible: payload.visible !== false,
           title: payload.title,
@@ -315,33 +389,40 @@ export function useSystemCenter(user) {
           graceDays: Number(payload.graceDays || 5),
           isFree: Boolean(payload.isFree),
           recommended: Boolean(payload.recommended),
+          status: 'active',
+          localOnly: !createdPlan,
+          payermeSyncSkipped: !createdPlan,
+          pagarmeId: createdPlan?.id || null,
+          itemId: createdPlan?.items?.[0]?.id || null,
           createdAt: new Date().toISOString(),
           createdBy: user?.email || null
         });
       } else {
         let gatewaySyncPending = false;
-        try {
-          await postJson(UPDATE_PLAN_URL, {
-            planId: payload.pagarmeId,
-            name: payload.title,
-            description: payload.subtitle || '',
-            status: payload.gatewayStatus || 'active'
-          });
-
-          if (payload.itemId) {
-            await postJson(UPDATE_PLAN_ITEM_URL, {
+        if (payload.pagarmeId) {
+          try {
+            await postJson(UPDATE_PLAN_URL, {
               planId: payload.pagarmeId,
-              itemId: payload.itemId,
               name: payload.title,
               description: payload.subtitle || '',
-              amount
+              status: payload.gatewayStatus || 'active'
             });
+
+            if (payload.itemId) {
+              await postJson(UPDATE_PLAN_ITEM_URL, {
+                planId: payload.pagarmeId,
+                itemId: payload.itemId,
+                name: payload.title,
+                description: payload.subtitle || '',
+                amount
+              });
+            }
+          } catch (error) {
+            if (!isGatewayUnavailableError(error)) {
+              throw error;
+            }
+            gatewaySyncPending = true;
           }
-        } catch (error) {
-          if (!isGatewayUnavailableError(error)) {
-            throw error;
-          }
-          gatewaySyncPending = true;
         }
 
         await persistPlanOverride(payload.id, {
@@ -536,6 +617,7 @@ export function useSystemCenter(user) {
     supportChannels,
     reload,
     togglePlanVisibility,
+    deletePlan,
     savePlan,
     changeCustomerPlan,
     updateCustomerLimit,

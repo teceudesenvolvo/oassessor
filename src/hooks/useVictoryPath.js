@@ -46,6 +46,15 @@ const daysBetween = (from, to) => {
   return Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)));
 };
 
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const formatPerDay = (value) => {
+  if (!Number.isFinite(value) || value <= 0) return '0';
+  if (value >= 10) return value.toFixed(0);
+  if (value >= 1) return value.toFixed(1);
+  return value.toFixed(2);
+};
+
 export function useVictoryPath(user) {
   const [loading, setLoading] = useState(true);
   const [userType, setUserType] = useState(null);
@@ -58,9 +67,14 @@ export function useVictoryPath(user) {
     metaMinima: '',
     metaPrincipal: '',
     metaSegura: '',
-    dataEleicao: ''
+    dataEleicao: '',
+    temSegundoTurno: 'false',
+    dataSegundoTurno: ''
   });
   const [voters, setVoters] = useState([]);
+  const [leaderships, setLeaderships] = useState([]);
+  const [visits, setVisits] = useState([]);
+  const [events, setEvents] = useState([]);
   useEffect(() => {
     if (!user) return;
 
@@ -107,7 +121,9 @@ export function useVictoryPath(user) {
               metaMinima: '',
               metaPrincipal: '',
               metaSegura: '',
-              dataEleicao: ''
+              dataEleicao: '',
+              temSegundoTurno: 'false',
+              dataSegundoTurno: ''
             });
             return;
           }
@@ -121,7 +137,9 @@ export function useVictoryPath(user) {
             metaMinima: value.metaMinima || '',
             metaPrincipal: value.metaPrincipal || '',
             metaSegura: value.metaSegura || '',
-            dataEleicao: value.dataEleicao || ''
+            dataEleicao: value.dataEleicao || '',
+            temSegundoTurno: String(Boolean(value.temSegundoTurno)),
+            dataSegundoTurno: value.dataSegundoTurno || ''
           });
         });
         unsubscribes.push(unsubscribeMeta);
@@ -196,6 +214,30 @@ export function useVictoryPath(user) {
           });
           unsubscribes.push(unsubscribe);
         });
+
+        const leadershipQuery = query(ref(database, 'liderancas'), orderByChild('adminId'), equalTo(effectiveAdminId));
+        const unsubscribeLeaderships = onValue(leadershipQuery, (snapshot) => {
+          if (!active) return;
+          const list = snapshot.exists() ? Object.entries(snapshot.val()).map(([id, value]) => ({ id, ...value })) : [];
+          setLeaderships(list);
+        });
+        unsubscribes.push(unsubscribeLeaderships);
+
+        const visitsQuery = query(ref(database, 'visitas'), orderByChild('adminId'), equalTo(effectiveAdminId));
+        const unsubscribeVisits = onValue(visitsQuery, (snapshot) => {
+          if (!active) return;
+          const list = snapshot.exists() ? Object.entries(snapshot.val()).map(([id, value]) => ({ id, ...value })) : [];
+          setVisits(list);
+        });
+        unsubscribes.push(unsubscribeVisits);
+
+        const eventsQuery = query(ref(database, 'eventos'), orderByChild('adminId'), equalTo(effectiveAdminId));
+        const unsubscribeEvents = onValue(eventsQuery, (snapshot) => {
+          if (!active) return;
+          const list = snapshot.exists() ? Object.entries(snapshot.val()).map(([id, value]) => ({ id, ...value })) : [];
+          setEvents(list);
+        });
+        unsubscribes.push(unsubscribeEvents);
       } catch (error) {
         console.error('Erro ao carregar Caminho para a Vitória:', error);
         if (active) setLoading(false);
@@ -215,6 +257,7 @@ export function useVictoryPath(user) {
 
     const data = {
       ...payload,
+      temSegundoTurno: String(payload.temSegundoTurno) === 'true',
       adminId,
       updatedAt: new Date().toISOString()
     };
@@ -239,6 +282,8 @@ export function useVictoryPath(user) {
     const mainGoal = Number(metaConfig.metaPrincipal || 0);
     const safeGoal = Number(metaConfig.metaSegura || 0);
     const electionDate = parseDate(metaConfig.dataEleicao);
+    const hasSecondTurn = String(metaConfig.temSegundoTurno) === 'true';
+    const secondTurnDate = hasSecondTurn ? parseDate(metaConfig.dataSegundoTurno) : null;
     const today = new Date();
 
     const referenceGoal = mainGoal || safeGoal || minimumGoal || 0;
@@ -253,8 +298,54 @@ export function useVictoryPath(user) {
     const campaignStart = campaignStartCandidates[0] || today;
     const daysRunning = daysBetween(campaignStart, today);
     const dailyRhythm = confirmedVotes / daysRunning;
-    const daysRemaining = electionDate ? Math.max(0, daysBetween(today, electionDate)) : 0;
+    const daysToFirstTurn = electionDate ? Math.max(0, daysBetween(today, electionDate)) : 0;
+    const finalReferenceDate = secondTurnDate || electionDate;
+    const daysRemaining = finalReferenceDate ? Math.max(0, daysBetween(today, finalReferenceDate)) : 0;
     const projectedVotes = Math.round(confirmedVotes + dailyRhythm * daysRemaining);
+    const historicalConversionRate = voters.length ? confirmedVotes / voters.length : 0;
+    const conversionRate = clamp(historicalConversionRate || 0.18, 0.08, 0.4);
+    const cadastrosNeeded = votesNeeded > 0 ? Math.ceil(votesNeeded / conversionRate) : 0;
+
+    const cadastrosPerVisit = clamp(visits.length ? voters.length / Math.max(visits.length, 1) : 6, 2, 40);
+    const cadastrosPerEvent = clamp(events.length ? voters.length / Math.max(events.length, 1) : 120, 30, 500);
+    const votesPerLeadership = clamp(
+      leaderships.length ? (confirmedVotes + probableVotes || 0) / Math.max(leaderships.length, 1) : 120,
+      20,
+      400
+    );
+
+    const visitsNeeded = cadastrosNeeded > 0 ? Math.ceil(cadastrosNeeded / cadastrosPerVisit) : 0;
+    const eventsNeeded = cadastrosNeeded > 0 ? Math.ceil(cadastrosNeeded / cadastrosPerEvent) : 0;
+    const leadershipsNeeded = votesNeeded > 0 ? Math.ceil(votesNeeded / votesPerLeadership) : 0;
+
+    const perDayUntilFirstTurn = {
+      votes: daysToFirstTurn ? votesNeeded / daysToFirstTurn : 0,
+      cadastros: daysToFirstTurn ? cadastrosNeeded / daysToFirstTurn : 0,
+      visits: daysToFirstTurn ? visitsNeeded / daysToFirstTurn : 0,
+      events: daysToFirstTurn ? eventsNeeded / daysToFirstTurn : 0,
+      leaderships: daysToFirstTurn ? leadershipsNeeded / daysToFirstTurn : 0
+    };
+
+    const perDayUntilFinalTurn = {
+      votes: daysRemaining ? votesNeeded / daysRemaining : 0,
+      cadastros: daysRemaining ? cadastrosNeeded / daysRemaining : 0,
+      visits: daysRemaining ? visitsNeeded / daysRemaining : 0,
+      events: daysRemaining ? eventsNeeded / daysRemaining : 0,
+      leaderships: daysRemaining ? leadershipsNeeded / daysRemaining : 0
+    };
+
+    const weeklyPace = {
+      cadastros: perDayUntilFinalTurn.cadastros * 7,
+      visits: perDayUntilFinalTurn.visits * 7,
+      events: perDayUntilFinalTurn.events * 7,
+      leaderships: perDayUntilFinalTurn.leaderships * 7
+    };
+
+    const operationalFocus = votesNeeded <= 0
+      ? 'A meta principal já está coberta pela base confirmada atual.'
+      : hasSecondTurn
+        ? `Para buscar ${referenceGoal.toLocaleString('pt-BR')} votos até o 2º turno, a campanha precisa sustentar ${formatPerDay(perDayUntilFinalTurn.cadastros)} cadastros, ${formatPerDay(perDayUntilFinalTurn.visits)} visitas e ${formatPerDay(perDayUntilFinalTurn.leaderships)} lideranças por dia.`
+        : `Para buscar ${referenceGoal.toLocaleString('pt-BR')} votos no 1º turno, a campanha precisa sustentar ${formatPerDay(perDayUntilFirstTurn.cadastros)} cadastros, ${formatPerDay(perDayUntilFirstTurn.visits)} visitas e ${formatPerDay(perDayUntilFirstTurn.leaderships)} lideranças por dia.`;
 
     const chartMap = voters.reduce((acc, voter) => {
       if (!voter.createdAtDate) return acc;
@@ -322,17 +413,33 @@ export function useVictoryPath(user) {
       minimumGoal,
       mainGoal,
       safeGoal,
+      hasSecondTurn,
       percentReached,
       votesNeeded,
       dailyRhythm,
       projectedVotes,
       daysRemaining,
+      daysToFirstTurn,
+      secondTurnDate,
+      totalCadastros: voters.length,
+      totalLeaderships: leaderships.length,
+      totalVisits: visits.length,
+      totalEvents: events.length,
+      conversionRate,
+      cadastrosNeeded,
+      visitsNeeded,
+      eventsNeeded,
+      leadershipsNeeded,
+      perDayUntilFirstTurn,
+      perDayUntilFinalTurn,
+      weeklyPace,
+      operationalFocus,
       chartData,
       rankingByTeam,
       rankingByLeadership,
       rankingByNeighborhood
     };
-  }, [metaConfig, voters]);
+  }, [events.length, leaderships.length, metaConfig, visits.length, voters]);
 
   return {
     loading,

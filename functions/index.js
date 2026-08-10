@@ -994,7 +994,11 @@ exports.updatePagarmePlan = onRequest({ cors: true, invoker: 'public' }, async (
         name,
         status = 'active',
         description = '',
-        payment_methods = ['credit_card', 'boleto']
+        payment_methods,
+        currency = 'BRL',
+        interval = 'month',
+        interval_count = 1,
+        billing_type = 'prepaid'
     } = req.body || {};
 
     if (!planId || !name) {
@@ -1002,29 +1006,43 @@ exports.updatePagarmePlan = onRequest({ cors: true, invoker: 'public' }, async (
     }
 
     try {
+        const requestBody = {
+            name,
+            status,
+            description,
+            currency,
+            interval,
+            interval_count: Number(interval_count || 1),
+            billing_type,
+            payment_methods: Array.isArray(payment_methods) && payment_methods.length
+                ? payment_methods
+                : ['credit_card', 'boleto']
+        };
+
         const response = await fetch(`${PAGARME_URL}/plans/${planId}`, {
             method: 'PUT',
             headers: getPagarmeHeaders(),
-            body: JSON.stringify({
-                name,
-                status,
-                description,
-                payment_methods
-            })
+            body: JSON.stringify(requestBody)
         });
 
         const payload = await response.json();
         if (!response.ok) {
             return res.status(400).send({
                 success: false,
-                error: payload.message || JSON.stringify(payload.errors || payload)
+                error: payload.message || 'The request is invalid.',
+                details: payload.errors || payload,
+                requestBody
             });
         }
 
         return res.status(200).send({ success: true, plan: payload });
     } catch (error) {
         console.error('Erro ao atualizar plano no Pagar.me:', error);
-        return res.status(500).send({ success: false, error: error.message || 'Falha ao atualizar plano.' });
+        return res.status(500).send({
+            success: false,
+            error: error.message || 'Falha ao atualizar plano.',
+            details: error?.response?.data || null
+        });
     }
 });
 
@@ -1075,6 +1093,43 @@ exports.updatePagarmePlanItem = onRequest({ cors: true, invoker: 'public' }, asy
     } catch (error) {
         console.error('Erro ao atualizar item do plano no Pagar.me:', error);
         return res.status(500).send({ success: false, error: error.message || 'Falha ao atualizar item do plano.' });
+    }
+});
+
+exports.deletePagarmePlan = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+    if (req.method !== 'POST') {
+        return res.status(405).send({ success: false, error: 'Method Not Allowed' });
+    }
+
+    const { planId } = req.body || {};
+
+    if (!planId) {
+        return res.status(400).send({ success: false, error: 'planId é obrigatório.' });
+    }
+
+    try {
+        const response = await fetch(`${PAGARME_URL}/plans/${planId}`, {
+            method: 'DELETE',
+            headers: getPagarmeHeaders()
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            return res.status(400).send({
+                success: false,
+                error: payload.message || 'Falha ao excluir plano no gateway.',
+                details: payload.errors || payload
+            });
+        }
+
+        return res.status(200).send({ success: true, plan: payload });
+    } catch (error) {
+        console.error('Erro ao excluir plano no Pagar.me:', error);
+        return res.status(500).send({
+            success: false,
+            error: error.message || 'Falha ao excluir plano.',
+            details: error?.response?.data || null
+        });
     }
 });
 

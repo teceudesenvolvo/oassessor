@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
 
 // Substitua pelas suas credenciais do Firebase Console
@@ -18,9 +18,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const FIRESTORE_DATABASE_ID = "(default)";
 export const auth = getAuth(app);
+// Alias de compatibilidade para chamadas legadas do estilo RTDB.
+// O valor em si não é utilizado pela camada `firestoreDatabase`, apenas passado
+// como assinatura para `ref(database, path)`. Mantemos um objeto estável para
+// evitar ciclos/TDZ durante hot reload e inicialização.
+export const database = { __compat: 'firestore' };
 
-export const firestore = getFirestore(app, FIRESTORE_DATABASE_ID);
-// Alias temporário para manter compatibilidade com componentes durante a transição.
-// Todas as operações de dados são executadas pela camada Firestore.
-export const database = firestore;
+export const firestore = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+  useFetchStreams: false,
+  ignoreUndefinedProperties: true
+}, FIRESTORE_DATABASE_ID);
 export const analytics = getAnalytics(app);
