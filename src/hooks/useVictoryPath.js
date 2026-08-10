@@ -55,6 +55,15 @@ const formatPerDay = (value) => {
   return value.toFixed(2);
 };
 
+const addDays = (date, amount) => {
+  const result = new Date(date);
+  result.setDate(result.getDate() + amount);
+  return result;
+};
+
+const formatShortDate = (date) =>
+  date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
+
 export function useVictoryPath(user) {
   const [loading, setLoading] = useState(true);
   const [userType, setUserType] = useState(null);
@@ -314,9 +323,17 @@ export function useVictoryPath(user) {
       400
     );
 
-    const visitsNeeded = cadastrosNeeded > 0 ? Math.ceil(cadastrosNeeded / cadastrosPerVisit) : 0;
-    const eventsNeeded = cadastrosNeeded > 0 ? Math.ceil(cadastrosNeeded / cadastrosPerEvent) : 0;
-    const leadershipsNeeded = votesNeeded > 0 ? Math.ceil(votesNeeded / votesPerLeadership) : 0;
+    // Distribui a aquisição entre frentes para evitar contar a mesma meta inteira em todos os canais.
+    const channelMix = { direct: 0.25, visits: 0.35, events: 0.2, leaderships: 0.2 };
+    const visitsNeeded = cadastrosNeeded > 0
+      ? Math.ceil((cadastrosNeeded * channelMix.visits) / cadastrosPerVisit)
+      : 0;
+    const eventsNeeded = cadastrosNeeded > 0
+      ? Math.ceil((cadastrosNeeded * channelMix.events) / cadastrosPerEvent)
+      : 0;
+    const leadershipsNeeded = votesNeeded > 0
+      ? Math.ceil((votesNeeded * channelMix.leaderships) / votesPerLeadership)
+      : 0;
 
     const perDayUntilFirstTurn = {
       votes: daysToFirstTurn ? votesNeeded / daysToFirstTurn : 0,
@@ -340,6 +357,93 @@ export function useVictoryPath(user) {
       events: perDayUntilFinalTurn.events * 7,
       leaderships: perDayUntilFinalTurn.leaderships * 7
     };
+
+    const currentDailyCapacity = {
+      cadastros: voters.length / daysRunning,
+      visits: visits.length / daysRunning,
+      events: events.length / daysRunning,
+      leaderships: leaderships.length / daysRunning
+    };
+
+    const safeDaysRemaining = Math.max(daysRemaining, 1);
+    const requiredVotesPerDay = votesNeeded / safeDaysRemaining;
+    const paceGap = Math.max(0, requiredVotesPerDay - dailyRhythm);
+    const paceCoverage = requiredVotesPerDay > 0 ? dailyRhythm / requiredVotesPerDay : 1;
+    const feasibilityScore = Math.round(clamp(paceCoverage * 100, 0, 100));
+    const dataSignals = [voters.length >= 50, visits.length >= 10, events.length >= 3, leaderships.length >= 3];
+    const confidenceScore = Math.round(35 + (dataSignals.filter(Boolean).length / dataSignals.length) * 55);
+    const riskLevel = !referenceGoal || !electionDate
+      ? 'Configuração incompleta'
+      : feasibilityScore >= 85
+        ? 'Controlado'
+        : feasibilityScore >= 50
+          ? 'Atenção'
+          : 'Crítico';
+
+    const scenarios = [
+      { key: 'conservative', label: 'Conservador', factor: 0.78, description: 'Margem maior para faltas e baixa conversão.' },
+      { key: 'realistic', label: 'Realista', factor: 1, description: 'Usa a eficiência observada na campanha.' },
+      { key: 'accelerated', label: 'Acelerado', factor: 1.22, description: 'Pressupõe equipe e conversão mais produtivas.' }
+    ].map((scenario) => {
+      const adjustedConversion = clamp(conversionRate * scenario.factor, 0.06, 0.48);
+      const contacts = votesNeeded > 0 ? Math.ceil(votesNeeded / adjustedConversion) : 0;
+      return {
+        ...scenario,
+        conversion: adjustedConversion,
+        cadastrosPerDay: contacts / safeDaysRemaining,
+        votesPerDay: requiredVotesPerDay,
+        projectedVotes: Math.round(confirmedVotes + (dailyRhythm * scenario.factor * daysRemaining))
+      };
+    });
+
+    const priorities = [
+      {
+        key: 'cadastros',
+        label: 'Ampliar a base qualificada',
+        current: currentDailyCapacity.cadastros,
+        required: perDayUntilFinalTurn.cadastros,
+        unit: 'cadastros/dia',
+        route: '/dashboard/voters'
+      },
+      {
+        key: 'visits',
+        label: 'Aumentar presença em campo',
+        current: currentDailyCapacity.visits,
+        required: perDayUntilFinalTurn.visits,
+        unit: 'visitas/dia',
+        route: '/dashboard/visits'
+      },
+      {
+        key: 'leaderships',
+        label: 'Ativar novas lideranças',
+        current: currentDailyCapacity.leaderships,
+        required: perDayUntilFinalTurn.leaderships,
+        unit: 'lideranças/dia',
+        route: '/dashboard/leaderships'
+      },
+      {
+        key: 'events',
+        label: 'Criar pontos de mobilização',
+        current: currentDailyCapacity.events,
+        required: perDayUntilFinalTurn.events,
+        unit: 'eventos/dia',
+        route: '/dashboard/events'
+      }
+    ]
+      .map((item) => ({
+        ...item,
+        gap: Math.max(0, item.required - item.current),
+        coverage: item.required > 0 ? clamp(item.current / item.required, 0, 1) : 1
+      }))
+      .sort((a, b) => a.coverage - b.coverage);
+
+    const milestones = daysRemaining > 0 && referenceGoal > 0
+      ? [0.25, 0.5, 0.75, 1].map((progress) => ({
+          progress: Math.round(progress * 100),
+          date: formatShortDate(addDays(today, Math.round(daysRemaining * progress))),
+          target: Math.round(confirmedVotes + votesNeeded * progress)
+        }))
+      : [];
 
     const operationalFocus = votesNeeded <= 0
       ? 'A meta principal já está coberta pela base confirmada atual.'
@@ -433,6 +537,16 @@ export function useVictoryPath(user) {
       perDayUntilFirstTurn,
       perDayUntilFinalTurn,
       weeklyPace,
+      currentDailyCapacity,
+      requiredVotesPerDay,
+      paceGap,
+      feasibilityScore,
+      confidenceScore,
+      riskLevel,
+      scenarios,
+      priorities,
+      milestones,
+      channelMix,
       operationalFocus,
       chartData,
       rankingByTeam,
