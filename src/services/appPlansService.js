@@ -108,7 +108,15 @@ export async function fetchManagedPlans({ includeHidden = true } = {}) {
 
   const availablePlans = [...mergedPlans, ...localOnlyPlans].filter((plan) => !plan.deletedAt);
 
-  return includeHidden
+  const filteredPlans = includeHidden
     ? availablePlans
     : availablePlans.filter((plan) => plan.visible !== false && plan.status !== 'inactive');
+
+  return [...filteredPlans].sort((planA, planB) => {
+    const amountA = Number(planA.amount);
+    const amountB = Number(planB.amount);
+    const normalizedA = Number.isFinite(amountA) ? amountA : Number.POSITIVE_INFINITY;
+    const normalizedB = Number.isFinite(amountB) ? amountB : Number.POSITIVE_INFINITY;
+    return normalizedA - normalizedB || String(planA.title || '').localeCompare(String(planB.title || ''), 'pt-BR');
+  });
 }

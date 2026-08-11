@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import PublicPageShell from '../../components/PublicPageShell';
 import { fetchManagedPlans } from '../../services/appPlansService';
 
@@ -43,6 +43,7 @@ export default function Plans() {
         <div className="public-plan-grid">
           {plans.map((plan) => (
             <article key={plan.id} className={`public-plan-card ${plan.recommended ? 'recommended' : ''}`}>
+              {plan.recommended ? <span className="public-plan-recommended"><Sparkles size={14} /> Recomendado</span> : null}
               <h3>{plan.title}</h3>
               <p>{plan.subtitle}</p>
 
@@ -61,9 +62,12 @@ export default function Plans() {
                 type="button"
                 className="btn-primary public-primary-cta"
                 style={{ marginTop: '22px' }}
-                onClick={() => navigate(`/plan/${plan.id}`, { state: { plan } })}
+                onClick={() => navigate(
+                  plan.isFree || Number(plan.amount) === 0 ? `/checkout/${plan.id}` : `/plan/${plan.id}`,
+                  { state: { plan } }
+                )}
               >
-                Ver detalhes
+                {plan.isFree || Number(plan.amount) === 0 ? 'Criar conta grátis' : 'Ver detalhes'}
                 <ArrowRight size={18} />
               </button>
             </article>

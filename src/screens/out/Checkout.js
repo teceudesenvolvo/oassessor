@@ -1,10 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
   CheckCircle,
+  CheckCircle2,
   CreditCard,
+  Database,
   Eye,
   EyeOff,
   Lock,
@@ -15,13 +17,46 @@ import { auth, database } from '../../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { ref, set, push, update, get, remove } from '../../services/firestoreDatabase';
 import PublicPageShell from '../../components/PublicPageShell';
+import { fetchManagedPlans } from '../../services/appPlansService';
 
 const CREATE_SUBSCRIPTION_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/createSubscription';
+
+const PLAN_LIMIT_LABELS = [
+  { key: 'leaderships', label: 'Lideranças' },
+  { key: 'volunteers', label: 'Voluntários' },
+  { key: 'visits', label: 'Visitas' },
+  { key: 'demands', label: 'Demandas' },
+  { key: 'events', label: 'Eventos' },
+  { key: 'communication', label: 'Comunicação' },
+  { key: 'territory', label: 'Território' },
+  { key: 'research', label: 'Pesquisas' },
+  { key: 'team', label: 'Minha equipe' },
+  { key: 'agenda', label: 'Agenda' }
+];
+
+const INCLUDED_CORE_FEATURES = [
+  'Dashboard estratégico',
+  'Cadastro e gestão de eleitores',
+  'Funil eleitoral',
+  'Caminho para a vitória',
+  'Relatórios gerenciais',
+  'Perfis de acesso e segurança'
+];
+
+const formatPlanLimit = (value) => {
+  if (value === '' || value === null || value === undefined) return 'Conforme o plano';
+  const normalized = String(value).trim().toLowerCase();
+  if (['-1', 'ilimitado', 'ilimitada', 'sem limite'].includes(normalized)) return 'Ilimitado';
+  const numericValue = Number(value);
+  if (Number.isFinite(numericValue)) return numericValue > 0 ? `Até ${numericValue.toLocaleString('pt-BR')}` : 'Não incluído';
+  return String(value);
+};
 
 export default function Checkout() {
   const { planId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [plan, setPlan] = useState(location.state?.plan || { id: planId, title: planId, amount: null, price: 'Carregando...' });
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [tempId, setTempId] = useState(null);
@@ -48,10 +83,23 @@ export default function Checkout() {
     paymentMethod: 'credit_card'
   });
 
-  const plan = useMemo(
-    () => location.state?.plan || { id: planId, title: planId, amount: 0, price: 'Sob consulta' },
-    [location.state, planId]
-  );
+  const isFreePlan = Boolean(plan.isFree || (plan.amount !== null && Number(plan.amount) === 0));
+
+  useEffect(() => {
+    if (location.state?.plan) return;
+
+    let active = true;
+    fetchManagedPlans({ includeHidden: false })
+      .then((managedPlans) => {
+        const selectedPlan = managedPlans.find((item) => item.id === planId);
+        if (active && selectedPlan) setPlan(selectedPlan);
+      })
+      .catch((error) => console.error('Erro ao carregar o resumo do plano:', error));
+
+    return () => {
+      active = false;
+    };
+  }, [location.state, planId]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -218,7 +266,7 @@ export default function Checkout() {
     setLoading(true);
 
     const newErrors = {};
-    if (formData.paymentMethod === 'credit_card') {
+    if (!isFreePlan && formData.paymentMethod === 'credit_card') {
       if (!formData.cardNumber) newErrors.cardNumber = 'Número do cartão é obrigatório.';
       if (!formData.cardName) newErrors.cardName = 'Nome no cartão é obrigatório.';
       if (!formData.cardExpiry) newErrors.cardExpiry = 'Validade é obrigatória.';
@@ -237,7 +285,7 @@ export default function Checkout() {
       }
 
       let cardData = null;
-      if (formData.paymentMethod === 'credit_card') {
+      if (!isFreePlan && formData.paymentMethod === 'credit_card') {
         const cleanExpiry = formData.cardExpiry.replace(/\D/g, '');
         cardData = {
           number: formData.cardNumber.replace(/\D/g, ''),
@@ -249,41 +297,44 @@ export default function Checkout() {
       }
 
       const transactionUserId = tempId || `temp_${Date.now()}`;
+      let result = { success: true, subscriptionId: null };
 
-      const subscriptionData = {
-        planId: plan.id,
-        payment_method: formData.paymentMethod,
-        userId: transactionUserId,
-        card: cardData,
-        customer: {
-          name: formData.name,
-          email: formData.email,
-          cpf: formData.cpf,
-          phone: formData.phone,
-          address: {
-            street: formData.street,
-            street_number: formData.number,
-            neighborhood: formData.neighborhood,
-            city: formData.city,
-            state: formData.state,
-            zipcode: formData.zip
+      if (!isFreePlan) {
+        const subscriptionData = {
+          planId: plan.id,
+          payment_method: formData.paymentMethod,
+          userId: transactionUserId,
+          card: cardData,
+          customer: {
+            name: formData.name,
+            email: formData.email,
+            cpf: formData.cpf,
+            phone: formData.phone,
+            address: {
+              street: formData.street,
+              street_number: formData.number,
+              neighborhood: formData.neighborhood,
+              city: formData.city,
+              state: formData.state,
+              zipcode: formData.zip
+            }
           }
+        };
+
+        const response = await fetch(CREATE_SUBSCRIPTION_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subscriptionData)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Falha na requisição (${response.status}): ${errorText}`);
         }
-      };
 
-      const response = await fetch(CREATE_SUBSCRIPTION_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(subscriptionData)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Falha na requisição (${response.status}): ${errorText}`);
+        result = await response.json();
+        if (!result.success) throw new Error(result.message || 'Falha na transação');
       }
-
-      const result = await response.json();
-      if (!result.success) throw new Error(result.message || 'Falha na transação');
 
       let userUid;
       try {
@@ -291,13 +342,13 @@ export default function Checkout() {
         userUid = userCredential.user.uid;
       } catch (authError) {
         if (authError.code === 'auth/email-already-in-use') {
-          throw new Error('Pagamento aprovado, mas o e-mail já está em uso. Entre em contato com o suporte.');
+          throw new Error(isFreePlan ? 'Este e-mail já possui uma conta. Entre pela página de login.' : 'Pagamento aprovado, mas o e-mail já está em uso. Entre em contato com o suporte.');
         }
         throw authError;
       }
 
       let pagarmeCustomerId = null;
-      try {
+      if (!isFreePlan) try {
         const tempUserSnap = await get(ref(database, `users/${transactionUserId}`));
         if (tempUserSnap.exists()) {
           pagarmeCustomerId = tempUserSnap.val().pagarmeCustomerId;
@@ -325,6 +376,8 @@ export default function Checkout() {
         limiteEleitores: plan.team,
         subscriptionId: result.subscriptionId,
         pagarmeCustomerId,
+        subscriptionStatus: isFreePlan ? 'free' : 'active',
+        isFreePlan,
         tipoUser: 'admin',
         cargo: 'Administrador',
         createdAt: new Date()
@@ -334,7 +387,7 @@ export default function Checkout() {
         await remove(ref(database, `registros_temporarios/${tempId}`));
       }
 
-      navigate('/login');
+      navigate(isFreePlan ? '/dashboard' : '/login');
     } catch (checkoutError) {
       console.error('Erro no checkout:', checkoutError);
       setErrors({ submit: `Erro ao processar: ${checkoutError.message}` });
@@ -364,23 +417,77 @@ export default function Checkout() {
     <PublicPageShell
       activeKey="plans"
       kicker="Assinatura e ativação"
-      title="Feche sua contratação sem sair do fluxo."
-      subtitle="Uma jornada simples para ativar a conta, registrar os dados da operação e concluir o pagamento com clareza."
+      title={isFreePlan ? 'Crie sua conta gratuita e comece agora.' : 'Feche sua contratação sem sair do fluxo.'}
+      subtitle={isFreePlan ? 'Sem cartão e sem compromisso. Informe seus dados e sua central de campanha ficará pronta para uso.' : 'Uma jornada simples para ativar a conta, registrar os dados da operação e concluir o pagamento com clareza.'}
       compactHero
       contentClassName="public-checkout-shell"
       actions={<button type="button" className="public-glass-btn" onClick={() => navigate('/plans')}>Trocar plano</button>}
     >
       <div className="public-grid-2">
-        <article className="public-panel">
-          <h2>Resumo do plano</h2>
-          <p><strong>Plano:</strong> {plan.title || planId}</p>
-          <p><strong>Preço:</strong> {plan.price || 'Sob consulta'}</p>
-          <p><strong>Capacidade:</strong> {plan.team || 'Conforme proposta'}</p>
-          <p>Ao final, sua conta administrativa já sai pronta para iniciar a base, a equipe e os primeiros fluxos de campanha.</p>
+        <article className="public-panel checkout-plan-summary">
+          <div className="checkout-plan-summary-head">
+            <div>
+              <span>Plano escolhido</span>
+              <h2>{plan.title || planId}</h2>
+              <p>{plan.subtitle || 'Estrutura pronta para começar sua operação eleitoral.'}</p>
+            </div>
+            {plan.recommended ? <span className="checkout-plan-recommended">Recomendado</span> : null}
+          </div>
+
+          <div className="checkout-plan-price-row">
+            <div>
+              <span>Investimento</span>
+              <strong>{plan.price || 'Sob consulta'}{!isFreePlan ? <small>/mês</small> : null}</strong>
+            </div>
+            {Number(plan.trialDays) > 0 ? (
+              <div><span>Teste gratuito</span><strong>{Number(plan.trialDays)} dias</strong></div>
+            ) : null}
+          </div>
+
+          <div className="checkout-plan-scroll">
+            <section className="checkout-plan-section">
+              <h3>Recursos essenciais incluídos</h3>
+              <div className="checkout-core-features">
+                {INCLUDED_CORE_FEATURES.map((feature) => (
+                  <div key={feature}><CheckCircle2 size={17} /><span>{feature}</span></div>
+                ))}
+              </div>
+            </section>
+
+            <section className="checkout-plan-section">
+              <h3>Limites da operação</h3>
+              <div className="checkout-plan-limits">
+                <div className="checkout-plan-limit is-primary">
+                  <Database size={18} />
+                  <span>Base de eleitores</span>
+                  <strong>{plan.database || plan.team || 'Conforme o plano'}</strong>
+                </div>
+                {PLAN_LIMIT_LABELS.map((item) => {
+                  const limit = plan.featureLimits?.[item.key];
+                  const formattedLimit = formatPlanLimit(limit);
+                  return (
+                    <div key={item.key} className={`checkout-plan-limit ${formattedLimit === 'Não incluído' ? 'is-disabled' : ''}`}>
+                      <CheckCircle2 size={17} />
+                      <span>{item.label}</span>
+                      <strong>{formattedLimit}</strong>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="checkout-plan-section checkout-plan-conditions">
+              <div><span>Equipe</span><strong>{plan.team || 'Conforme o plano'}</strong></div>
+              <div><span>Carência após vencimento</span><strong>{Number(plan.graceDays || 5)} dias</strong></div>
+              <div><span>Cancelamento</span><strong>A qualquer momento</strong></div>
+            </section>
+          </div>
+
+          <p className="checkout-plan-ready">Ao concluir, sua conta administrativa estará pronta para iniciar a base, convidar a equipe e organizar os primeiros fluxos.</p>
         </article>
 
         <article className="public-form-card">
-          <h3>Finalizar contratação</h3>
+          <h3>{isFreePlan ? 'Criar conta gratuita' : 'Finalizar contratação'}</h3>
           <div className="public-steps">
             <div className={`public-step-pill ${step >= 1 ? 'active' : ''}`}>
               <strong>1. Conta</strong>
@@ -390,15 +497,17 @@ export default function Checkout() {
               <strong>2. Endereço</strong>
               <span className="public-step-copy"><MapPin size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />Entrega e faturamento</span>
             </div>
-            <div className={`public-step-pill ${step >= 3 ? 'active' : ''}`}>
-              <strong>3. Pagamento</strong>
-              <span className="public-step-copy"><CreditCard size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />Cartão ou boleto</span>
-            </div>
+            {!isFreePlan ? (
+              <div className={`public-step-pill ${step >= 3 ? 'active' : ''}`}>
+                <strong>3. Pagamento</strong>
+                <span className="public-step-copy"><CreditCard size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />Cartão ou boleto</span>
+              </div>
+            ) : null}
           </div>
 
           {errors.submit ? <div className="public-alert" style={{ marginBottom: '14px' }}>{errors.submit}</div> : null}
 
-          <form onSubmit={step === 3 ? handleSubmit : handleNext} className="public-form-grid">
+          <form onSubmit={isFreePlan ? (step === 2 ? handleSubmit : handleNext) : (step === 3 ? handleSubmit : handleNext)} className="public-form-grid">
             {step === 1 ? (
               <>
                 {renderTextField('name', 'Nome completo', 'Seu nome', 'text', true)}
@@ -487,8 +596,8 @@ export default function Checkout() {
               ) : <span />}
 
               <button type="submit" className="btn-primary public-primary-cta" disabled={loading}>
-                {loading ? 'Processando...' : step === 3 ? 'Finalizar contratação' : 'Próximo passo'}
-                {!loading ? (step === 3 ? <CheckCircle size={18} /> : <ArrowRight size={18} />) : null}
+                {loading ? 'Criando sua conta...' : isFreePlan && step === 2 ? 'Criar conta grátis' : step === 3 ? 'Finalizar contratação' : 'Próximo passo'}
+                {!loading ? ((isFreePlan && step === 2) || step === 3 ? <CheckCircle size={18} /> : <ArrowRight size={18} />) : null}
               </button>
             </div>
           </form>

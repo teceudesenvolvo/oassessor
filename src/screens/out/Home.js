@@ -7,14 +7,24 @@ import {
   BarChart3,
   Bell,
   BrainCircuit,
+  CalendarDays,
+  ClipboardCheck,
   Crown,
+  FileBarChart,
+  GitBranch,
   Home as HomeIcon,
   Layers3,
+  MapPinned,
+  Megaphone,
+  MessagesSquare,
   Rocket,
   Search,
   ShieldCheck,
   Sparkles,
-  Users
+  CheckCircle2,
+  UserRoundCheck,
+  Users,
+  WalletCards
 } from 'lucide-react';
 import HeroBg from '../../assets/hero-home.avif';
 import AppIcon from '../../assets/sidebar-app-icon.png';
@@ -66,9 +76,46 @@ const proofNumbers = [
   { value: '24/7', label: 'operação disponível para campanha e equipe' }
 ];
 
+const capabilityGroups = [
+  {
+    eyebrow: 'Estratégia eleitoral',
+    title: 'Saiba onde está e o que fazer depois',
+    description: 'Transforme dados da campanha em metas, prioridades e decisões diárias.',
+    items: [
+      { icon: BarChart3, label: 'Dashboard estratégico' },
+      { icon: GitBranch, label: 'Funil eleitoral' },
+      { icon: BrainCircuit, label: 'Caminho para a vitória' },
+      { icon: FileBarChart, label: 'Relatórios e pesquisas' }
+    ]
+  },
+  {
+    eyebrow: 'Mobilização',
+    title: 'Coordene pessoas e presença em campo',
+    description: 'Conecte toda a rede de apoio e acompanhe a execução sem perder informação.',
+    items: [
+      { icon: Users, label: 'Lideranças e voluntários' },
+      { icon: UserRoundCheck, label: 'Eleitores e equipes' },
+      { icon: MapPinned, label: 'Território, visitas e mapas' },
+      { icon: CalendarDays, label: 'Agenda, tarefas e eventos' }
+    ]
+  },
+  {
+    eyebrow: 'Operação integrada',
+    title: 'Centralize a rotina da campanha',
+    description: 'Do primeiro contato à prestação de contas, tudo permanece organizado e rastreável.',
+    items: [
+      { icon: MessagesSquare, label: 'Demandas e atendimentos' },
+      { icon: Megaphone, label: 'Comunicação segmentada' },
+      { icon: WalletCards, label: 'Prestação de contas' },
+      { icon: ClipboardCheck, label: 'Auditoria e permissões' }
+    ]
+  }
+];
+
 const sideNavItems = [
   { id: 'landing-top', icon: HomeIcon, label: 'Topo' },
-  { id: 'landing-signals', icon: Search, label: 'Recursos' },
+  { id: 'landing-capabilities', icon: Layers3, label: 'Possibilidades' },
+  { id: 'landing-signals', icon: Search, label: 'Experiência' },
   { id: 'landing-proof', icon: Users, label: 'Resultados' },
   { id: 'landing-plans', icon: Crown, label: 'Planos' },
   { id: 'landing-cta', icon: Rocket, label: 'Começar' }
@@ -82,7 +129,7 @@ export default function Home() {
   const [activeSection, setActiveSection] = useState('landing-top');
 
   useEffect(() => {
-    const fullText = 'Chega de achar. Agora e campanha com leitura, ritmo e previsibilidade.';
+    const fullText = 'Comece grátis. Organize sua base, entenda o cenário e avance com confiança.';
     let index = 0;
     let timeoutId;
 
@@ -150,6 +197,16 @@ export default function Home() {
     }
   };
 
+  const freePlan = plans.find((plan) => plan.isFree || Number(plan.amount) === 0);
+
+  const startFreeAccount = () => {
+    if (freePlan) {
+      navigate(`/checkout/${freePlan.id}`, { state: { plan: freePlan } });
+      return;
+    }
+    navigate('/plans');
+  };
+
   return (
     <div className="sales-landing-shell">
       <div className="sales-landing-orb sales-landing-orb-a" />
@@ -187,8 +244,8 @@ export default function Home() {
               </div>
 
               <div className="sales-hero-actions">
-                <button type="button" className="sales-glass-action" onClick={() => navigate('/plans')}>
-                  Planos
+                <button type="button" className="sales-free-top-action" onClick={startFreeAccount}>
+                  Criar conta grátis
                 </button>
                 <button type="button" className="sales-glass-action" onClick={() => navigate('/login')}>
                   Entrar
@@ -200,10 +257,10 @@ export default function Home() {
               <div className="sales-hero-copy">
                 <span className="sales-kicker">
                   <Sparkles size={16} />
-                  Plataforma premium para campanhas de alta performance
+                  Comece gratuitamente e organize sua campanha hoje
                 </span>
 
-                <h1>Onde operação, inteligência e mobilização se encontram para virar voto.</h1>
+                <h1>Sua campanha organizada para transformar trabalho em voto.</h1>
 
                 <p className="sales-hero-typing">
                   {text}
@@ -211,17 +268,23 @@ export default function Home() {
                 </p>
 
                 <p className="sales-hero-support">
-                  Centralize eleitores, funil, território, equipe, lideranças, relatórios e agenda em um ambiente elegante, rápido e preparado para o ritmo real de campanha.
+                  Crie sua conta gratuita e centralize eleitores, equipe, lideranças, agenda e estratégia em poucos minutos. Comece sem cartão e evolua quando sua campanha precisar.
                 </p>
 
                 <div className="sales-hero-cta">
-                  <button type="button" className="btn-primary sales-primary-cta" onClick={() => navigate('/plans')}>
-                    Conhecer planos
+                  <button type="button" className="btn-primary sales-primary-cta" onClick={startFreeAccount}>
+                    Criar minha conta grátis
                     <ArrowRight size={18} />
                   </button>
                   <button type="button" className="sales-secondary-cta" onClick={() => scrollToSection('landing-signals')}>
-                    Ver experiencia
+                    Ver como funciona
                   </button>
+                </div>
+
+                <div className="sales-free-trust" aria-label="Benefícios da conta gratuita">
+                  <span><CheckCircle2 size={16} /> Sem cartão</span>
+                  <span><CheckCircle2 size={16} /> Ativação imediata</span>
+                  <span><CheckCircle2 size={16} /> Cancele quando quiser</span>
                 </div>
 
                 <div className="sales-hero-mini-grid">
@@ -267,13 +330,56 @@ export default function Home() {
           </div>
         </section>
 
+        <section id="landing-capabilities" className="sales-section sales-capabilities-section">
+          <div className="sales-section-heading sales-capabilities-heading">
+            <span className="sales-kicker">
+              <Layers3 size={16} />
+              Uma plataforma, toda a campanha
+            </span>
+            <h2>Tudo o que você precisa para sair do improviso e operar com clareza.</h2>
+            <p>Comece gratuitamente pelo essencial e ative novas frentes conforme sua equipe e sua base crescerem.</p>
+          </div>
+
+          <div className="sales-capability-grid">
+            {capabilityGroups.map((group, groupIndex) => (
+              <article key={group.title} className={`sales-capability-card sales-capability-card-${groupIndex + 1}`}>
+                <span>{group.eyebrow}</span>
+                <h3>{group.title}</h3>
+                <p>{group.description}</p>
+                <div className="sales-capability-list">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div key={item.label}>
+                        <i><Icon size={17} /></i>
+                        <strong>{item.label}</strong>
+                      </div>
+                    );
+                  })}
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="sales-capabilities-cta">
+            <div>
+              <strong>Veja tudo funcionando com os dados da sua própria campanha.</strong>
+              <span>Crie sua conta em poucos minutos. Nenhum cartão será solicitado.</span>
+            </div>
+            <button type="button" className="btn-primary sales-primary-cta" onClick={startFreeAccount}>
+              Experimentar gratuitamente
+              <ArrowRight size={18} />
+            </button>
+          </div>
+        </section>
+
         <section id="landing-signals" className="sales-section">
           <div className="sales-section-heading">
             <span className="sales-kicker">
               <Search size={16} />
               Experiencia de alto impacto
             </span>
-            <h2>Uma landing viva para vender o futuro da campanha em poucos segundos.</h2>
+            <h2>Comece pelo essencial e descubra uma forma mais simples de conduzir a campanha.</h2>
           </div>
 
           <div className="sales-signals-grid">
@@ -317,7 +423,8 @@ export default function Home() {
                 <Users size={16} />
                 Prova social e musculatura operacional
               </span>
-              <h2>Uma experiência visual premium precisa sustentar uma promessa real de execução.</h2>
+              <h2>Você não precisa esperar a campanha crescer para começar a organizá-la.</h2>
+              <p>Abra sua conta gratuita, conheça a plataforma com seus próprios dados e dê o próximo passo somente quando fizer sentido.</p>
             </div>
 
             <div className="sales-proof-grid">
@@ -337,7 +444,7 @@ export default function Home() {
               <Crown size={16} />
               Oferta comercial
             </span>
-            <h2>Escolha o plano certo para o momento da campanha.</h2>
+            <h2>Comece grátis. Faça upgrade apenas quando sua operação crescer.</h2>
           </div>
 
           <div className="sales-plans-shell">
@@ -384,9 +491,15 @@ export default function Home() {
                       <button
                         type="button"
                         className="btn-primary sales-plan-cta"
-                        onClick={() => navigate(`/plan/${plan.id}`, { state: { plan } })}
+                        onClick={() => {
+                          if (plan.isFree || Number(plan.amount) === 0) {
+                            navigate(`/checkout/${plan.id}`, { state: { plan } });
+                            return;
+                          }
+                          navigate(`/plan/${plan.id}`, { state: { plan } });
+                        }}
                       >
-                        Ver plano
+                        {plan.isFree || Number(plan.amount) === 0 ? 'Criar conta grátis' : 'Ver plano'}
                       </button>
                     </article>
                   </SplideSlide>
@@ -401,17 +514,17 @@ export default function Home() {
             <div>
               <span className="sales-kicker">
                 <Rocket size={16} />
-                Pronto para acelerar
+                Seu primeiro passo é gratuito
               </span>
-              <h2>Venda organização, visão e controle antes que a campanha entre em modo reativo.</h2>
+              <h2>Crie sua central de campanha agora e comece com clareza desde o primeiro cadastro.</h2>
               <p>
-                O oAssessor posiciona sua operação com mais previsibilidade, mais cadência e uma apresentação à altura da ambição do projeto político.
+                Não precisa de cartão e não há compromisso. Sua conta fica pronta para organizar a base, definir metas e convidar a equipe.
               </p>
             </div>
 
             <div className="sales-final-actions">
-              <button type="button" className="btn-primary sales-primary-cta" onClick={() => navigate('/plans')}>
-                Escolher meu plano
+              <button type="button" className="btn-primary sales-primary-cta" onClick={startFreeAccount}>
+                Começar gratuitamente
                 <ArrowRight size={18} />
               </button>
               <button type="button" className="sales-secondary-cta" onClick={() => navigate('/contact')}>
