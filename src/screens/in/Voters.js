@@ -7,6 +7,7 @@ import { useAuth } from '../../useAuth';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import LogoAzul from '../../assets/logomarca-vertical-azul.png';
+import { isAdminProfile } from '../../utils/userRoles';
 
 export default function Voters() {
   const navigate = useNavigate();
@@ -40,7 +41,7 @@ export default function Voters() {
         let isUserAdmin = false;
         if (userSnapshot.exists()) {
           const userData = Object.values(userSnapshot.val())[0];
-          if (userData.tipoUser === 'admin') {
+          if (isAdminProfile(userData)) {
             isUserAdmin = true;
           }
         }

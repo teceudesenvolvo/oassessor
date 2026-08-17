@@ -21,6 +21,17 @@ const normalizeBoolean = (value, fallback = false) => {
   return fallback;
 };
 
+const normalizePaymentMethods = (value, fallback = ['credit_card', 'boleto']) => {
+  if (Array.isArray(value) && value.length) return value;
+  if (typeof value === 'string' && value.trim()) {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return fallback;
+};
+
 export async function loadPlanOverrides() {
   try {
     const snapshot = await get(ref(database, 'system_plan_overrides'));
@@ -61,6 +72,13 @@ export async function fetchManagedPlans({ includeHidden = true } = {}) {
       ideal: override.ideal || plan.ideal,
       team: override.team || plan.team,
       database: override.database || plan.database,
+      billingModel: override.billingModel || plan.billingModel || (normalizeBoolean(override.isFree, false) || normalizeBoolean(plan.isFree, false) ? 'free' : 'recurring'),
+      interval: override.interval || plan.interval || 'month',
+      intervalCount: Number(override.intervalCount ?? plan.intervalCount ?? 1),
+      billingType: override.billingType || plan.billingType || 'prepaid',
+      paymentMethods: normalizePaymentMethods(override.paymentMethods ?? plan.paymentMethods),
+      maxInstallments: Number(override.maxInstallments ?? plan.maxInstallments ?? 1),
+      accessDays: Number(override.accessDays ?? plan.accessDays ?? 0),
       amount: override.amount !== undefined ? Number(override.amount) : plan.amount,
       price: override.amount !== undefined
         ? Number(override.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -94,6 +112,13 @@ export async function fetchManagedPlans({ includeHidden = true } = {}) {
         visible: normalizeBoolean(override.visible, true),
         recommended: normalizeBoolean(override.recommended, false),
         isFree: normalizeBoolean(override.isFree, amount === 0),
+        billingModel: override.billingModel || (normalizeBoolean(override.isFree, amount === 0) ? 'free' : 'recurring'),
+        interval: override.interval || 'month',
+        intervalCount: Number(override.intervalCount ?? 1),
+        billingType: override.billingType || 'prepaid',
+        paymentMethods: normalizePaymentMethods(override.paymentMethods),
+        maxInstallments: Number(override.maxInstallments ?? 1),
+        accessDays: Number(override.accessDays ?? 0),
         trialDays: Number(override.trialDays ?? 0),
         graceDays: Number(override.graceDays ?? 5),
         featureLimits,

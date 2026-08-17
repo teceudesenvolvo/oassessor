@@ -3,6 +3,7 @@ import { get, ref, remove, set, update } from '../services/firestoreDatabase';
 import { database } from '../firebaseConfig';
 import { fetchManagedPlans } from '../services/appPlansService';
 import { evaluateAccountBilling, extractLimitNumber, loadScopedCampaignUsageByOwner } from '../services/planLimits';
+import { inferUserRole } from '../utils/userRoles';
 
 const CREATE_PLAN_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/createPagarmePlan';
 const UPDATE_PLAN_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/updatePagarmePlan';
@@ -82,7 +83,7 @@ const normalizeUser = (entry) => {
     documentId: entry.id,
     authUserId: entry.userId || entry.id,
     name: entry.nome || entry.name || entry.email || 'Usuário',
-    role: entry.tipoUser || 'assessor',
+    role: inferUserRole(entry, 'assessor'),
     status: entry.status || 'Ativo',
     adminId: entry.adminId || null,
     planId: entry.planId || null,
@@ -335,6 +336,15 @@ export function useSystemCenter(user) {
     setSaving(true);
     try {
       const amount = parsePlanAmountInput(payload.amount);
+      const isOneTime = payload.billingModel === 'one_time';
+      const isFree = Boolean(payload.isFree);
+      const paymentMethods = Array.isArray(payload.paymentMethods) && payload.paymentMethods.length
+        ? payload.paymentMethods
+        : ['credit_card', 'boleto'];
+      const interval = payload.interval || 'month';
+      const intervalCount = Math.max(1, Number(payload.intervalCount || 1));
+      const maxInstallments = Math.max(1, Number(payload.maxInstallments || 1));
+      const accessDays = Math.max(0, Number(payload.accessDays || 0));
       const featureLimits = FEATURE_LIMIT_KEYS.reduce((accumulator, key) => {
         accumulator[key] = payload.featureLimits?.[key] || '';
         return accumulator;
@@ -342,7 +352,7 @@ export function useSystemCenter(user) {
       if (!payload.title || Number.isNaN(amount)) {
         throw new Error('Informe nome e valor do plano.');
       }
-      if (!payload.isFree && amount <= 0) {
+      if (!isFree && amount <= 0) {
         throw new Error('Planos pagos precisam ter um valor maior que zero.');
       }
 
@@ -351,22 +361,31 @@ export function useSystemCenter(user) {
         let createdPlan = null;
         let overrideId = generatedSlug;
 
-        if (!payload.isFree || amount > 0) {
+        if (!isFree && !isOneTime && amount > 0) {
           const result = await postJson(CREATE_PLAN_URL, {
             name: payload.title,
             description: payload.subtitle || '',
             amount,
-            interval: 'month',
-            interval_count: 1,
+            interval,
+            interval_count: intervalCount,
+            billing_type: payload.billingType || 'prepaid',
+            payment_methods: paymentMethods,
             metadata: {
               app_id: generatedSlug,
               subtitle: payload.subtitle || '',
               ideal: payload.ideal || '',
               team: payload.team || '',
               database: payload.database || '',
+              billingModel: payload.billingModel || 'recurring',
+              interval,
+              intervalCount: String(intervalCount),
+              billingType: payload.billingType || 'prepaid',
+              paymentMethods: paymentMethods.join(','),
+              maxInstallments: String(maxInstallments),
+              accessDays: String(accessDays),
               trialDays: String(Number(payload.trialDays || 0)),
               graceDays: String(Number(payload.graceDays || 5)),
-              isFree: String(Boolean(payload.isFree)),
+              isFree: String(isFree),
               recommended: String(Boolean(payload.recommended)),
               featureLimits: JSON.stringify(featureLimits)
             }
@@ -385,9 +404,16 @@ export function useSystemCenter(user) {
           database: payload.database || '',
           featureLimits,
           amount,
+          billingModel: payload.billingModel || (isFree ? 'free' : 'recurring'),
+          interval,
+          intervalCount,
+          billingType: payload.billingType || 'prepaid',
+          paymentMethods,
+          maxInstallments,
+          accessDays,
           trialDays: Number(payload.trialDays || 0),
           graceDays: Number(payload.graceDays || 5),
-          isFree: Boolean(payload.isFree),
+          isFree,
           recommended: Boolean(payload.recommended),
           status: 'active',
           localOnly: !createdPlan,
@@ -399,13 +425,17 @@ export function useSystemCenter(user) {
         });
       } else {
         let gatewaySyncPending = false;
-        if (payload.pagarmeId) {
+        if (payload.pagarmeId && !isOneTime && !isFree) {
           try {
             await postJson(UPDATE_PLAN_URL, {
               planId: payload.pagarmeId,
               name: payload.title,
               description: payload.subtitle || '',
-              status: payload.gatewayStatus || 'active'
+              status: payload.gatewayStatus || 'active',
+              interval,
+              interval_count: intervalCount,
+              billing_type: payload.billingType || 'prepaid',
+              payment_methods: paymentMethods
             });
 
             if (payload.itemId) {
@@ -434,9 +464,16 @@ export function useSystemCenter(user) {
           database: payload.database || '',
           featureLimits,
           amount,
+          billingModel: payload.billingModel || (isFree ? 'free' : 'recurring'),
+          interval,
+          intervalCount,
+          billingType: payload.billingType || 'prepaid',
+          paymentMethods,
+          maxInstallments,
+          accessDays,
           trialDays: Number(payload.trialDays || 0),
           graceDays: Number(payload.graceDays || 5),
-          isFree: Boolean(payload.isFree),
+          isFree,
           recommended: Boolean(payload.recommended)
         });
 

@@ -106,22 +106,42 @@ const getPlanOverrideById = async (planId) => {
     return snapshot.exists ? (snapshot.data() || {}) : {};
 };
 
+const normalizeRoleLabel = (value) =>
+    String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
+
+const isAdministratorProfile = (profile = {}) => {
+    const candidates = [profile.tipoUser, profile.tipo, profile.role, profile.cargo, profile.perfil, profile.userType];
+    return candidates.some((candidate) => ['admin', 'administrador', 'administrator'].includes(normalizeRoleLabel(candidate)));
+};
+
 const buildBillingSnapshot = async (userData = {}) => {
     const planOverride = await getPlanOverrideById(userData.planId);
     const isFreePlan = normalizeBoolean(userData.isFreePlan, normalizeBoolean(planOverride.isFree, false));
+    const billingModel = String(userData.billingModel || planOverride.billingModel || '').toLowerCase();
     const trialDays = Number(userData.trialDays ?? planOverride.trialDays ?? 0);
     const graceDays = Number(userData.graceDays ?? planOverride.graceDays ?? 5);
+    const accessDays = Number(userData.accessDays ?? planOverride.accessDays ?? 0);
     const seededTrialEndsAt = userData.trialEndsAt || (trialDays > 0 && userData.createdAt ? addDays(userData.createdAt, trialDays).toISOString() : null);
+    const seededAccessExpiresAt = userData.accessExpiresAt || (billingModel === 'one_time' && accessDays > 0 && userData.createdAt ? addDays(userData.createdAt, accessDays).toISOString() : null);
     const trialEndsAt = parseDateValue(seededTrialEndsAt);
+    const accessExpiresAt = parseDateValue(seededAccessExpiresAt);
     const now = new Date();
     const trialActive = Boolean(trialEndsAt && trialEndsAt.getTime() >= now.getTime());
+    const oneTimeExpired = Boolean(billingModel === 'one_time' && accessExpiresAt && accessExpiresAt.getTime() < now.getTime());
 
     if (isFreePlan) {
         return {
             isFreePlan: true,
+            billingModel: 'free',
             trialDays,
             graceDays,
+            accessDays,
             trialEndsAt: seededTrialEndsAt,
+            accessExpiresAt: seededAccessExpiresAt,
             billingStatus: 'free',
             accountAccessStatus: 'free',
             accessBlockedAt: null,
@@ -133,9 +153,12 @@ const buildBillingSnapshot = async (userData = {}) => {
     if (trialActive && !userData.subscriptionId) {
         return {
             isFreePlan: false,
+            billingModel,
             trialDays,
             graceDays,
+            accessDays,
             trialEndsAt: seededTrialEndsAt,
+            accessExpiresAt: seededAccessExpiresAt,
             billingStatus: 'trialing',
             accountAccessStatus: 'trialing',
             accessBlockedAt: null,
@@ -145,11 +168,31 @@ const buildBillingSnapshot = async (userData = {}) => {
     }
 
     if (!userData.subscriptionId) {
+        if (billingModel === 'one_time') {
+            return {
+                isFreePlan: false,
+                billingModel,
+                trialDays,
+                graceDays,
+                accessDays,
+                trialEndsAt: seededTrialEndsAt,
+                accessExpiresAt: seededAccessExpiresAt,
+                billingStatus: oneTimeExpired ? 'expired' : String(userData.billingStatus || userData.subscriptionStatus || 'active').toLowerCase(),
+                accountAccessStatus: oneTimeExpired ? 'blocked' : 'active',
+                accessBlockedAt: oneTimeExpired ? now.toISOString() : null,
+                delinquentSince: null,
+                overdueDays: 0
+            };
+        }
+
         return {
             isFreePlan: false,
+            billingModel,
             trialDays,
             graceDays,
+            accessDays,
             trialEndsAt: seededTrialEndsAt,
+            accessExpiresAt: seededAccessExpiresAt,
             billingStatus: 'pending_payment',
             accountAccessStatus: 'active',
             accessBlockedAt: null,
@@ -181,9 +224,12 @@ const buildBillingSnapshot = async (userData = {}) => {
 
     return {
         isFreePlan: false,
+        billingModel,
         trialDays,
         graceDays,
+        accessDays,
         trialEndsAt: seededTrialEndsAt,
+        accessExpiresAt: seededAccessExpiresAt,
         subscriptionStatus: subscription?.status || userData.subscriptionStatus || 'active',
         nextBillingDate: subscription?.next_billing_at || subscription?.current_period_end || userData.nextBillingDate || null,
         billingStatus: blocked ? 'blocked' : billingStatus,
@@ -334,7 +380,7 @@ exports.migrateRtdbToFirestore = onRequest(
         const decodedToken = await admin.auth().verifyIdToken(authorization.slice(7));
         stage = 'authorization';
         const userProfile = await findUserProfileByUid(decodedToken.uid);
-        if (!userProfile || userProfile.tipoUser !== 'admin') {
+        if (!userProfile || !isAdministratorProfile(userProfile)) {
             return res.status(403).send({
                 error: 'Somente administradores podem executar a migração.',
                 code: 'PERMISSION_DENIED',
@@ -775,7 +821,7 @@ exports.createSubscription = onRequest(
       return res.status(405).send("Method Not Allowed");
     }
 
-    const { planId, card, customer, payment_method, userId } = req.body;
+    const { planId, card, customer, payment_method, userId, installments = 1 } = req.body;
 
     if (!planId || !customer || !payment_method || !userId) {
       return res.status(400).send("Dados da transação incompletos.");
@@ -786,6 +832,134 @@ exports.createSubscription = onRequest(
     }
 
     try {
+      const firestore = appFirestore();
+      const planOverrideSnapshot = await firestore.collection('system_plan_overrides').doc(planId).get().catch(() => null);
+      const planOverride = planOverrideSnapshot?.exists ? (planOverrideSnapshot.data() || {}) : {};
+      const billingModel = String(planOverride.billingModel || '').toLowerCase();
+      const normalizedPaymentMethods = Array.isArray(planOverride.paymentMethods) && planOverride.paymentMethods.length
+        ? planOverride.paymentMethods
+        : ['credit_card', 'boleto'];
+      const accessDays = Math.max(0, Number(planOverride.accessDays || 0));
+
+      if (billingModel === 'one_time') {
+        if (!normalizedPaymentMethods.includes(payment_method)) {
+          return res.status(400).send({ success: false, error: 'Forma de pagamento não permitida para este plano.' });
+        }
+
+        const chargePayload = {
+          payment_method,
+          amount: Number(planOverride.amount || 0),
+        };
+
+        if (!chargePayload.amount || chargePayload.amount <= 0) {
+          return res.status(400).send({ success: false, error: 'O plano de pagamento único precisa ter um valor válido.' });
+        }
+
+        if (payment_method === 'credit_card') {
+          chargePayload.credit_card = {
+            installments: Math.max(1, Number(installments || 1)),
+            card
+          };
+        }
+
+        if (payment_method === 'pix') {
+          chargePayload.pix = {
+            expires_in: 3600
+          };
+        }
+
+        if (payment_method === 'boleto') {
+          chargePayload.boleto = {
+            instructions: `Pagamento referente ao plano ${planOverride.title || planId}.`,
+            due_at: addDays(new Date(), 3).toISOString()
+          };
+        }
+
+        const orderPayload = {
+          code: `oa-${planId}-${Date.now()}`,
+          customer: {
+            name: customer.name,
+            email: customer.email,
+            code: userId,
+            document: customer.cpf.replace(/\D/g, ''),
+            type: 'individual',
+            phones: {
+              mobile_phone: {
+                country_code: '55',
+                area_code: customer.phone.replace(/\D/g, '').substring(0, 2),
+                number: customer.phone.replace(/\D/g, '').substring(2)
+              }
+            }
+          },
+          items: [
+            {
+              amount: chargePayload.amount,
+              code: planId,
+              description: planOverride.subtitle || planOverride.title || planId,
+              quantity: 1
+            }
+          ],
+          payments: [chargePayload]
+        };
+
+        if (customer.address) {
+          orderPayload.customer.address = {
+            country: 'BR',
+            state: customer.address.state,
+            city: customer.address.city,
+            zip_code: customer.address.zipcode.replace(/\D/g, ''),
+            line_1: `${customer.address.street}, ${customer.address.street_number}, ${customer.address.neighborhood}`,
+            line_2: ''
+          };
+        }
+
+        console.log('Enviando pedido avulso para Pagar.me:', JSON.stringify(orderPayload, null, 2));
+
+        const orderResponse = await fetch(`${PAGARME_URL}/orders`, {
+          method: 'POST',
+          headers: getPagarmeHeaders(),
+          body: JSON.stringify(orderPayload)
+        });
+        const order = await orderResponse.json();
+
+        if (!orderResponse.ok) {
+          const orderError = order.message || (order.errors ? JSON.stringify(order.errors) : 'Falha ao criar cobrança avulsa.');
+          return res.status(400).send({ success: false, message: `Cobrança única não pôde ser criada: ${orderError}` });
+        }
+
+        const payment = Array.isArray(order.charges) ? order.charges[0] : null;
+        const paidStatus = String(payment?.status || order.status || '').toLowerCase();
+
+        await firestore.collection('users').doc(userId).set({
+          planId,
+          nomePlano: planOverride.title || planId,
+          billingModel: 'one_time',
+          subscriptionStatus: paidStatus || 'pending',
+          billingStatus: paidStatus || 'pending',
+          isFreePlan: false,
+          accessDays,
+          accessExpiresAt: accessDays > 0 ? addDays(new Date(), accessDays).toISOString() : null,
+          graceDays: Number(planOverride.graceDays || 5),
+          paymentMethod: payment_method,
+          pagarmeCustomerId: order.customer?.id || null,
+          pagarmeOrderId: order.id || null,
+          nextBillingDate: null,
+          trialDays: Number(planOverride.trialDays || 0),
+          trialEndsAt: Number(planOverride.trialDays || 0) > 0
+            ? addDays(new Date(), Number(planOverride.trialDays || 0)).toISOString()
+            : null,
+          paidAt: payment?.paid_at || null
+        }, { merge: true });
+
+        return res.status(200).send({
+          success: true,
+          subscriptionId: order.id,
+          status: paidStatus || 'pending',
+          billingModel: 'one_time',
+          payment
+        });
+      }
+
       // Busca todos os planos ativos e filtra em memória para garantir que pegamos o correto.
       // A filtragem via query param por metadados pode falhar dependendo da API.
       const plansResponse = await fetch(`${PAGARME_URL}/plans?status=active&count=100`, {
@@ -845,12 +1019,13 @@ exports.createSubscription = onRequest(
       
       if (subResponse.ok && (subscription.status === 'active' || subscription.status === 'paid' || subscription.status === 'pending_payment')) {
         // Salva o ID da assinatura e do cliente no perfil do usuário no Firebase
-        const userRef = appFirestore().collection('users').doc(userId);
+        const userRef = firestore.collection('users').doc(userId);
         await userRef.set({
           subscriptionId: subscription.id,
           pagarmeCustomerId: subscription.customer.id,
           planId: planId, // Salva o ID do plano do nosso app
           nomePlano: pagarmePlan.name,
+          billingModel: 'recurring',
           subscriptionStatus: subscription.status || 'active',
           trialDays: Number(pagarmePlan.metadata?.trialDays || 0),
           graceDays: Number(pagarmePlan.metadata?.graceDays || 5),
@@ -893,7 +1068,7 @@ exports.createPagarmePlan = onRequest({ cors: true, invoker: 'public' }, async (
     // Based on Pagar.me v5 API for creating plans
     const { name, description, amount, interval, interval_count, metadata } = req.body;
 
-    if (!name || !amount || !interval || !interval_count) {
+    if (!name || amount === undefined || amount === null || !interval || !interval_count) {
         return res.status(400).send({ success: false, error: "Dados do plano incompletos. 'name', 'amount', 'interval', 'interval_count' são obrigatórios." });
     }
 
@@ -961,6 +1136,13 @@ exports.getAppPlans = onRequest({ cors: true, invoker: 'public' }, async (req, r
                 ideal: metadata.ideal || '',
                 team: metadata.team || '',
                 database: metadata.database || '',
+                billingModel: metadata.billingModel || 'recurring',
+                interval: metadata.interval || plan.interval || 'month',
+                intervalCount: Number(metadata.intervalCount || plan.interval_count || 1),
+                billingType: metadata.billingType || plan.billing_type || 'prepaid',
+                paymentMethods: metadata.paymentMethods ? String(metadata.paymentMethods).split(',').map((item) => item.trim()).filter(Boolean) : (plan.payment_methods || ['credit_card', 'boleto']),
+                maxInstallments: Number(metadata.maxInstallments || 1),
+                accessDays: Number(metadata.accessDays || 0),
                 trialDays: Number(metadata.trialDays || 0),
                 graceDays: Number(metadata.graceDays || 5),
                 isFree: metadata.isFree === 'true',

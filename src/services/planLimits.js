@@ -204,10 +204,12 @@ export const evaluateAccountBilling = (profile = {}, plan = null, now = new Date
   const trialDays = Number(profile.trialDays ?? plan?.trialDays ?? 0);
   const graceDays = Number(profile.graceDays ?? plan?.graceDays ?? BLOCK_GRACE_DAYS);
   const isFreePlan = Boolean(profile.isFreePlan ?? plan?.isFree ?? false);
+  const billingModel = String(profile.billingModel || plan?.billingModel || '').toLowerCase();
   const subscriptionStatus = String(profile.subscriptionStatus || '').toLowerCase();
   const billingStatus = String(profile.billingStatus || subscriptionStatus || (isFreePlan ? 'free' : 'active')).toLowerCase();
   const trialEndsAt = parseDate(profile.trialEndsAt);
   const nextBillingDate = parseDate(profile.nextBillingDate);
+  const accessExpiresAt = parseDate(profile.accessExpiresAt);
   const delinquentSince = parseDate(profile.delinquentSince || profile.lastInvoiceDueAt);
   const effectiveNow = parseDate(now) || new Date();
 
@@ -219,19 +221,22 @@ export const evaluateAccountBilling = (profile = {}, plan = null, now = new Date
     : 0;
   const blockedByStatus = ['blocked', 'past_due_blocked'].includes(billingStatus);
   const pendingByStatus = ['pending_payment', 'pending', 'failed', 'past_due', 'overdue', 'unpaid'].includes(billingStatus);
-  const blocked = !isFreePlan && !trialActive && (blockedByStatus || (pendingByStatus && overdueDays > graceDays));
+  const oneTimeExpired = billingModel === 'one_time' && accessExpiresAt && accessExpiresAt.getTime() < effectiveNow.getTime();
+  const blocked = !isFreePlan && !trialActive && (oneTimeExpired || blockedByStatus || (pendingByStatus && overdueDays > graceDays));
 
   return {
     isFreePlan,
+    billingModel,
     trialDays,
     graceDays,
     trialEndsAt: trialEndsAt ? trialEndsAt.toISOString() : null,
     nextBillingDate: nextBillingDate ? nextBillingDate.toISOString() : null,
+    accessExpiresAt: accessExpiresAt ? accessExpiresAt.toISOString() : null,
     delinquentSince: overdueBaseDate ? overdueBaseDate.toISOString() : null,
     trialActive,
     overdueDays,
     blocked,
     accessStatus: blocked ? 'blocked' : trialActive ? 'trialing' : isFreePlan ? 'free' : 'active',
-    billingStatusLabel: blocked ? 'Bloqueado' : trialActive ? 'Em teste' : isFreePlan ? 'Plano gratuito' : formatSubscriptionStatus(profile.subscriptionStatus || billingStatus)
+    billingStatusLabel: oneTimeExpired ? 'Plano expirado' : blocked ? 'Bloqueado' : trialActive ? 'Em teste' : isFreePlan ? 'Plano gratuito' : formatSubscriptionStatus(profile.subscriptionStatus || billingStatus)
   };
 };

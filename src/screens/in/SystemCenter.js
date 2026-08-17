@@ -41,6 +41,13 @@ const INITIAL_PLAN_FORM = {
   team: '',
   database: '',
   amount: '',
+  billingModel: 'recurring',
+  interval: 'month',
+  intervalCount: '1',
+  billingType: 'prepaid',
+  maxInstallments: '1',
+  accessDays: '0',
+  paymentMethods: ['credit_card', 'boleto'],
   trialDays: '0',
   graceDays: '5',
   isFree: false,
@@ -218,6 +225,13 @@ export default function SystemCenter() {
       team: plan.team || '',
       database: plan.database || '',
       amount: String(plan.amount || ''),
+      billingModel: plan.billingModel || (plan.isFree ? 'free' : 'recurring'),
+      interval: String(plan.interval || 'month'),
+      intervalCount: String(plan.intervalCount || 1),
+      billingType: plan.billingType || 'prepaid',
+      maxInstallments: String(plan.maxInstallments || 1),
+      accessDays: String(plan.accessDays || 0),
+      paymentMethods: Array.isArray(plan.paymentMethods) && plan.paymentMethods.length ? plan.paymentMethods : ['credit_card', 'boleto'],
       trialDays: String(plan.trialDays || 0),
       graceDays: String(plan.graceDays || 5),
       isFree: Boolean(plan.isFree),
@@ -252,6 +266,19 @@ export default function SystemCenter() {
   const handlePlanCreateMode = () => {
     setSelectedPlanId('');
     setPlanForm(INITIAL_PLAN_FORM);
+  };
+
+  const togglePlanPaymentMethod = (method) => {
+    setPlanForm((prev) => {
+      const existing = Array.isArray(prev.paymentMethods) ? prev.paymentMethods : [];
+      const next = existing.includes(method)
+        ? existing.filter((item) => item !== method)
+        : [...existing, method];
+      return {
+        ...prev,
+        paymentMethods: next.length ? next : [method]
+      };
+    });
   };
 
   const submitPlan = async (event) => {
@@ -925,7 +952,7 @@ export default function SystemCenter() {
                   <input className="campaign-filter-select" value={planForm.title} onChange={(event) => setPlanForm((prev) => ({ ...prev, title: event.target.value }))} required />
                 </label>
                 <label className="campaign-filter-field">
-                  <span>Valor mensal (centavos)</span>
+                  <span>Valor do plano (centavos)</span>
                   <input className="campaign-filter-select" value={planForm.amount} onChange={(event) => setPlanForm((prev) => ({ ...prev, amount: event.target.value }))} required />
                 </label>
                 <label className="campaign-filter-field">
@@ -938,6 +965,63 @@ export default function SystemCenter() {
                     <option value="active">Ativo</option>
                     <option value="inactive">Inativo</option>
                   </select>
+                </label>
+                <label className="campaign-filter-field">
+                  <span>Modelo de cobrança</span>
+                  <select
+                    className="campaign-filter-select"
+                    value={planForm.billingModel}
+                    onChange={(event) => setPlanForm((prev) => ({
+                      ...prev,
+                      billingModel: event.target.value,
+                      isFree: event.target.value === 'free' ? true : prev.isFree
+                    }))}
+                  >
+                    <option value="recurring">Assinatura recorrente</option>
+                    <option value="one_time">Pagamento único</option>
+                    <option value="free">Plano gratuito</option>
+                  </select>
+                </label>
+                <label className="campaign-filter-field">
+                  <span>Recorrência</span>
+                  <select
+                    className="campaign-filter-select"
+                    value={planForm.interval}
+                    onChange={(event) => setPlanForm((prev) => ({ ...prev, interval: event.target.value }))}
+                    disabled={planForm.billingModel !== 'recurring'}
+                  >
+                    <option value="month">Mensal</option>
+                    <option value="year">Anual</option>
+                    <option value="week">Semanal</option>
+                  </select>
+                </label>
+                <label className="campaign-filter-field">
+                  <span>Intervalo</span>
+                  <input
+                    className="campaign-filter-select"
+                    value={planForm.intervalCount}
+                    onChange={(event) => setPlanForm((prev) => ({ ...prev, intervalCount: event.target.value }))}
+                    disabled={planForm.billingModel !== 'recurring'}
+                  />
+                </label>
+                <label className="campaign-filter-field">
+                  <span>Parcelamento máximo</span>
+                  <input
+                    className="campaign-filter-select"
+                    value={planForm.maxInstallments}
+                    onChange={(event) => setPlanForm((prev) => ({ ...prev, maxInstallments: event.target.value }))}
+                    disabled={planForm.billingModel === 'free'}
+                  />
+                </label>
+                <label className="campaign-filter-field">
+                  <span>Validade em dias</span>
+                  <input
+                    className="campaign-filter-select"
+                    value={planForm.accessDays}
+                    onChange={(event) => setPlanForm((prev) => ({ ...prev, accessDays: event.target.value }))}
+                    disabled={planForm.billingModel !== 'one_time'}
+                    placeholder="Ex.: 30"
+                  />
                 </label>
                 <label className="campaign-filter-field">
                   <span>Subtítulo</span>
@@ -963,6 +1047,18 @@ export default function SystemCenter() {
                   <span>Carência após vencimento (dias)</span>
                   <input className="campaign-filter-select" value={planForm.graceDays} onChange={(event) => setPlanForm((prev) => ({ ...prev, graceDays: event.target.value }))} />
                 </label>
+              </div>
+
+              <div className="system-switch-row">
+                <button type="button" className={`users-permission-chip ${(planForm.paymentMethods || []).includes('credit_card') ? 'active' : ''}`} onClick={() => togglePlanPaymentMethod('credit_card')}>
+                  Cartão
+                </button>
+                <button type="button" className={`users-permission-chip ${(planForm.paymentMethods || []).includes('pix') ? 'active' : ''}`} onClick={() => togglePlanPaymentMethod('pix')}>
+                  Pix
+                </button>
+                <button type="button" className={`users-permission-chip ${(planForm.paymentMethods || []).includes('boleto') ? 'active' : ''}`} onClick={() => togglePlanPaymentMethod('boleto')}>
+                  Boleto
+                </button>
               </div>
 
               <div className="system-limit-block">
@@ -1003,7 +1099,18 @@ export default function SystemCenter() {
                 <button type="button" className={`users-permission-chip ${planForm.visible ? 'active' : ''}`} onClick={() => setPlanForm((prev) => ({ ...prev, visible: !prev.visible }))}>
                   Plano visível
                 </button>
-                <button type="button" className={`users-permission-chip ${planForm.isFree ? 'active' : ''}`} onClick={() => setPlanForm((prev) => ({ ...prev, isFree: !prev.isFree }))}>
+                <button
+                  type="button"
+                  className={`users-permission-chip ${planForm.isFree ? 'active' : ''}`}
+                  onClick={() => setPlanForm((prev) => {
+                    const nextFree = !prev.isFree;
+                    return {
+                      ...prev,
+                      isFree: nextFree,
+                      billingModel: nextFree ? 'free' : (prev.billingModel === 'free' ? 'recurring' : prev.billingModel)
+                    };
+                  })}
+                >
                   Plano gratuito
                 </button>
               </div>
@@ -1031,7 +1138,19 @@ export default function SystemCenter() {
                 </div>
                 <div className="system-entity-cell">
                   <span>Modalidade</span>
-                  <strong>{planForm.isFree ? 'Gratuito' : 'Pago'}</strong>
+                  <strong>{planForm.billingModel === 'one_time' ? 'Pagamento único' : planForm.billingModel === 'free' || planForm.isFree ? 'Gratuito' : 'Recorrente'}</strong>
+                </div>
+                <div className="system-entity-cell">
+                  <span>Pagamento</span>
+                  <strong>{(planForm.paymentMethods || []).join(', ') || 'Não definido'}</strong>
+                </div>
+                <div className="system-entity-cell">
+                  <span>Parcelamento</span>
+                  <strong>Até {planForm.maxInstallments || 1}x</strong>
+                </div>
+                <div className="system-entity-cell">
+                  <span>Validade</span>
+                  <strong>{planForm.billingModel === 'one_time' ? `${planForm.accessDays || 0} dia(s)` : 'Contínua'}</strong>
                 </div>
                 <div className="system-entity-cell">
                   <span>Gateway</span>

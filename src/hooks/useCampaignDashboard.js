@@ -5,6 +5,7 @@ import {
   getUserProfileHybrid,
   getVotersByOwnersHybrid
 } from '../services/campaignDataService';
+import { inferUserRole } from '../utils/userRoles';
 
 const DEFAULT_FILTERS = {
   campaign: 'all',
@@ -112,7 +113,7 @@ export function useCampaignDashboard(user) {
         setLoading(true);
 
         const profile = await getUserProfileHybrid(user.uid, user.email);
-        const currentUserType = profile?.tipoUser || profile?.tipo || profile?.role || (user.email ? 'assessor' : null);
+        const currentUserType = inferUserRole(profile, user.email ? 'assessor' : null);
         const adminId = profile?.adminId || user.uid;
 
         const effectiveAdminId = currentUserType === 'admin' ? user.uid : adminId;

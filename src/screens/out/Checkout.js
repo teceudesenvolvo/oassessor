@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -43,6 +43,12 @@ const INCLUDED_CORE_FEATURES = [
   'Perfis de acesso e segurança'
 ];
 
+const PAYMENT_METHOD_LABELS = {
+  credit_card: 'Cartão de crédito',
+  pix: 'Pix',
+  boleto: 'Boleto'
+};
+
 const formatPlanLimit = (value) => {
   if (value === '' || value === null || value === undefined) return 'Conforme o plano';
   const normalized = String(value).trim().toLowerCase();
@@ -80,10 +86,17 @@ export default function Checkout() {
     cardName: '',
     cardExpiry: '',
     cardCvc: '',
-    paymentMethod: 'credit_card'
+    paymentMethod: 'credit_card',
+    installments: '1'
   });
 
   const isFreePlan = Boolean(plan.isFree || (plan.amount !== null && Number(plan.amount) === 0));
+  const isOneTimePlan = plan.billingModel === 'one_time';
+  const paymentMethods = useMemo(
+    () => (Array.isArray(plan.paymentMethods) && plan.paymentMethods.length ? plan.paymentMethods : ['credit_card', 'boleto']),
+    [plan.paymentMethods]
+  );
+  const maxInstallments = Math.max(1, Number(plan.maxInstallments || 1));
 
   useEffect(() => {
     if (location.state?.plan) return;
@@ -100,6 +113,18 @@ export default function Checkout() {
       active = false;
     };
   }, [location.state, planId]);
+
+  useEffect(() => {
+    setFormData((prev) => {
+      const nextMethod = paymentMethods.includes(prev.paymentMethod) ? prev.paymentMethod : paymentMethods[0];
+      const nextInstallments = String(Math.min(maxInstallments, Math.max(1, Number(prev.installments || 1))));
+      return {
+        ...prev,
+        paymentMethod: nextMethod,
+        installments: nextInstallments
+      };
+    });
+  }, [maxInstallments, paymentMethods]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -302,7 +327,9 @@ export default function Checkout() {
       if (!isFreePlan) {
         const subscriptionData = {
           planId: plan.id,
+          billingModel: plan.billingModel || 'recurring',
           payment_method: formData.paymentMethod,
+          installments: formData.paymentMethod === 'credit_card' ? Number(formData.installments || 1) : 1,
           userId: transactionUserId,
           card: cardData,
           customer: {
@@ -437,7 +464,10 @@ export default function Checkout() {
           <div className="checkout-plan-price-row">
             <div>
               <span>Investimento</span>
-              <strong>{plan.price || 'Sob consulta'}{!isFreePlan ? <small>/mês</small> : null}</strong>
+              <strong>
+                {plan.price || 'Sob consulta'}
+                {!isFreePlan ? <small>{isOneTimePlan ? ' cota única' : '/mês'}</small> : null}
+              </strong>
             </div>
             {Number(plan.trialDays) > 0 ? (
               <div><span>Teste gratuito</span><strong>{Number(plan.trialDays)} dias</strong></div>
@@ -478,6 +508,10 @@ export default function Checkout() {
 
             <section className="checkout-plan-section checkout-plan-conditions">
               <div><span>Equipe</span><strong>{plan.team || 'Conforme o plano'}</strong></div>
+              <div><span>Cobrança</span><strong>{isOneTimePlan ? 'Pagamento único' : isFreePlan ? 'Acesso gratuito' : 'Assinatura recorrente'}</strong></div>
+              <div><span>Pagamento aceito</span><strong>{paymentMethods.map((method) => PAYMENT_METHOD_LABELS[method] || method).join(', ')}</strong></div>
+              {!isFreePlan ? <div><span>Parcelamento</span><strong>Até {maxInstallments}x no cartão</strong></div> : null}
+              {isOneTimePlan ? <div><span>Validade do acesso</span><strong>{Number(plan.accessDays || 0) > 0 ? `${Number(plan.accessDays || 0)} dia(s)` : 'Sem prazo definido'}</strong></div> : null}
               <div><span>Carência após vencimento</span><strong>{Number(plan.graceDays || 5)} dias</strong></div>
               <div><span>Cancelamento</span><strong>A qualquer momento</strong></div>
             </section>
@@ -500,7 +534,7 @@ export default function Checkout() {
             {!isFreePlan ? (
               <div className={`public-step-pill ${step >= 3 ? 'active' : ''}`}>
                 <strong>3. Pagamento</strong>
-                <span className="public-step-copy"><CreditCard size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />Cartão ou boleto</span>
+                <span className="public-step-copy"><CreditCard size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />{isOneTimePlan ? 'Pix, boleto ou cartão' : 'Cartão ou boleto'}</span>
               </div>
             ) : null}
           </div>
@@ -562,8 +596,11 @@ export default function Checkout() {
                     onChange={handleChange}
                     className="public-form-select"
                   >
-                    <option value="credit_card">Cartão de crédito</option>
-                    <option value="boleto">Boleto</option>
+                    {paymentMethods.map((method) => (
+                      <option key={method} value={method}>
+                        {PAYMENT_METHOD_LABELS[method] || method}
+                      </option>
+                    ))}
                   </select>
                 </label>
 
@@ -573,10 +610,27 @@ export default function Checkout() {
                     {renderTextField('cardName', 'Nome no cartão', 'NOME IMPRESSO', 'text', true, true)}
                     {renderTextField('cardExpiry', 'Validade', 'MM/AA', 'text', false, true)}
                     {renderTextField('cardCvc', 'CVC', '000', 'text', false, true)}
+                    <label className="public-form-field">
+                      <span className="public-form-label">Parcelamento</span>
+                      <select
+                        name="installments"
+                        value={formData.installments}
+                        onChange={handleChange}
+                        className="public-form-select"
+                      >
+                        {Array.from({ length: maxInstallments }, (_, index) => index + 1).map((count) => (
+                          <option key={count} value={String(count)}>
+                            {count}x {count === 1 ? 'sem juros' : 'no cartão'}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </>
                 ) : (
                   <div className="public-success">
-                    O boleto será gerado e enviado para o e-mail informado após a confirmação da contratação.
+                    {formData.paymentMethod === 'pix'
+                      ? 'O QR Code Pix será preparado após a confirmação da contratação.'
+                      : 'O boleto será gerado e enviado para o e-mail informado após a confirmação da contratação.'}
                   </div>
                 )}
 

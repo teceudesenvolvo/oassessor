@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { ref, get, update, query, orderByChild, equalTo } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
+import { inferUserRole } from '../../utils/userRoles';
 
 import ProfilePersonal from '../../components/Profile/ProfilePersonal';
 import ProfilePayment from '../../components/Profile/ProfilePayment';
@@ -54,7 +55,7 @@ export default function Profile() {
         
         if (snapshot.exists()) {
           userData = snapshot.val();
-          type = userData.tipoUser;
+          type = inferUserRole(userData, null);
         }
 
         // Se não achou dados completos em 'users' (ex: nome vazio), tenta buscar em 'assessores' para complementar
@@ -70,7 +71,7 @@ export default function Profile() {
                 
                 // Mescla os dados encontrados em assessores com o que já temos
                 userData = { ...assessorData, ...userData };
-                if (!type) type = assessorData.tipoUser || 'assessor';
+                if (!type) type = inferUserRole(assessorData, 'assessor');
             }
         }
 

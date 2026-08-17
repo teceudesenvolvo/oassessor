@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import './App.css';
 import BrandLoader from './components/BrandLoader';
 
@@ -71,20 +71,21 @@ const AccountabilityReports = lazy(() => import('./screens/in/accountability/Rep
 const AccountabilityReview = lazy(() => import('./screens/in/accountability/ReviewTab'));
 const AccountabilityClosing = lazy(() => import('./screens/in/accountability/ClosingTab'));
 
-function App() {
+function AppContent() {
+  const location = useLocation();
   const loadingFallback = (
     <BrandLoader
       title="Preparando a plataforma"
       subtitle="Carregando módulos, interface e inteligência para a próxima ação."
     />
   );
+  const hideGlobalFooter = location.pathname.startsWith('/dashboard');
 
   return (
-    <Router>
-      <div className="main-container">
-        <Suspense fallback={loadingFallback}>
-          <AuthTokenHandler />
-          <Routes>
+    <div className="main-container">
+      <Suspense fallback={loadingFallback}>
+        <AuthTokenHandler />
+        <Routes>
             <Route exact path="/" element={<Home />} />
             <Route path="/plan/:id" element={<PlanLanding />} />
             <Route path="/plans" element={<Plans />} />
@@ -155,10 +156,17 @@ function App() {
                 </Route>
               </Route>
             </Route>
-          </Routes>
-          <Footer />
-        </Suspense>
-      </div>
+        </Routes>
+        {!hideGlobalFooter ? <Footer /> : null}
+      </Suspense>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }

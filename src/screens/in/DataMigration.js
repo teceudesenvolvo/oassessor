@@ -5,6 +5,7 @@ import InsightPanel from '../../components/dashboard/InsightPanel';
 import MetricCard from '../../components/dashboard/MetricCard';
 import { auth, database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
+import { isAdminProfile } from '../../utils/userRoles';
 
 const MIGRATION_URL = 'https://us-central1-oassessor-blu.cloudfunctions.net/migrateRtdbToFirestore';
 
@@ -33,7 +34,7 @@ export default function DataMigration() {
       if (!user) return;
       try {
         const directSnapshot = await get(ref(database, `users/${user.uid}`));
-        if (directSnapshot.exists() && directSnapshot.val().tipoUser === 'admin') {
+        if (directSnapshot.exists() && isAdminProfile(directSnapshot.val())) {
           setIsAdmin(true);
           return;
         }
@@ -42,7 +43,7 @@ export default function DataMigration() {
         if (indexedSnapshot.exists()) {
           const data = indexedSnapshot.val();
           const firstKey = Object.keys(data)[0];
-          setIsAdmin(data[firstKey]?.tipoUser === 'admin');
+          setIsAdmin(isAdminProfile(data[firstKey] || {}));
           return;
         }
 

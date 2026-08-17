@@ -5,6 +5,7 @@ import { database } from '../../firebaseConfig';
 import { useAuth } from '../../useAuth';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { isAdminProfile } from '../../utils/userRoles';
 
 // Fix for Leaflet default icons in React
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -38,7 +39,7 @@ export default function PollingStationMap() {
         let isUserAdmin = false;
         if (userSnapshot.exists()) {
           const userData = Object.values(userSnapshot.val())[0];
-          if (userData.tipoUser === 'admin') {
+          if (isAdminProfile(userData)) {
             isUserAdmin = true;
           }
         }

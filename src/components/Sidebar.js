@@ -35,6 +35,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import Logo from '../assets/sidebar-app-icon.png';
+import { inferUserRole } from '../utils/userRoles';
 
 export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, isCollapsed = false, onToggleCollapse }) {
   const navigate = useNavigate();
@@ -110,7 +111,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, i
           if (snapshot.exists()) {
             const data = snapshot.val();
             const firstKey = Object.keys(data)[0];
-            setUserType(data[firstKey].tipoUser);
+            setUserType(inferUserRole(data[firstKey], 'assessor'));
           } else {
             // Fallback: Se não achar em 'users', busca em 'assessores' pelo userId
             const assessoresRef = ref(database, 'assessores');
@@ -120,7 +121,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, i
             if (snapshotAssessor.exists()) {
               const data = snapshotAssessor.val();
               const firstKey = Object.keys(data)[0];
-              setUserType(data[firstKey].tipoUser || 'assessor');
+              setUserType(inferUserRole(data[firstKey], 'assessor'));
             }
           }
         } catch (error) {
@@ -193,6 +194,16 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, i
       </nav>
 
       <div className="sidebar-footer">
+        <a
+          className="sidebar-powered-by"
+          href="https://blutecnologias.com.br"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Desenvolvido por Blu Tecnologias"
+        >
+          <span>Desenvolvido por</span>
+          <strong>Blu Tecnologias</strong>
+        </a>
         <button className="nav-item logout-btn" onClick={handleLogout}>
           <LogOut size={20} />
           <span>Sair</span>
