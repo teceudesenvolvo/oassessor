@@ -145,11 +145,7 @@ export default function PublicPoliticianProfile() {
           <Link className="public-action-link primary" to={`/${slug}/agendar`}><CalendarClock size={20} /><span><strong>Agende um atendimento</strong><small>Escolha o serviço e o melhor horário.</small></span><ArrowRight size={18} /></Link>
         </section>
       </div> : null}
-      {blocks.length > 0 && (profile.city || profile.state || profile.instagram) ? <footer className="public-page-footer">
-        {[profile.city, profile.state].filter(Boolean).length ? <span><MapPin size={15} /> {[profile.city, profile.state].filter(Boolean).join(' / ')}</span> : null}
-        {profile.instagram ? <a href={`https://instagram.com/${profile.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer"><Instagram size={15} /> {profile.instagram.startsWith('@') ? profile.instagram : `@${profile.instagram}`}</a> : null}
-      </footer> : null}
-      <footer className="politician-landing-footer">© {new Date().getFullYear()} {profile.name} · Atendimento à comunidade</footer></div>
+      <footer className="politician-landing-footer">Copyright © 2025 Blu Tecnologias. Todos os direitos reservados.</footer></div>
     </main>
   );
 }

@@ -99,6 +99,7 @@ export default function PublicPageShell({
           {children}
         </section>
       </main>
+      {hideNav ? <footer className="public-shell-copyright">Copyright © 2025 Blu Tecnologias. Todos os direitos reservados.</footer> : null}
     </div>
   );
 }

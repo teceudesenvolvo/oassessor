@@ -15,6 +15,7 @@
 
 .public-shell.no-side-nav .public-shell-content {
   width: min(1280px, calc(100% - 48px));
+  padding-bottom: 28px;
 }
 
 .public-shell.profile-themed {
@@ -203,6 +204,24 @@
   width: min(1180px, calc(100% - 140px));
   margin: 0 auto;
   padding: 28px 0 90px;
+}
+
+.public-shell-copyright {
+  position: relative;
+  z-index: 1;
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 18px 0 max(18px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--public-border);
+  color: var(--public-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.public-shell.profile-themed .public-shell-copyright {
+  border-color: var(--public-border);
+  color: var(--page-muted-text, #b9c5d3);
 }
 
 .public-hero-card,

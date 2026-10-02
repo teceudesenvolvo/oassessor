@@ -84,7 +84,18 @@ function AppContent() {
       subtitle="Carregando módulos, interface e inteligência para a próxima ação."
     />
   );
-  const hideGlobalFooter = location.pathname.startsWith('/dashboard');
+  const profilePathReservedSegments = new Set([
+    'about', 'plans', 'contact', 'login', 'checkout', 'plan', 'download-app',
+    'convert-csv', 'eleitor-form', 'p', 'dashboard', 'cadastro-assessor-equipe'
+  ]);
+  const pathSegments = location.pathname.split('/').filter(Boolean);
+  const isLegacyPublicProfileRoute = pathSegments[0] === 'p' && pathSegments.length >= 2 && pathSegments.length <= 3;
+  const isPublicProfileRoute = isLegacyPublicProfileRoute || (
+    pathSegments.length >= 1 && pathSegments.length <= 2 &&
+    !profilePathReservedSegments.has(pathSegments[0]) &&
+    (pathSegments.length === 1 || ['demanda', 'agendar'].includes(pathSegments[1]))
+  ) || (location.pathname === '/eleitor-form' && new URLSearchParams(location.search).has('profileSlug'));
+  const hideGlobalFooter = location.pathname.startsWith('/dashboard') || isPublicProfileRoute;
 
   return (
     <div className="main-container">

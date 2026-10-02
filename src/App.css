@@ -1120,11 +1120,11 @@
 .public-preview-block:hover { transform:translateY(-1px); outline:2px solid color-mix(in srgb, var(--page-button, #50d59a) 55%, transparent); outline-offset:2px; }
 .public-preview-block.is-selected { outline:2px solid var(--page-button, #50d59a); outline-offset:2px; }
 .public-builder-field { display: grid; gap: 6px; color: #475569; font-size: 13px; font-weight: 600; }
-.public-builder-field input, .public-builder-field textarea, .public-builder-form-field > input, .public-builder-form-field > select { width: 100%; min-width: 0; padding: 10px 11px; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; color: #0f172a; font: inherit; }
+.public-builder-field input, .public-builder-field textarea, .public-builder-form-field > input, .public-builder-form-field > select { box-sizing: border-box; width: 100%; min-width: 0; padding: 10px 11px; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; color: #0f172a; font: inherit; }
 .public-builder-field textarea { resize: vertical; }
 .public-builder-form-fields { display: grid; gap: 9px; }
 .public-builder-form-fields > strong { color: #334155; font-size: 13px; }
-.public-builder-form-field { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(115px, .7fr) auto 30px; gap: 8px; align-items: center; }
+.public-builder-form-field { display: grid; box-sizing: border-box; width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr) minmax(0, .85fr) auto 30px; gap: 8px; align-items: center; }
 .public-builder-form-field > label { display: flex; align-items: center; gap: 5px; white-space: nowrap; color: #475569; font-size: 12px; }
 .public-builder-form-field > label input { margin: 0; }
 .public-builder-add-field { justify-self: start; }
@@ -7989,4 +7989,166 @@
 
 @media (max-width: 380px) {
   .politician-landing-header > div { max-width: calc(100vw - 150px); flex-direction: column; align-items: flex-end; gap: 4px; }
+}
+.public-individual-buttons {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-color, #dbe3ef);
+}
+
+.public-individual-buttons > strong {
+  color: var(--text-dark, #1e293b);
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.public-individual-button-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(74px, auto) minmax(74px, auto);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color, #dbe3ef);
+  border-radius: 12px;
+  background: var(--surface-subtle, rgba(148, 163, 184, 0.06));
+}
+
+.public-individual-button-row > span {
+  min-width: 0;
+  color: var(--text-dark, #1e293b);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.public-individual-button-row > label {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--text-soft, #64748b);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.public-individual-button-row input[type='color'] {
+  display: block;
+  width: 44px;
+  height: 36px;
+  padding: 3px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 9px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.public-reset-page-colors {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 16px;
+  padding: 10px 18px;
+}
+
+@media (max-width: 560px) {
+  .public-individual-button-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .public-individual-button-row > span {
+    font-size: 13px;
+  }
+
+  .public-individual-button-row > label {
+    font-size: 11px;
+  }
+
+  .public-individual-button-row input[type='color'] {
+    width: 38px;
+    height: 32px;
+  }
+
+  .public-reset-page-colors {
+    width: 100%;
+  }
+}
+
+/* Keep custom form fields and color controls contained in the editor column. */
+.public-builder-form-field > input,
+.public-builder-form-field > select,
+.public-builder-field input,
+.public-builder-field textarea {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.public-builder-field input[type='color'] {
+  width: 56px;
+  height: 40px;
+  padding: 3px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.public-builder-block-fields > button.btn-secondary {
+  justify-self: start;
+  width: auto;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 9px 16px;
+  border: 1px solid #d6dfeb;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.public-builder-form-field > label {
+  min-width: 0;
+  white-space: normal;
+}
+
+.public-builder-form-field > label input[type='checkbox'] {
+  flex: none;
+}
+
+@media (max-width: 700px) {
+  .public-builder-form-field {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 30px;
+  }
+}
+
+@media (max-width: 420px) {
+  .public-builder-form-field {
+    grid-template-columns: minmax(0, 1fr) 30px;
+  }
+
+  .public-builder-form-field > select {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .public-builder-form-field > label {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .public-builder-form-field > button {
+    grid-column: 2;
+    grid-row: 1 / 4;
+  }
+}
+
+:root[data-theme='dark'] .public-builder-block-fields > button.btn-secondary {
+  border-color: var(--border-color, #29364b);
+  background: #172338;
+  color: #e2e8f0;
 }
