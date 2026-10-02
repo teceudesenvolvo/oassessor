@@ -7843,14 +7843,21 @@
     box-sizing: border-box;
     justify-content: center;
     min-width: 0;
-    min-height: 48px;
+    min-height: 54px;
     gap: 6px;
-    padding: 10px 8px;
+    padding: 9px 8px;
     border-radius: 15px;
     font-size: clamp(10px, 3vw, 12px);
-    line-height: 1.2;
+    line-height: 1.15;
     text-align: center;
-    white-space: nowrap;
+    white-space: normal;
+  }
+
+  .politician-landing-ctas a > span {
+    display: block;
+    min-width: 0;
+    flex: 0 1 auto;
+    text-wrap: pretty;
   }
 
   .politician-landing-ctas svg { width: 15px; height: 15px; flex: none; }
@@ -7871,8 +7878,9 @@
 @media (max-width: 360px) {
   .politician-landing { padding-right: 11px; padding-left: 11px; }
   .politician-landing-hero { padding-right: 14px; padding-left: 14px; }
+  .politician-landing-ctas { grid-template-columns: minmax(0, 1fr); }
   .politician-landing-ctas a,
-  .politician-landing-ctas a + a { gap: 4px; padding-right: 5px; padding-left: 5px; font-size: 10px; }
+  .politician-landing-ctas a + a { gap: 7px; padding-right: 10px; padding-left: 10px; font-size: 12px; }
 }
 
 /* Keep public form routes aligned to the same viewport as the profile page. */
