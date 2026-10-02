@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, CalendarClock, CheckCircle, Instagram, MapPin, Send, UserRound, Users, X } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
-import { get, push, ref, set } from '../../services/firestoreDatabase';
+import { equalTo, get, orderByChild, push, query, ref, set } from '../../services/firestoreDatabase';
 import { database } from '../../firebaseConfig';
 import PublicPageShell from '../../components/PublicPageShell';
 
@@ -54,19 +54,36 @@ export default function PublicPoliticianProfile() {
   const { slug } = useParams();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    get(ref(database, `publicProfiles/${slug}`)).then((snapshot) => {
-      if (active) setProfile(snapshot.exists() && snapshot.val().enabled !== false ? snapshot.val() : null);
-    }).catch((error) => console.error('Erro ao carregar perfil público:', error))
-      .finally(() => { if (active) setLoading(false); });
+    setProfile(null);
+    setLoadError(false);
+    (async () => {
+      try {
+        let snapshot = await get(ref(database, `publicProfiles/${slug}`));
+        let publicProfile = snapshot.exists() ? snapshot.val() : null;
+        // Compatibilidade com perfis antigos gravados com outro ID de documento.
+        if (!publicProfile) {
+          const legacySnapshot = await get(query(ref(database, 'publicProfiles'), orderByChild('slug'), equalTo(slug)));
+          const matches = Object.values(legacySnapshot.val() || {});
+          publicProfile = matches[0] || null;
+        }
+        if (active) setProfile(publicProfile && publicProfile.enabled !== false ? publicProfile : null);
+      } catch (error) {
+        console.error('Erro ao carregar perfil público:', error);
+        if (active) setLoadError(true);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
     return () => { active = false; };
   }, [slug]);
 
-  if (loading) return <PublicPageShell kicker="Perfil público" title="Carregando perfil" subtitle=""><div className="public-empty">Aguarde um instante...</div></PublicPageShell>;
-  if (!profile) return <PublicPageShell kicker="Perfil público" title="Perfil não encontrado" subtitle="Este endereço pode estar incorreto ou o perfil não está publicado."><div className="public-empty">Confira o link ou entre em contato com o gabinete.</div></PublicPageShell>;
+  if (loading) return <PublicPageShell hideNav kicker="Perfil público" title="Carregando perfil" subtitle=""><div className="public-empty">Aguarde um instante...</div></PublicPageShell>;
+  if (!profile) return <PublicPageShell hideNav kicker="Perfil público" title={loadError ? 'Não foi possível carregar a página' : 'Perfil não encontrado'} subtitle={loadError ? 'Tente novamente em instantes.' : 'Este endereço pode estar incorreto ou o perfil não está publicado.'}><div className="public-empty">{loadError ? 'Ocorreu uma falha de conexão com a página pública.' : 'Confira o link ou entre em contato com o gabinete.'}</div></PublicPageShell>;
 
   const voterUrl = `/eleitor-form?userId=${encodeURIComponent(profile.userId)}&profileSlug=${encodeURIComponent(slug)}`;
   const locationLabel = [profile.city, profile.state].filter(Boolean).join(' / ');
@@ -87,15 +104,15 @@ export default function PublicPoliticianProfile() {
   };
   return (
     <main className={`politician-landing theme-${profile.pageTheme === 'light' ? 'light' : 'dark'}`} style={pageStyle}>
-      <header className="politician-landing-header"><Link to={`/p/${slug}`} className="politician-landing-brand">{safeExternalUrl(profile.logoUrl) ? <img className="politician-landing-logo" src={safeExternalUrl(profile.logoUrl)} alt={`Logomarca de ${profile.name}`} /> : <><span>oa</span><strong>{profile.name || 'oAssessor'}</strong></>}</Link><div>{locationLabel ? <span><MapPin size={15} /> {locationLabel}</span> : null}{profile.instagram ? <a href={`https://instagram.com/${profile.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer"><Instagram size={15} /> {profile.instagram.startsWith('@') ? profile.instagram : `@${profile.instagram}`}</a> : null}</div></header>
-      <section className="politician-landing-hero"><div className="politician-landing-copy"><span className="politician-landing-kicker">{profile.headline || 'Vereador(a)'}{locationLabel ? ` · ${locationLabel}` : ''}</span><h1>{profile.name}</h1><p>{profile.bio || 'Acompanhe o trabalho e fale com o gabinete.'}</p><div className="politician-landing-ctas"><Link to={voterUrl}><Users size={18} /> Faça parte da comunidade</Link><Link className="demand-cta" to={`/p/${slug}/demanda`}><Send size={17} /> Envie uma demanda</Link></div></div>{safeExternalUrl(profile.photoUrl) ? <img className="politician-landing-photo" src={safeExternalUrl(profile.photoUrl)} alt={`Foto de ${profile.name}`} /> : <div className="politician-landing-photo politician-landing-monogram">{(profile.name || 'V').slice(0,1)}</div>}<div className="politician-landing-glow" /></section>
+      <header className="politician-landing-header"><Link to={`/${slug}`} className="politician-landing-brand">{safeExternalUrl(profile.logoUrl) ? <img className="politician-landing-logo" src={safeExternalUrl(profile.logoUrl)} alt={`Logomarca de ${profile.name}`} /> : <><span>oa</span><strong>{profile.name || 'oAssessor'}</strong></>}</Link><div>{locationLabel ? <span><MapPin size={15} /> {locationLabel}</span> : null}{profile.instagram ? <a href={`https://instagram.com/${profile.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer"><Instagram size={15} /> {profile.instagram.startsWith('@') ? profile.instagram : `@${profile.instagram}`}</a> : null}</div></header>
+      <section className="politician-landing-hero"><div className="politician-landing-copy"><span className="politician-landing-kicker">{profile.headline || 'Vereador(a)'}{locationLabel ? ` · ${locationLabel}` : ''}</span><h1>{profile.name}</h1><p>{profile.bio || 'Acompanhe o trabalho e fale com o gabinete.'}</p><div className="politician-landing-ctas"><Link to={voterUrl}><Users size={18} /> Faça parte da comunidade</Link><Link className="demand-cta" to={`/${slug}/demanda`}><Send size={17} /> Envie uma demanda</Link></div></div>{safeExternalUrl(profile.photoUrl) ? <img className="politician-landing-photo" src={safeExternalUrl(profile.photoUrl)} alt={`Foto de ${profile.name}`} /> : <div className="politician-landing-photo politician-landing-monogram">{(profile.name || 'V').slice(0,1)}</div>}<div className="politician-landing-glow" /></section>
       <div className="politician-landing-body"><h2>Como podemos ajudar?</h2>
       {blocks.length ? <>
       {actionBlocks.length ? <div className="public-page-form-actions">{actionBlocks.map((block, index) => {
         const shortcutStyle = { '--shortcut-button': block.buttonColor || undefined, '--shortcut-button-text': block.buttonTextColor || undefined };
         if (block.type === 'voterForm') return <Link className="public-action-link primary" style={shortcutStyle} key={block.id || index} to={voterUrl}><Users size={20} /><span><strong>{block.title || 'Cadastre-se como eleitor'}</strong><small>{block.description || 'Participe da comunidade.'}</small></span><ArrowRight size={18} /></Link>;
-        if (block.type === 'demandForm') return <Link className="public-action-link" style={shortcutStyle} key={block.id || index} to={`/p/${slug}/demanda`}><ArrowRight size={20} /><span><strong>{block.title || 'Envie uma demanda'}</strong><small>{block.description || 'Conte como o gabinete pode ajudar.'}</small></span><ArrowRight size={18} /></Link>;
-        if (block.type === 'appointment') return <Link className="public-action-link primary" style={shortcutStyle} key={block.id || index} to={`/p/${slug}/agendar`}><CalendarClock size={20} /><span><strong>{block.title || 'Agende um atendimento'}</strong><small>{block.description || 'Escolha um serviço e horário.'}</small></span><ArrowRight size={18} /></Link>;
+        if (block.type === 'demandForm') return <Link className="public-action-link" style={shortcutStyle} key={block.id || index} to={`/${slug}/demanda`}><ArrowRight size={20} /><span><strong>{block.title || 'Envie uma demanda'}</strong><small>{block.description || 'Conte como o gabinete pode ajudar.'}</small></span><ArrowRight size={18} /></Link>;
+        if (block.type === 'appointment') return <Link className="public-action-link primary" style={shortcutStyle} key={block.id || index} to={`/${slug}/agendar`}><CalendarClock size={20} /><span><strong>{block.title || 'Agende um atendimento'}</strong><small>{block.description || 'Escolha um serviço e horário.'}</small></span><ArrowRight size={18} /></Link>;
         return <PublicCustomForm key={block.id || index} block={block} profile={profile} slug={slug} />;
       })}</div> : null}
       {contentBlocks.length ? <div className="public-page-content-blocks">{contentBlocks.map((block, index) => {
@@ -124,8 +141,8 @@ export default function PublicPoliticianProfile() {
           <h2>Como podemos ajudar?</h2>
           <p>Escolha uma opção para falar com o gabinete.</p>
           <Link className="public-action-link primary" to={voterUrl}><Users size={20} /><span><strong>Cadastre-se como eleitor</strong><small>Receba informações e participe da comunidade.</small></span><ArrowRight size={18} /></Link>
-          <Link className="public-action-link" to={`/p/${slug}/demanda`}><ArrowRight size={20} /><span><strong>Envie uma demanda</strong><small>Conte o que precisa e acompanhe o atendimento.</small></span><ArrowRight size={18} /></Link>
-          <Link className="public-action-link primary" to={`/p/${slug}/agendar`}><CalendarClock size={20} /><span><strong>Agende um atendimento</strong><small>Escolha o serviço e o melhor horário.</small></span><ArrowRight size={18} /></Link>
+          <Link className="public-action-link" to={`/${slug}/demanda`}><ArrowRight size={20} /><span><strong>Envie uma demanda</strong><small>Conte o que precisa e acompanhe o atendimento.</small></span><ArrowRight size={18} /></Link>
+          <Link className="public-action-link primary" to={`/${slug}/agendar`}><CalendarClock size={20} /><span><strong>Agende um atendimento</strong><small>Escolha o serviço e o melhor horário.</small></span><ArrowRight size={18} /></Link>
         </section>
       </div> : null}
       {blocks.length > 0 && (profile.city || profile.state || profile.instagram) ? <footer className="public-page-footer">

@@ -101,6 +101,9 @@ function AppContent() {
             <Route path="/p/:slug" element={<PublicPoliticianProfile />} />
             <Route path="/p/:slug/demanda" element={<PublicDemandForm />} />
             <Route path="/p/:slug/agendar" element={<PublicAppointmentBooking />} />
+            <Route path="/:slug" element={<PublicPoliticianProfile />} />
+            <Route path="/:slug/demanda" element={<PublicDemandForm />} />
+            <Route path="/:slug/agendar" element={<PublicAppointmentBooking />} />
             <Route path="/download-app" element={<DownloadApp />} />
 
             {/* Extrator CSV */}
