@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle,
-  ShieldCheck,
   UserRound
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -531,30 +530,6 @@ export default function EleitorForm() {
           </form>
         </article>
 
-        <aside className="public-info-card eleitor-form-side-card">
-          <div className="eleitor-form-section-head">
-            <span className="public-kicker">
-              <ShieldCheck size={16} />
-              Orientação
-            </span>
-            <p>O painel lateral foi reorganizado para guiar o cadastro sem poluir a leitura nem estourar o layout.</p>
-          </div>
-
-          <div className="campaign-notes-list eleitor-form-note-list">
-            <div className="campaign-note-item eleitor-form-tip-card">
-              <strong>Priorize telefone e zona</strong>
-              <p>Esses campos aceleram a ativação de campo, o funil e a organização territorial.</p>
-            </div>
-            <div className="campaign-note-item eleitor-form-tip-card">
-              <strong>Use endereço completo</strong>
-              <p>CEP, bairro e cidade fortalecem mapas, visitas e filtros estratégicos.</p>
-            </div>
-            <div className="campaign-note-item eleitor-form-tip-card">
-              <strong>Evite duplicidade</strong>
-              <p>Se já existir cadastro prévio, prefira complementar as informações com o responsável pela base.</p>
-            </div>
-          </div>
-        </aside>
       </div>
     </PublicPageShell>
   );

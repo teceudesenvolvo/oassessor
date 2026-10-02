@@ -5323,7 +5323,7 @@
 
 .eleitor-form-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 22px;
   align-items: start;
 }
@@ -6891,7 +6891,7 @@
 @media(max-width:760px){.public-profile-editor-sidebar{height:min(78vh,820px);min-height:560px}.public-profile-editor-content{padding:18px}.public-profile-editor-sidebar > .funnel-modal-actions{padding:10px 14px 14px}.public-profile-editor-sidebar .public-profile-action-row{align-items:stretch;flex-direction:column}.public-profile-editor-sidebar .public-profile-action-row>.btn-primary{width:100%}}
 .public-content-form .public-custom-form-trigger { width: 100%; margin-top: 14px; text-align: left; font: inherit; cursor: pointer; }
 .public-form-modal-backdrop { position: fixed; inset: 0; z-index: 50000; display: grid; place-items: center; overflow-y: auto; padding: 20px; background: rgba(2, 8, 23, .74); backdrop-filter: blur(9px); }
-.public-form-modal { width: min(560px, 100%); max-height: min(88vh, 820px); overflow-y: auto; padding: 25px; border: 1px solid #dce4ed; border-radius: 22px; color: #172033; background: #fff; box-shadow: 0 30px 90px rgba(0,0,0,.4); }
+.public-form-modal { box-sizing: border-box; width: min(560px, 100%); max-height: min(88vh, 820px); overflow-y: auto; padding: 25px; border: 1px solid #dce4ed; border-radius: 22px; color: #172033; background: #fff; box-shadow: 0 30px 90px rgba(0,0,0,.4); }
 .public-form-modal > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .public-form-modal > header span { color: #0b9667; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
 .public-form-modal > header h2 { margin: 6px 0; color: #172033; font-size: 23px; }
@@ -7709,6 +7709,52 @@
   color: var(--shortcut-button-text, var(--page-button-text, #09203a));
 }
 
+/* Custom form dialog follows the public profile's selected palette. */
+.politician-landing .public-form-modal {
+  border-color: color-mix(in srgb, var(--page-text, #f7fafc) 16%, transparent);
+  color: var(--page-text, #f7fafc);
+  background: var(--page-card, #16243a);
+}
+
+.politician-landing .public-form-modal > header span {
+  color: var(--page-button, #50d59a);
+}
+
+.politician-landing .public-form-modal > header h2 {
+  color: var(--page-text, #f7fafc);
+}
+
+.politician-landing .public-form-modal > header p,
+.politician-landing .public-form-modal .public-custom-field {
+  color: var(--page-muted-text, #b9c5d3);
+}
+
+.politician-landing .public-form-modal .public-custom-field input,
+.politician-landing .public-form-modal .public-custom-field textarea {
+  border-color: color-mix(in srgb, var(--page-text, #f7fafc) 17%, transparent);
+  background: color-mix(in srgb, var(--page-background, #071326) 62%, var(--page-card, #16243a));
+  color: var(--page-text, #f7fafc);
+}
+
+.politician-landing .public-form-modal .public-custom-field input::placeholder,
+.politician-landing .public-form-modal .public-custom-field textarea::placeholder {
+  color: color-mix(in srgb, var(--page-muted-text, #b9c5d3) 72%, transparent);
+}
+
+.politician-landing .public-form-modal > header button {
+  border-color: color-mix(in srgb, var(--page-text, #f7fafc) 17%, transparent);
+  color: var(--page-text, #f7fafc);
+  background: color-mix(in srgb, var(--page-background, #071326) 62%, var(--page-card, #16243a));
+}
+
+.politician-landing .public-form-modal .public-custom-form-success {
+  color: var(--page-button, #50d59a);
+}
+
+.politician-landing.theme-light .public-form-modal-backdrop {
+  background: rgba(15, 23, 42, .52);
+}
+
 @media (max-width: 760px) {
   .politician-landing-body .public-content-text.layout-left,
   .politician-landing-body .public-content-text.layout-right {
@@ -7726,4 +7772,213 @@
 
   .public-builder-preview .public-content-text.layout-left .public-content-text-image,
   .public-builder-preview .public-content-text.layout-right .public-content-text-image { width: 100%; flex-basis: auto; }
+}
+
+/* Mobile public profile: make the hero read like a compact app home screen. */
+@media (max-width: 600px) {
+  .politician-landing {
+    min-height: 100dvh;
+    padding: max(12px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom));
+  }
+
+  .politician-landing-header {
+    position: sticky;
+    z-index: 5;
+    top: 0;
+    align-items: center;
+    min-height: 54px;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 5px 2px;
+    background: color-mix(in srgb, var(--page-background, #071326) 88%, transparent);
+    backdrop-filter: blur(16px);
+  }
+
+  .politician-landing-header > div {
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px 10px;
+    min-width: 0;
+    font-size: 10px;
+  }
+
+  .politician-landing-brand { flex: none; }
+  .politician-landing-header > div > * { white-space: nowrap; }
+  .politician-landing-logo { width: 118px; height: 40px; max-width: 38vw; }
+
+  .politician-landing-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    min-height: 0;
+    padding: 20px 17px 18px;
+    border-radius: 26px;
+  }
+
+  .politician-landing-photo,
+  .politician-landing-hero > .politician-landing-monogram {
+    order: -1;
+    align-self: center;
+    width: 142px;
+    height: 168px;
+    border-radius: 25px;
+  }
+
+  .politician-landing-monogram { font-size: 54px; }
+  .politician-landing-copy { width: 100%; max-width: none; }
+  .politician-landing-kicker { padding: 7px 11px; font-size: 11px; }
+  .politician-landing-copy h1 { margin: 14px 0 8px; font-size: clamp(34px, 10vw, 48px); line-height: 1.02; }
+  .politician-landing-copy > p { margin: 0; font-size: 14px; line-height: 1.55; }
+
+  .politician-landing-ctas {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .politician-landing-ctas a,
+  .politician-landing-ctas a + a {
+    box-sizing: border-box;
+    justify-content: center;
+    min-width: 0;
+    min-height: 48px;
+    gap: 6px;
+    padding: 10px 8px;
+    border-radius: 15px;
+    font-size: clamp(10px, 3vw, 12px);
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .politician-landing-ctas svg { width: 15px; height: 15px; flex: none; }
+  .politician-landing-body { margin-top: 26px; }
+  .politician-landing-body > h2 { margin-bottom: 13px; font-size: 20px; }
+  .politician-landing-body .public-page-form-actions { gap: 9px; }
+  .politician-landing-body .public-page-form-actions > * { min-height: 66px; padding: 14px; border-radius: 18px; }
+  .politician-landing-body .public-page-form-actions .public-custom-form-trigger { gap: 11px; }
+  .politician-landing-body .public-page-form-actions .public-custom-form-trigger strong,
+  .politician-landing-body .public-page-form-actions .public-action-link strong { font-size: 13px; }
+  .politician-landing-body .public-page-form-actions .public-custom-form-trigger small,
+  .politician-landing-body .public-page-form-actions .public-action-link small { font-size: 11px; }
+  .politician-landing-body .public-page-content-blocks { gap: 10px; }
+  .politician-landing-body .public-content-block { padding: 17px; border-radius: 18px; }
+  .politician-landing-footer { margin-top: 24px; padding: 16px 0 max(16px, env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 360px) {
+  .politician-landing { padding-right: 11px; padding-left: 11px; }
+  .politician-landing-hero { padding-right: 14px; padding-left: 14px; }
+  .politician-landing-ctas a,
+  .politician-landing-ctas a + a { gap: 4px; padding-right: 5px; padding-left: 5px; font-size: 10px; }
+}
+
+/* Keep public form routes aligned to the same viewport as the profile page. */
+@media (max-width: 700px) {
+  .public-shell.profile-themed,
+  .public-shell.profile-themed * {
+    box-sizing: border-box;
+  }
+
+  .public-shell.profile-themed {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .public-shell.profile-themed .public-shell-content,
+  .public-shell.profile-themed .public-hero-card,
+  .public-shell.profile-themed .public-content-card,
+  .public-shell.profile-themed .public-form-grid,
+  .public-shell.profile-themed .public-form-field,
+  .public-shell.profile-themed .eleitor-form-layout,
+  .public-shell.profile-themed .eleitor-form-panel,
+  .public-shell.profile-themed .eleitor-form-grid,
+  .public-shell.profile-themed .eleitor-form-side-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .public-shell.profile-themed .public-shell-content {
+    margin-inline: auto;
+    padding-inline: 12px;
+  }
+
+  .public-shell.profile-themed .public-hero-card,
+  .public-shell.profile-themed .public-content-card {
+    padding: 16px;
+  }
+
+  .public-shell.profile-themed .public-form-grid,
+  .public-shell.profile-themed .eleitor-form-grid,
+  .public-shell.profile-themed .eleitor-form-layout,
+  .public-shell.profile-themed .public-appointment-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .public-shell.profile-themed .public-form-input,
+  .public-shell.profile-themed .public-form-textarea,
+  .public-shell.profile-themed .public-form-select,
+  .public-shell.profile-themed .eleitor-form-select,
+  .public-shell.profile-themed .public-form-field > input,
+  .public-shell.profile-themed .public-form-field > textarea,
+  .public-shell.profile-themed .public-form-field > select {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .public-shell.profile-themed .public-form-field,
+  .public-shell.profile-themed .public-form-label,
+  .public-shell.profile-themed .public-upload-field,
+  .public-shell.profile-themed .public-upload-button,
+  .public-shell.profile-themed .public-demand-actions,
+  .public-shell.profile-themed .eleitor-form-actions,
+  .public-shell.profile-themed .eleitor-form-step-title {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .public-shell.profile-themed .public-upload-field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .public-shell.profile-themed .public-upload-field > *,
+  .public-shell.profile-themed .public-upload-file {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .public-shell.profile-themed .public-upload-button,
+  .public-shell.profile-themed .public-demand-actions > *,
+  .public-shell.profile-themed .eleitor-form-actions > * {
+    width: 100%;
+    max-width: 100%;
+    justify-content: center;
+  }
+
+  .public-shell.profile-themed .public-upload-button {
+    width: fit-content;
+  }
+
+  .public-shell.profile-themed .public-appointment-slots button {
+    width: 100%;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .public-shell.profile-themed .public-appointment-slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(68px, 1fr));
+  }
+}
+
+@media (max-width: 380px) {
+  .politician-landing-header > div { max-width: calc(100vw - 150px); flex-direction: column; align-items: flex-end; gap: 4px; }
 }
