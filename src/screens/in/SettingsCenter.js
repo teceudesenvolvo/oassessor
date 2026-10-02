@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Cog, Plus, Save, Settings2, ShieldCheck, Trash2 } from 'lucide-react';
 import MetricCard from '../../components/dashboard/MetricCard';
+import InsightPanel from '../../components/dashboard/InsightPanel';
 import { useSettingsCenter } from '../../hooks/useSettingsCenter';
 
 const CATALOG_SECTIONS = [
