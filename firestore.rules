@@ -6,6 +6,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function managesAccount(adminId) {
+      return signedIn() && (
+        request.auth.uid == adminId
+        || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminId == adminId
+        )
+      );
+    }
+
     match /system_plan_overrides/{planId} {
       allow read: if true;
       allow create, update, delete: if signedIn();
@@ -25,8 +35,95 @@ service cloud.firestore {
       allow read, update, delete: if signedIn();
     }
 
+    match /publicProfiles/{slug} {
+      allow read: if true;
+      allow create: if managesAccount(request.resource.data.userId);
+      allow update: if managesAccount(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if managesAccount(resource.data.userId);
+    }
+
+    match /demandas/{demandId} {
+      allow create: if request.resource.data.origin == 'public_profile'
+        && request.resource.data.adminId is string
+        && request.resource.data.profileSlug is string
+        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.userId == request.resource.data.adminId
+        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.enabled == true
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.description is string
+        && request.resource.data.contactName is string
+        && request.resource.data.phone is string
+        && request.resource.data.attachments is list
+        && request.resource.data.attachments.size() <= 5;
+      allow read, update, delete: if managesAccount(resource.data.adminId);
+    }
+
+    match /publicSubmissions/{submissionId} {
+      allow read: if managesAccount(resource.data.adminId);
+      allow create: if request.resource.data.origin == 'public_profile'
+        && request.resource.data.profileSlug is string
+        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.userId == request.resource.data.adminId
+        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.enabled == true
+        && request.resource.data.answers is map;
+      allow update, delete: if managesAccount(resource.data.adminId);
+    }
+
+    match /publicAppointmentSettings/{adminId} {
+      allow read: if true;
+      allow create, update: if managesAccount(adminId) && request.resource.data.adminId == adminId;
+      allow delete: if managesAccount(adminId);
+    }
+
+    match /publicAppointmentSlots/{slotId} {
+      allow read: if true;
+      allow create: if request.resource.data.origin == 'public_profile'
+        && request.resource.data.adminId is string
+        && request.resource.data.profileSlug is string
+        && request.resource.data.appointmentId is string
+        && request.resource.data.serviceId is string
+        && request.resource.data.seat is int
+        && request.resource.data.seat >= 0
+        && (
+          (request.resource.data.slotType == 'daily'
+            && request.resource.data.seat < 100
+            && request.resource.data.seat < get(/databases/$(database)/documents/publicAppointmentSettings/$(request.resource.data.adminId)).data.dailyCapacity)
+          || (request.resource.data.slotType == 'time'
+            && request.resource.data.seat < get(/databases/$(database)/documents/publicAppointmentSettings/$(request.resource.data.adminId)).data.serviceCapacities[request.resource.data.serviceId])
+        )
+        && request.resource.data.slotDate is string
+        && request.resource.data.slotTime is string
+        && getAfter(/databases/$(database)/documents/publicAppointments/$(request.resource.data.appointmentId)).data.slotIds.hasAny([slotId])
+        && getAfter(/databases/$(database)/documents/publicAppointments/$(request.resource.data.appointmentId)).data.adminId == request.resource.data.adminId
+        && getAfter(/databases/$(database)/documents/publicAppointments/$(request.resource.data.appointmentId)).data.profileSlug == request.resource.data.profileSlug
+        && getAfter(/databases/$(database)/documents/publicAppointments/$(request.resource.data.appointmentId)).data.appointmentDate == request.resource.data.slotDate
+        && getAfter(/databases/$(database)/documents/publicAppointments/$(request.resource.data.appointmentId)).data.serviceId == request.resource.data.serviceId
+        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.enabled == true;
+      allow delete: if managesAccount(resource.data.adminId);
+    }
+
+    match /publicAppointments/{appointmentId} {
+      allow read: if managesAccount(resource.data.adminId);
+      allow create: if request.resource.data.origin == 'public_profile'
+        && request.resource.data.status == 'requested'
+        && request.resource.data.slotIds is list
+        && request.resource.data.slotIds.size() > 1
+        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.userId == request.resource.data.adminId
+        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.enabled == true
+        && get(/databases/$(database)/documents/publicAppointmentSettings/$(request.resource.data.adminId)).data.enabled == true
+        && getAfter(/databases/$(database)/documents/publicAppointmentSlots/$(request.resource.data.slotIds[0])).data.appointmentId == appointmentId
+        && getAfter(/databases/$(database)/documents/publicAppointmentSlots/$(request.resource.data.slotIds[0])).data.slotType == 'daily';
+      allow update: if managesAccount(resource.data.adminId)
+        && request.resource.data.adminId == resource.data.adminId;
+      allow delete: if managesAccount(resource.data.adminId);
+    }
+
     match /{document=**} {
-      allow read, create, update, delete: if signedIn();
+      allow read, create, update, delete: if signedIn()
+        && document[0] != 'publicSubmissions'
+        && document[0] != 'publicAppointments'
+        && document[0] != 'publicAppointmentSlots'
+        && document[0] != 'publicAppointmentSettings';
     }
   }
 }

@@ -614,6 +614,80 @@ exports.sendInviteEmail = onRequest({ cors: true, invoker: 'public' }, async (re
     }
 });
 
+const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (character) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+})[character]);
+
+exports.cleanupCompletedDemandAttachments = functionsV1.firestore
+  .document('demandas/{demandId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data() || {};
+    const after = change.after.data() || {};
+    if (before.status === 'completed' || after.status !== 'completed' || after.attachmentsDeletedAt) return null;
+
+    const attachments = Array.isArray(after.attachments) ? after.attachments : [];
+    const demandId = context.params.demandId;
+    const adminId = after.adminId;
+    if (adminId) {
+      await Promise.all(attachments.map(async (attachment) => {
+        const expectedPrefix = `demandAttachments/${adminId}/${after.profileSlug}/${demandId}/`;
+        if (typeof attachment?.path !== 'string' || !attachment.path.startsWith(expectedPrefix)) return;
+        await admin.storage().bucket(DEFAULT_STORAGE_BUCKET).file(attachment.path).delete({ ignoreNotFound: true });
+      }));
+    }
+
+    const now = new Date().toISOString();
+    await change.after.ref.update({
+      attachments: [],
+      attachmentsDeletedAt: now,
+      completedAt: after.completedAt || now,
+      reportSummary: {
+        protocol: after.protocol || `DEM-${demandId.slice(0, 6).toUpperCase()}`,
+        title: after.title || 'Demanda',
+        category: after.category || '',
+        priority: after.priority || 'medium',
+        status: 'completed',
+        neighborhood: after.bairro || '',
+        receivedAt: after.createdAt || '',
+        completedAt: after.completedAt || now,
+        adminId: after.adminId || ''
+      }
+    });
+    return null;
+  });
+
+exports.emailDemandUpdates = functionsV1.firestore
+  .document('demandas/{demandId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data() || {};
+    const after = change.after.data() || {};
+    const statusChanged = before.status !== after.status;
+    const responseChanged = String(before.response || '') !== String(after.response || '');
+    if (!statusChanged && !responseChanged) return null;
+    if (!String(after.email || '').includes('@')) return null;
+
+    const labels = {
+      received: 'Recebida', under_review: 'Em análise', forwarded: 'Encaminhada',
+      waiting: 'Aguardando retorno', answered: 'Respondida', completed: 'Concluída', cancelled: 'Cancelada'
+    };
+    const demandId = context.params.demandId;
+    const protocol = after.protocol || `DEM-${demandId.slice(0, 6).toUpperCase()}`;
+    const profileSnapshot = after.profileSlug
+      ? await appFirestore().collection('publicProfiles').doc(after.profileSlug).get()
+      : null;
+    const officeName = profileSnapshot?.exists ? profileSnapshot.data()?.name : '';
+    const status = labels[after.status] || labels.received;
+    const response = String(after.response || '').trim();
+    const html = `<div style="font-family:Arial,sans-serif;color:#172033;max-width:600px;margin:auto;padding:28px"><p style="color:#138a61;font-weight:700">${escapeHtml(officeName || 'Gabinete')}</p><h1 style="font-size:22px">Atualização da sua demanda</h1><p>O protocolo <strong>${escapeHtml(protocol)}</strong> está com o status: <strong>${escapeHtml(status)}</strong>.</p>${response ? `<div style="padding:16px;background:#f1f5f9;border-radius:12px"><strong>Retorno do gabinete</strong><p>${escapeHtml(response).replace(/\n/g, '<br>')}</p></div>` : ''}<p style="color:#64748b;font-size:13px">Esta mensagem foi enviada porque você informou este e-mail ao registrar a solicitação.</p></div>`;
+    await transporter.sendMail({
+      from: '"oAssessor" <blutecnologiasbr@gmail.com>',
+      to: after.email,
+      subject: `Atualização da demanda ${protocol}: ${status}`,
+      html
+    });
+    return null;
+  });
+
 exports.sendPushOnFirestoreNotification = functionsV1.firestore
   .document("notificacoes/{notificationId}")
   .onCreate(async (snapshot, context) => {

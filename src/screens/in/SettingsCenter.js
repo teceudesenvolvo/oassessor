@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { Cog, Plus, Save, Settings2, ShieldCheck, Trash2 } from 'lucide-react';
-import InsightPanel from '../../components/dashboard/InsightPanel';
 import MetricCard from '../../components/dashboard/MetricCard';
 import { useSettingsCenter } from '../../hooks/useSettingsCenter';
 

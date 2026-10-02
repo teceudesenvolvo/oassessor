@@ -1,0 +1,38 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function ownsProfile(ownerId) {
+      return request.auth != null && request.auth.uid == ownerId;
+    }
+
+    function isValidProfileImage() {
+      return request.resource.size <= 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    function validDemandAttachment() {
+      return request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('(image/.*|application/pdf|application/msword|application/vnd.openxmlformats-officedocument\\..*|application/vnd.ms-excel|text/plain)');
+    }
+
+    match /publicProfiles/{ownerId}/{fileName} {
+      allow read: if true;
+      allow create, update: if ownsProfile(ownerId) && isValidProfileImage();
+      allow delete: if ownsProfile(ownerId);
+    }
+
+    match /publicProfiles/{ownerId}/blocks/{fileName} {
+      allow read: if true;
+      allow create, update: if ownsProfile(ownerId) && isValidProfileImage();
+      allow delete: if ownsProfile(ownerId);
+    }
+
+    match /demandAttachments/{adminId}/{profileSlug}/{demandId}/{fileName} {
+      allow create: if validDemandAttachment()
+        && firestore.get(/databases/(default)/documents/publicProfiles/$(profileSlug)).data.userId == adminId
+        && firestore.get(/databases/(default)/documents/publicProfiles/$(profileSlug)).data.enabled == true;
+      allow read: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+  }
+}

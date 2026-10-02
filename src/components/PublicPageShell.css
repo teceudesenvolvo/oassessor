@@ -13,6 +13,117 @@
   color: var(--public-text);
 }
 
+.public-shell.no-side-nav .public-shell-content {
+  width: min(1280px, calc(100% - 48px));
+}
+
+.public-shell.profile-themed {
+  --public-text: var(--page-text, #f7fafc);
+  --public-soft: color-mix(in srgb, var(--page-muted-text, #b9c5d3) 82%, transparent);
+  --public-border: color-mix(in srgb, var(--page-text, #f7fafc) 16%, transparent);
+  --public-glass: var(--page-card, #16243a);
+  background: var(--page-background, #071326);
+  color: var(--page-text, #f7fafc);
+}
+
+.public-shell.profile-themed .public-hero-card,
+.public-shell.profile-themed .public-content-card,
+.public-shell.profile-themed .public-panel,
+.public-shell.profile-themed .public-info-card,
+.public-shell.profile-themed .public-form-card,
+.public-shell.profile-themed .public-plan-card {
+  border-color: var(--public-border);
+  background: var(--page-card, #16243a);
+  color: var(--page-text, #f7fafc);
+  box-shadow: 0 22px 56px rgba(2, 8, 22, 0.16);
+}
+
+.public-shell.profile-themed .public-brand-pill,
+.public-shell.profile-themed .public-kicker {
+  border-color: var(--public-border);
+  background: color-mix(in srgb, var(--page-text, #f7fafc) 7%, var(--page-card, #16243a));
+  color: var(--page-muted-text, #b9c5d3);
+}
+
+.public-shell.profile-themed .public-brand-pill strong,
+.public-shell.profile-themed .public-hero-copy h1,
+.public-shell.profile-themed .public-panel h2,
+.public-shell.profile-themed .public-info-card h3,
+.public-shell.profile-themed .public-form-card h3,
+.public-shell.profile-themed .public-plan-card h3 {
+  color: var(--page-text, #f7fafc);
+}
+
+.public-shell.profile-themed .public-hero-copy p,
+.public-shell.profile-themed .public-panel p,
+.public-shell.profile-themed .public-info-card p,
+.public-shell.profile-themed .public-form-card p,
+.public-shell.profile-themed .public-plan-card p,
+.public-shell.profile-themed .public-form-label,
+.public-shell.profile-themed .public-step-copy,
+.public-shell.profile-themed .public-demand-success p {
+  color: var(--page-muted-text, #b9c5d3);
+}
+
+.public-shell.profile-themed .public-form-input,
+.public-shell.profile-themed .public-form-textarea,
+.public-shell.profile-themed .public-form-select {
+  border-color: var(--public-border);
+  background: color-mix(in srgb, var(--page-text, #f7fafc) 5%, var(--page-card, #16243a));
+  color: var(--page-text, #f7fafc);
+}
+
+.public-shell.profile-themed .public-form-input::placeholder,
+.public-shell.profile-themed .public-form-textarea::placeholder {
+  color: color-mix(in srgb, var(--page-muted-text, #b9c5d3) 62%, transparent);
+}
+
+.public-shell.profile-themed .public-primary-cta,
+.public-shell.profile-themed .eleitor-form-actions .btn-primary,
+.public-shell.profile-themed .public-demand-success .btn-primary {
+  border-color: transparent;
+  background: var(--page-button, #50d59a);
+  color: var(--page-button-text, #09203a);
+}
+
+.public-shell.profile-themed .public-demand-actions .public-primary-cta {
+  background: var(--demand-button, var(--page-button, #50d59a));
+  color: var(--demand-button-text, var(--page-button-text, #09203a));
+}
+
+.public-shell.profile-themed .public-glass-btn,
+.public-shell.profile-themed .eleitor-form-actions .btn-secondary {
+  border-color: var(--public-border);
+  background: color-mix(in srgb, var(--page-text, #f7fafc) 7%, var(--page-card, #16243a));
+  color: var(--page-text, #f7fafc);
+}
+
+.public-shell.profile-themed .public-appointment-slots button {
+  border-color: var(--public-border);
+  background: var(--page-card, #16243a);
+  color: var(--page-text, #f7fafc);
+}
+
+.public-shell.profile-themed .public-appointment-slots button.selected {
+  border-color: var(--page-button, #50d59a);
+  background: var(--page-button, #50d59a);
+  color: var(--page-button-text, #09203a);
+}
+
+.public-shell.profile-themed .public-alert {
+  color: #b91c1c;
+}
+
+.public-shell.profile-themed.theme-light .public-kicker {
+  color: var(--page-muted-text, #475569);
+}
+
+.public-shell.profile-themed .public-brand-icon {
+  object-fit: contain;
+  background: color-mix(in srgb, var(--page-card, #16243a) 82%, var(--page-text, #f7fafc));
+}
+.public-shell.profile-themed .public-brand-icon.custom-logo { width: 150px; height: 44px; max-width: min(150px, 34vw); border-radius: 0; }
+
 .public-shell-orb {
   position: fixed;
   border-radius: 999px;
@@ -152,6 +263,7 @@
   border-radius: 12px;
   object-fit: cover;
 }
+.public-brand-icon.custom-logo { width: 150px; height: 44px; max-width: min(150px, 34vw); border-radius: 0; object-fit: contain; }
 
 .public-hero-actions {
   display: inline-flex;
@@ -943,3 +1055,36 @@
     max-height: 500px;
   }
 }
+
+@media (max-width: 900px) {
+  .public-shell.no-side-nav .public-shell-content {
+    width: calc(100% - 24px);
+    padding-bottom: 32px;
+  }
+}
+
+.politician-landing-logo { display: block; width: 150px; height: 48px; max-width: min(150px, 34vw); object-fit: contain; object-position: left center; }
+
+.public-logo-preview { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.public-logo-preview img { width: 150px; height: 48px; max-width: 100%; border: 1px solid var(--border-color, #dbe3ef); border-radius: 9px; background: #fff; object-fit: contain; }
+.public-logo-preview button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: #b91c1c; cursor: pointer; font-size: 12px; }
+.public-individual-buttons { display: grid; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-color, #dbe3ef); }
+.public-individual-buttons > strong { color: var(--text-dark, #1e293b); font-size: 13px; }
+.public-individual-button-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--border-color, #dbe3ef); border-radius: 11px; }
+.public-individual-button-row > span { color: var(--text-dark, #1e293b); font-size: 12px; font-weight: 650; }
+.public-individual-button-row > label { display: grid; justify-items: center; gap: 4px; color: var(--text-soft, #64748b); font-size: 10px; }
+.public-individual-button-row input[type='color'] { width: 32px; height: 28px; padding: 2px; border: 1px solid var(--border-color, #cbd5e1); border-radius: 6px; background: transparent; cursor: pointer; }
+:root[data-theme='dark'] .public-individual-buttons > strong,
+:root[data-theme='dark'] .public-individual-button-row > span { color: #e2e8f0; }
+:root[data-theme='dark'] .public-individual-button-row { border-color: var(--border-color); }
+
+.politician-landing.theme-light .public-action-link,
+.public-preview-page.theme-light .public-preview-block { color: var(--page-button-text, #0f172a); }
+
+.public-preview-page .public-preview-brand > img { width: 38px; height: 38px; border-radius: 9px; object-fit: contain; }
+.public-preview-page .public-preview-hero-actions span + span { color: var(--demand-button-text, #fff); border-color: color-mix(in srgb, var(--demand-button-text, #fff) 20%, transparent); background: var(--demand-button, #16243a); }
+.public-preview-page .public-preview-block.type-voterForm,
+.public-preview-page .public-preview-block.type-demandForm,
+.public-preview-page .public-preview-block.type-appointment,
+.public-preview-page .public-preview-block.type-customForm,
+.public-preview-page .public-preview-block.type-link { background: var(--shortcut-button, var(--page-button, #50d59a)); color: var(--shortcut-button-text, var(--page-button-text, #09203a)); }

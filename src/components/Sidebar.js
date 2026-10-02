@@ -20,6 +20,7 @@ import {
   MapPinned,
   ClipboardList,
   CalendarHeart,
+  CalendarClock,
   MessagesSquare,
   Map,
   ClipboardCheck,
@@ -31,6 +32,7 @@ import {
   CreditCard,
   FileUp,
   SlidersHorizontal,
+  PanelsTopLeft,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -65,6 +67,8 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, i
         { name: 'Território', icon: Map },
         { name: 'Pesquisas', icon: ClipboardCheck },
         { name: 'Minha Equipe', icon: Users },
+        { name: 'Agendamentos', icon: CalendarClock },
+        { name: 'Página pública', icon: PanelsTopLeft },
         { name: 'Agenda', icon: Calendar }
       ]
     },

@@ -50,12 +50,17 @@ const UsersManagement = lazy(() => import('./screens/in/UsersManagement'));
 const AuditCenter = lazy(() => import('./screens/in/AuditCenter'));
 const ImportCenter = lazy(() => import('./screens/in/ImportCenter'));
 const SettingsCenter = lazy(() => import('./screens/in/SettingsCenter'));
+const PublicProfileEditor = lazy(() => import('./screens/in/PublicProfileEditor'));
 const SubscriptionCenter = lazy(() => import('./screens/in/SubscriptionCenter'));
 const SystemCenter = lazy(() => import('./screens/in/SystemCenter'));
 const Profile = lazy(() => import('./screens/in/Profile'));
 const Notifications = lazy(() => import('./screens/in/Notifications'));
 const DataMigration = lazy(() => import('./screens/in/DataMigration'));
 const EleitorForm = lazy(() => import('./screens/out/EleitorForm'));
+const PublicPoliticianProfile = lazy(() => import('./screens/out/PublicPoliticianProfile'));
+const PublicDemandForm = lazy(() => import('./screens/out/PublicDemandForm'));
+const PublicAppointmentBooking = lazy(() => import('./screens/out/PublicAppointmentBooking'));
+const AppointmentCenter = lazy(() => import('./screens/in/AppointmentCenter'));
 const AccountabilityLayout = lazy(() => import('./screens/in/accountability/AccountabilityLayout'));
 const AccountabilityOverview = lazy(() => import('./screens/in/accountability/OverviewTab'));
 const AccountabilityConfiguration = lazy(() => import('./screens/in/accountability/ConfigurationTab'));
@@ -93,6 +98,9 @@ function AppContent() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/checkout/:planId" element={<Checkout />} />
             <Route path="/eleitor-form" element={<EleitorForm />} />
+            <Route path="/p/:slug" element={<PublicPoliticianProfile />} />
+            <Route path="/p/:slug/demanda" element={<PublicDemandForm />} />
+            <Route path="/p/:slug/agendar" element={<PublicAppointmentBooking />} />
             <Route path="/download-app" element={<DownloadApp />} />
 
             {/* Extrator CSV */}
@@ -111,6 +119,7 @@ function AppContent() {
                 <Route index element={<DashboardHome />} />
                 <Route path="team" element={<Team />} />
                 <Route path="agenda" element={<Agenda />} />
+                <Route path="appointments" element={<AppointmentCenter />} />
                 <Route path="voters" element={<Voters />} />
                 <Route path="electoral-funnel" element={<ElectoralFunnel />} />
                 <Route path="victory-path" element={<VictoryPath />} />
@@ -128,6 +137,7 @@ function AppContent() {
                 <Route path="audit" element={<AuditCenter />} />
                 <Route path="import" element={<ImportCenter />} />
                 <Route path="settings" element={<SettingsCenter />} />
+                <Route path="public-profile" element={<PublicProfileEditor />} />
                 <Route path="subscription" element={<SubscriptionCenter />} />
                 <Route path="system-center" element={<SystemCenter />} />
                 <Route path="voters/new" element={<NewVoter />} />

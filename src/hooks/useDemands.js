@@ -10,7 +10,8 @@ export const DEMAND_STATUSES = [
   { value: 'forwarded', label: 'Encaminhada' },
   { value: 'waiting', label: 'Aguardando' },
   { value: 'answered', label: 'Respondida' },
-  { value: 'completed', label: 'Concluída' }
+  { value: 'completed', label: 'Concluída' },
+  { value: 'cancelled', label: 'Cancelada' }
 ];
 
 const parseDate = (value) => {
@@ -246,6 +247,9 @@ export function useDemands(user) {
       protocol: payload.protocol || `DEM-${Date.now().toString().slice(-6)}`,
       title: payload.title,
       description: payload.description || '',
+      contactName: payload.contactName || '',
+      phone: payload.phone || '',
+      email: payload.email || '',
       category: payload.category || '',
       priority: payload.priority || 'medium',
       status: nextStatus,

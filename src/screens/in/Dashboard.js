@@ -70,6 +70,8 @@ export default function Dashboard() {
     const path = location.pathname;
     if (path.includes('/team')) setActiveTab('Minha Equipe');
     else if (path.includes('/agenda')) setActiveTab('Agenda');
+    else if (path.includes('/appointments')) setActiveTab('Agendamentos');
+    else if (path.includes('/public-profile')) setActiveTab('Página pública');
     else if (path.includes('/electoral-funnel')) setActiveTab('Funil Eleitoral');
     else if (path.includes('/victory-path')) setActiveTab('Caminho para a Vitória');
     else if (path.includes('/prestacao-contas')) setActiveTab('Prestação de Contas');
@@ -153,6 +155,8 @@ export default function Dashboard() {
     if (tabName === 'Inicio') navigate('/dashboard');
     else if (tabName === 'Minha Equipe') navigate('/dashboard/team');
     else if (tabName === 'Agenda') navigate('/dashboard/agenda');
+    else if (tabName === 'Agendamentos') navigate('/dashboard/appointments');
+    else if (tabName === 'Página pública') navigate('/dashboard/public-profile');
     else if (tabName === 'Funil Eleitoral') navigate('/dashboard/electoral-funnel');
     else if (tabName === 'Caminho para a Vitória') navigate('/dashboard/victory-path');
     else if (tabName === 'Prestação de Contas') navigate('/dashboard/prestacao-contas');

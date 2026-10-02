@@ -17,6 +17,9 @@ const INITIAL_FORM = {
   protocol: '',
   title: '',
   description: '',
+  contactName: '',
+  phone: '',
+  email: '',
   category: '',
   priority: 'medium',
   status: 'received',
@@ -26,7 +29,8 @@ const INITIAL_FORM = {
   response: '',
   dueDate: '',
   timeline: [],
-  timelineNote: ''
+  timelineNote: '',
+  attachments: []
 };
 
 const formatDateTime = (value) => {
@@ -93,6 +97,9 @@ export default function Demands() {
       protocol: demand.protocol || '',
       title: demand.title || '',
       description: demand.description || '',
+      contactName: demand.contactName || '',
+      phone: demand.phone || '',
+      email: demand.email || '',
       category: demand.category || '',
       priority: demand.priority || 'medium',
       status: demand.status || 'received',
@@ -102,7 +109,8 @@ export default function Demands() {
       response: demand.response || '',
       dueDate: demand.dueDate ? demand.dueDate.slice(0, 16) : '',
       timeline: demand.timeline || [],
-      timelineNote: ''
+      timelineNote: '',
+      attachments: demand.attachments || []
     });
     setShowModal(true);
   };
@@ -227,7 +235,11 @@ export default function Demands() {
                     <span><CalendarClock size={14} /> {demand.dueDate ? formatDateTime(demand.dueDate) : 'Sem prazo'}</span>
                   </div>
 
+                  {demand.contactName || demand.phone ? <p className="demand-mobile-notes">Solicitante: {demand.contactName || 'Não informado'}{demand.phone ? ` · ${demand.phone}` : ''}{demand.email ? ` · ${demand.email}` : ''}</p> : null}
+
                   {demand.description ? <p className="demand-mobile-notes">{demand.description}</p> : null}
+
+                  {demand.attachments?.length ? <div className="demand-attachment-list"><strong>Anexos</strong>{demand.attachments.map((file) => <a key={file.path || file.url} href={file.url} target="_blank" rel="noreferrer">{file.name || 'Arquivo'}</a>)}</div> : null}
 
                   {demand.response ? (
                     <div className="demand-response-box">
@@ -355,6 +367,8 @@ export default function Demands() {
                   <span>Descrição</span>
                   <textarea className="campaign-filter-select" name="description" value={formData.description} onChange={handleChange} rows="4" />
                 </label>
+
+                {formData.attachments?.length ? <div className="funnel-filter-field" style={{ gridColumn: '1 / -1' }}><span>Arquivos anexados</span><div className="demand-attachment-list">{formData.attachments.map((file) => <a key={file.path || file.url} href={file.url} target="_blank" rel="noreferrer">{file.name || 'Arquivo'}</a>)}{formData.status === 'completed' ? <small>Os arquivos serão removidos do armazenamento ao concluir.</small> : null}</div></div> : null}
 
                 <label className="funnel-filter-field" style={{ gridColumn: '1 / -1' }}>
                   <span>Resposta</span>

@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { initializeFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
+import { getStorage } from "firebase/storage";
 
 // Substitua pelas suas credenciais do Firebase Console
 const firebaseConfig = {
@@ -30,3 +31,4 @@ export const firestore = initializeFirestore(app, {
   ignoreUndefinedProperties: true
 }, FIRESTORE_DATABASE_ID);
 export const analytics = getAnalytics(app);
+export const storage = getStorage(app);

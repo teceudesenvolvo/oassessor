@@ -72,6 +72,9 @@ const FORM_STEPS = [
   }
 ];
 
+const DEFAULT_PUBLIC_FIELDS = ['nome', 'email', 'telefone'];
+const PUBLIC_FIELD_IDS = FORM_STEPS.flatMap((item) => item.fields);
+
 export default function EleitorForm() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -85,6 +88,15 @@ export default function EleitorForm() {
   const [formData, setFormData] = useState(initialFormState);
   const [step, setStep] = useState(1);
   const [draftId, setDraftId] = useState('');
+  const [completionButton, setCompletionButton] = useState({ label: '', url: '' });
+  const [enabledFields, setEnabledFields] = useState(DEFAULT_PUBLIC_FIELDS);
+  const [publicProfile, setPublicProfile] = useState(null);
+
+  const activeSteps = useMemo(() => FORM_STEPS.map((item) => ({
+    ...item,
+    fields: item.fields.filter((field) => enabledFields.includes(field))
+  })).filter((item) => item.fields.length), [enabledFields]);
+  const activeStep = useMemo(() => activeSteps.find((item) => item.id === step) || activeSteps[0] || FORM_STEPS[0], [activeSteps, step]);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -93,12 +105,30 @@ export default function EleitorForm() {
 
     if (uid) setCreatorId(uid);
     if (email) setCreatorEmail(email);
+    const profileSlug = searchParams.get('profileSlug');
+    if (profileSlug) {
+      setEnabledFields(DEFAULT_PUBLIC_FIELDS);
+      get(ref(database, `publicProfiles/${profileSlug}`)).then((snapshot) => {
+        if (!snapshot.exists()) return;
+        const publicProfile = snapshot.val();
+        setPublicProfile(publicProfile);
+        const configuredFields = Array.isArray(publicProfile.voterFormFields)
+          ? [...new Set(['nome', ...publicProfile.voterFormFields.filter((field) => PUBLIC_FIELD_IDS.includes(field))])]
+          : DEFAULT_PUBLIC_FIELDS;
+        setEnabledFields(configuredFields);
+        setCompletionButton({
+          label: publicProfile.completionButtonLabel || 'Entrar no grupo de apoio',
+          url: publicProfile.completionButtonUrl || ''
+        });
+      }).catch((error) => console.error('Erro ao carregar o botão de conclusão do perfil:', error));
+    }
   }, [location]);
 
-  const activeStep = useMemo(
-    () => FORM_STEPS.find((item) => item.id === step) || FORM_STEPS[0],
-    [step]
-  );
+  const safeCompletionUrl = /^https?:\/\//i.test(completionButton.url.trim()) ? completionButton.url.trim() : '';
+
+  useEffect(() => {
+    if (activeSteps.length && !activeSteps.some((item) => item.id === step)) setStep(activeSteps[0].id);
+  }, [activeSteps, step]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -258,7 +288,7 @@ export default function EleitorForm() {
   };
 
   const validateStep = () => {
-    if (step === 1 && !formData.nome.trim()) {
+    if (activeStep.fields.includes('nome') && !formData.nome.trim()) {
       alert('Preencha pelo menos o nome completo para continuar.');
       return false;
     }
@@ -271,10 +301,15 @@ export default function EleitorForm() {
 
     setSaving(true);
     try {
-      await persistDraft(step === FORM_STEPS.length ? 'completed' : 'draft');
-      if (step < FORM_STEPS.length) {
-        setStep((prev) => prev + 1);
-      }
+      const currentIndex = activeSteps.findIndex((item) => item.id === step);
+      const isLastStep = currentIndex === activeSteps.length - 1;
+      await persistDraft(isLastStep ? 'completed' : 'draft');
+      if (isLastStep) {
+        setSuccess(true);
+        setStep(activeSteps[0]?.id || 1);
+        setDraftId('');
+        setFormData(initialFormState);
+      } else setStep(activeSteps[currentIndex + 1].id);
     } catch (error) {
       console.error('Erro ao salvar etapa:', error);
       alert(error.message || 'Não foi possível salvar esta etapa.');
@@ -319,13 +354,14 @@ export default function EleitorForm() {
   );
 
   const renderStepFields = () => {
-    if (step === 1) {
+    const selected = (field) => activeStep.fields.includes(field);
+    if (activeStep.id === 1) {
       return (
         <>
-          {renderField('Nome completo', 'nome', { required: true, full: true, placeholder: 'Nome do eleitor' })}
-          {renderField('Apelido', 'apelido', { placeholder: 'Como gosta de ser chamado(a)' })}
+          {selected('nome') ? renderField('Nome completo', 'nome', { required: true, full: true, placeholder: 'Nome do eleitor' }) : null}
+          {selected('apelido') ? renderField('Apelido', 'apelido', { placeholder: 'Como gosta de ser chamado(a)' }) : null}
 
-          <label className="public-form-field">
+          {selected('sexo') ? <label className="public-form-field">
             <span className="public-form-label">Sexo</span>
             <select name="sexo" value={formData.sexo} onChange={handleChange} className="public-form-select eleitor-form-input eleitor-form-select">
               <option value="">Selecione</option>
@@ -333,9 +369,9 @@ export default function EleitorForm() {
               <option value="Feminino">Feminino</option>
               <option value="Outro">Outro</option>
             </select>
-          </label>
+          </label> : null}
 
-          {renderField('Data de nascimento', 'nascimento', { type: 'date' })}
+          {selected('nascimento') ? renderField('Data de nascimento', 'nascimento', { type: 'date', full: true }) : null}
         </>
       );
     }
@@ -343,8 +379,8 @@ export default function EleitorForm() {
     if (step === 2) {
       return (
         <>
-          {renderField('E-mail', 'email', { type: 'email', placeholder: 'voce@email.com', full: true })}
-          {renderField('Telefone', 'telefone', { masked: true, placeholder: '(00) 00000-0000', full: true })}
+          {selected('email') ? renderField('E-mail', 'email', { type: 'email', placeholder: 'voce@email.com', full: true }) : null}
+          {selected('telefone') ? renderField('Telefone', 'telefone', { masked: true, placeholder: '(00) 00000-0000', full: true }) : null}
         </>
       );
     }
@@ -352,13 +388,13 @@ export default function EleitorForm() {
     if (step === 3) {
       return (
         <>
-          {renderField('CPF', 'cpf', { masked: true, placeholder: '000.000.000-00', full: true })}
-          {renderField('Título de eleitor', 'titulo', { masked: true, onBlur: checkTitulo, placeholder: 'Apenas números', full: true })}
-          <div className="eleitor-form-inline-two full">
-            {renderField('Zona', 'zona', { masked: true, onBlur: checkLocalVotacao, placeholder: '000' })}
-            {renderField('Seção', 'secao', { masked: true, placeholder: '0000' })}
-          </div>
-          <label className="public-form-field full">
+          {selected('cpf') ? renderField('CPF', 'cpf', { masked: true, placeholder: '000.000.000-00', full: true }) : null}
+          {selected('titulo') ? renderField('Título de eleitor', 'titulo', { masked: true, onBlur: checkTitulo, placeholder: 'Apenas números', full: true }) : null}
+          {selected('zona') || selected('secao') ? <div className="eleitor-form-inline-two full">
+            {selected('zona') ? renderField('Zona', 'zona', { masked: true, onBlur: checkLocalVotacao, placeholder: '000' }) : null}
+            {selected('secao') ? renderField('Seção', 'secao', { masked: true, placeholder: '0000' }) : null}
+          </div> : null}
+          {selected('localVotacao') ? <label className="public-form-field full">
             <span className="public-form-label">
               Local de votação {localVotacaoLoading ? '(Buscando...)' : ''}
             </span>
@@ -378,7 +414,7 @@ export default function EleitorForm() {
                 </option>
               ))}
             </select>
-          </label>
+          </label> : null}
         </>
       );
     }
@@ -386,17 +422,17 @@ export default function EleitorForm() {
     if (step === 4) {
       return (
         <>
-          {renderField('CEP', 'cep', { masked: true, onBlur: checkCep, placeholder: cepLoading ? 'Buscando...' : '00000-000' })}
-          {renderField('Endereço', 'endereco')}
-          {renderField('Número', 'numero')}
-          {renderField('Bairro', 'bairro')}
-          {renderField('Cidade', 'cidade')}
-          {renderField('Estado', 'estado')}
+          {selected('cep') ? renderField('CEP', 'cep', { masked: true, onBlur: checkCep, placeholder: cepLoading ? 'Buscando...' : '00000-000' }) : null}
+          {selected('endereco') ? renderField('Endereço', 'endereco') : null}
+          {selected('numero') ? renderField('Número', 'numero') : null}
+          {selected('bairro') ? renderField('Bairro', 'bairro') : null}
+          {selected('cidade') ? renderField('Cidade', 'cidade') : null}
+          {selected('estado') ? renderField('Estado', 'estado') : null}
         </>
       );
     }
 
-    if (step === 5) {
+    if (activeStep.id === 5) {
       return (
         <label className="public-form-field full">
           <span className="public-form-label">Observações</span>
@@ -411,14 +447,14 @@ export default function EleitorForm() {
       );
     }
 
-    return (
-      <>{renderField('Instagram', 'instagram', { placeholder: '@usuario', full: true })}</>
-    );
+    return selected('instagram') ? renderField('Instagram', 'instagram', { placeholder: '@usuario', full: true }) : null;
   };
 
   if (success) {
     return (
       <PublicPageShell
+        profile={publicProfile}
+        hideNav
         activeKey="contact"
         kicker="Cadastro concluído"
         title="Eleitor cadastrado com sucesso."
@@ -435,6 +471,7 @@ export default function EleitorForm() {
           <CheckCircle size={56} />
           <strong>Tudo certo</strong>
           <p>Os dados foram recebidos e inseridos com sucesso na base da campanha.</p>
+          {safeCompletionUrl ? <a className="btn-primary public-primary-cta voter-support-cta" href={safeCompletionUrl} target="_blank" rel="noreferrer">{completionButton.label || 'Entrar no grupo de apoio'} <ArrowRight size={18} /></a> : null}
           <button type="button" className="btn-primary public-primary-cta" onClick={() => setSuccess(false)}>
             Cadastrar novo eleitor
           </button>
@@ -445,6 +482,8 @@ export default function EleitorForm() {
 
   return (
     <PublicPageShell
+      profile={publicProfile}
+      hideNav
       activeKey="contact"
       kicker="Ficha pública de cadastro"
       title="Seu cadastro ajuda nossa equipe a manter você por perto e bem informado."
@@ -457,26 +496,26 @@ export default function EleitorForm() {
           <div className="eleitor-form-section-head">
             <span className="public-kicker">
               <UserRound size={16} />
-              Passo {step} de {FORM_STEPS.length}
+              Passo {Math.max(1, activeSteps.findIndex((item) => item.id === step) + 1)} de {activeSteps.length || 1}
             </span>
             <h3 className="eleitor-form-step-title">{activeStep.title}</h3>
             <p>{activeStep.subtitle}</p>
           </div>
 
           <div className="eleitor-form-progress-line" aria-label="Progresso do formulário">
-            {FORM_STEPS.map((item) => (
+            {activeSteps.map((item) => (
               <div key={item.id} className={`eleitor-form-progress-item ${step >= item.id ? 'active' : ''}`}>
                 <span>{item.title}</span>
               </div>
             ))}
           </div>
 
-          <form onSubmit={step === FORM_STEPS.length ? handleSave : handleNext} className="public-form-grid eleitor-form-grid">
+          <form onSubmit={activeSteps.findIndex((item) => item.id === step) === activeSteps.length - 1 ? handleSave : handleNext} className="public-form-grid eleitor-form-grid">
             {renderStepFields()}
 
             <div className="public-form-field full eleitor-form-submit eleitor-form-actions">
-              {step > 1 ? (
-                <button type="button" className="btn-secondary" onClick={() => setStep((prev) => prev - 1)} disabled={saving}>
+              {activeSteps.findIndex((item) => item.id === step) > 0 ? (
+                <button type="button" className="btn-secondary" onClick={() => setStep(activeSteps[activeSteps.findIndex((item) => item.id === step) - 1].id)} disabled={saving}>
                   <ArrowLeft size={18} />
                   Voltar
                 </button>
@@ -485,8 +524,8 @@ export default function EleitorForm() {
               )}
 
               <button type="submit" className="btn-primary public-primary-cta" disabled={saving}>
-                {saving ? 'Salvando...' : step === FORM_STEPS.length ? 'Finalizar cadastro' : 'Próximo passo'}
-                {!saving ? (step === FORM_STEPS.length ? <CheckCircle size={18} /> : <ArrowRight size={18} />) : null}
+                {saving ? 'Salvando...' : activeSteps.findIndex((item) => item.id === step) === activeSteps.length - 1 ? 'Finalizar cadastro' : 'Próximo passo'}
+                {!saving ? (activeSteps.findIndex((item) => item.id === step) === activeSteps.length - 1 ? <CheckCircle size={18} /> : <ArrowRight size={18} />) : null}
               </button>
             </div>
           </form>
