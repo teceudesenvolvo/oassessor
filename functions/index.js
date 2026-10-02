@@ -40,6 +40,83 @@ admin.initializeApp({
 
 const appFirestore = () => getFirestore(admin.app(), FIRESTORE_DATABASE_ID);
 
+const PUBLIC_PROFILE_ORIGIN = 'https://oassessor.blutecnologias.com.br';
+let cachedSpaIndexHtml = null;
+
+const getPublicImageUrl = (profile = {}) => {
+    const candidates = [profile.photoUrl, profile.logoUrl, `${PUBLIC_PROFILE_ORIGIN}/logo192.png`];
+    return candidates.find((value) => {
+        try {
+            return new URL(value).protocol === 'https:';
+        } catch {
+            return false;
+        }
+    });
+};
+
+const getSpaIndexHtml = async () => {
+    if (cachedSpaIndexHtml) return cachedSpaIndexHtml;
+    const response = await fetch(`${PUBLIC_PROFILE_ORIGIN}/index.html`);
+    if (!response.ok) throw new Error(`Unable to load SPA shell: ${response.status}`);
+    cachedSpaIndexHtml = await response.text();
+    return cachedSpaIndexHtml;
+};
+
+exports.publicProfilePreview = onRequest({ invoker: 'public' }, async (req, res) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.set('Allow', 'GET, HEAD').status(405).send('Method not allowed');
+        return;
+    }
+
+    const slug = String(req.path || '').split('/').filter(Boolean)[0] || '';
+    try {
+        let html = await getSpaIndexHtml();
+        const profileSnapshot = slug
+            ? await appFirestore().collection('publicProfiles').doc(slug).get()
+            : null;
+        const profile = profileSnapshot?.exists ? profileSnapshot.data() : null;
+
+        if (profile && profile.enabled !== false) {
+            const title = `${profile.name || 'Perfil público'} | ${profile.headline || 'Atendimento à comunidade'}`;
+            const description = String(profile.bio || 'Acompanhe o trabalho e fale com o gabinete.')
+                .replace(/\s+/g, ' ').trim().slice(0, 300);
+            const image = getPublicImageUrl(profile);
+            const pageUrl = `${PUBLIC_PROFILE_ORIGIN}/${encodeURIComponent(slug)}`;
+            const escape = escapeHtml;
+            const openGraph = [
+                `<meta property="og:type" content="website">`,
+                `<meta property="og:site_name" content="O assessor">`,
+                `<meta property="og:title" content="${escape(title)}">`,
+                `<meta property="og:description" content="${escape(description)}">`,
+                `<meta property="og:url" content="${escape(pageUrl)}">`,
+                `<meta property="og:image" content="${escape(image)}">`,
+                `<meta property="og:image:secure_url" content="${escape(image)}">`,
+                `<meta property="og:image:alt" content="Foto de ${escape(profile.name || 'perfil público')}">`,
+                `<meta name="twitter:card" content="summary_large_image">`,
+                `<meta name="twitter:title" content="${escape(title)}">`,
+                `<meta name="twitter:description" content="${escape(description)}">`,
+                `<meta name="twitter:image" content="${escape(image)}">`,
+                `<link rel="canonical" href="${escape(pageUrl)}">`
+            ].join('\n');
+
+            html = html
+                .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escape(title)}</title>`)
+                .replace(/<meta\s+name="description"[^>]*>/i, `<meta name="description" content="${escape(description)}">`)
+                .replace('</head>', `${openGraph}\n</head>`);
+
+            res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
+        } else {
+            res.set('Cache-Control', 'no-cache');
+        }
+
+        res.status(200).type('html').send(req.method === 'HEAD' ? undefined : html);
+    } catch (error) {
+        console.error('Unable to build public profile preview:', error);
+        const fallbackHtml = cachedSpaIndexHtml || '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>O assessor</title></head><body><div id="root"></div></body></html>';
+        res.set('Cache-Control', 'no-cache').status(200).type('html').send(req.method === 'HEAD' ? undefined : fallbackHtml);
+    }
+});
+
 const findDocumentByField = async (collectionName, field, value) => {
     const snapshot = await appFirestore()
         .collection(collectionName)
