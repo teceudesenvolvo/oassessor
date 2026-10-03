@@ -89,18 +89,12 @@ export function useCommunicationCenter(user) {
         let currentUserType = null;
         let resolvedAdminId = user.uid;
 
-        if (user.email) {
-          const assessoresRef = ref(database, 'assessores');
-          const qEmail = query(assessoresRef, orderByChild('email'), equalTo(user.email));
-          const snapshotEmail = await get(qEmail);
-          if (snapshotEmail.exists()) currentUserType = 'assessor';
-        }
-
         const usersRef = ref(database, 'users');
+        const directUserSnapshot = await get(ref(database, `users/${user.uid}`));
         const qUser = query(usersRef, orderByChild('userId'), equalTo(user.uid));
-        const userSnapshot = await get(qUser);
+        const userSnapshot = directUserSnapshot.exists() ? directUserSnapshot : await get(qUser);
         if (userSnapshot.exists()) {
-          const userData = Object.values(userSnapshot.val())[0];
+          const userData = directUserSnapshot.exists() ? directUserSnapshot.val() : Object.values(userSnapshot.val())[0];
           currentUserType = userData.tipoUser || currentUserType;
           if (userData.adminId) resolvedAdminId = userData.adminId;
         }

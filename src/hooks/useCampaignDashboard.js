@@ -112,7 +112,7 @@ export function useCampaignDashboard(user) {
       try {
         setLoading(true);
 
-        const profile = await getUserProfileHybrid(user.uid, user.email);
+        const profile = await getUserProfileHybrid(user.uid);
         const currentUserType = inferUserRole(profile, user.email ? 'assessor' : null);
         const adminId = profile?.adminId || user.uid;
 

@@ -267,6 +267,7 @@ export default function EleitorForm() {
       creatorEmail,
       updatedAt: new Date().toISOString(),
       origin: 'public_form',
+      profileSlug: new URLSearchParams(location.search).get('profileSlug') || '',
       formStatus: status,
       formStep: step
     };

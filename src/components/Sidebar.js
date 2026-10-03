@@ -96,16 +96,10 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, i
     if (user) {
       const fetchUserType = async () => {
         try {
-          // Verifica se o email está na coleção 'assessores'
-          if (user.email) {
-            const assessoresRef = ref(database, 'assessores');
-            const qEmail = query(assessoresRef, orderByChild('email'), equalTo(user.email));
-            const snapshotEmail = await get(qEmail);
-
-            if (snapshotEmail.exists()) {
-              setUserType('assessor');
-              return;
-            }
+          const ownUserSnapshot = await get(ref(database, `users/${user.uid}`));
+          if (ownUserSnapshot.exists()) {
+            setUserType(inferUserRole(ownUserSnapshot.val(), 'assessor'));
+            return;
           }
 
           const usersRef = ref(database, 'users');

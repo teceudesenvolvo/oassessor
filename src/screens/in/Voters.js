@@ -35,12 +35,13 @@ export default function Voters() {
       try {
         // 1. Verificar se o usuário é admin na coleção 'users'
         const usersRef = ref(database, 'users');
+        const directUserSnapshot = await get(ref(database, `users/${user.uid}`));
         const qUser = query(usersRef, orderByChild('userId'), equalTo(user.uid));
-        const userSnapshot = await get(qUser);
+        const userSnapshot = directUserSnapshot.exists() ? directUserSnapshot : await get(qUser);
         
         let isUserAdmin = false;
         if (userSnapshot.exists()) {
-          const userData = Object.values(userSnapshot.val())[0];
+          const userData = directUserSnapshot.exists() ? directUserSnapshot.val() : Object.values(userSnapshot.val())[0];
           if (isAdminProfile(userData)) {
             isUserAdmin = true;
           }

@@ -3094,6 +3094,14 @@
   z-index: 41000;
 }
 
+/* Modal z-index values are contained by the dashboard-content stacking
+   context. Raise that layer while any dashboard popup is mounted so dialogs
+   stay above the fixed desktop sidebar and the mobile drawer. */
+.dashboard-container:has(.funnel-modal-backdrop) .dashboard-content {
+  position: relative;
+  z-index: 10001 !important;
+}
+
 .notifications-modal {
   width: min(720px, 100%);
 }

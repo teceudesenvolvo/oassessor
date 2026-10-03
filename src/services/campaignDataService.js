@@ -39,7 +39,7 @@ const runFirestoreEqualityQueries = async (collectionName, field, values) => {
   return uniqueById(results.flat());
 };
 
-export async function getUserProfileHybrid(uid, email) {
+export async function getUserProfileHybrid(uid) {
   const directDoc = await getDoc(doc(firestore, 'users', uid)).catch(() => null);
   if (directDoc?.exists()) return normalizeProfileRole({ id: directDoc.id, ...directDoc.data() });
 
@@ -49,21 +49,11 @@ export async function getUserProfileHybrid(uid, email) {
   const indexedAssessors = await runFirestoreEqualityQueries('assessores', 'userId', [uid]).catch(() => []);
   if (indexedAssessors.length) return normalizeProfileRole(indexedAssessors[0]);
 
-  if (email) {
-    const emailAssessors = await runFirestoreEqualityQueries('assessores', 'email', [email]).catch(() => []);
-    if (emailAssessors.length) return normalizeProfileRole(emailAssessors[0]);
-  }
-
   const directSnapshot = await get(ref(database, `users/${uid}`));
   if (directSnapshot.exists()) return normalizeProfileRole({ id: uid, ...directSnapshot.val() });
 
   const indexedSnapshot = await get(rtdbQuery(ref(database, 'users'), orderByChild('userId'), equalTo(uid)));
   if (indexedSnapshot.exists()) return normalizeProfileRole(toArray(indexedSnapshot)[0]);
-
-  if (email) {
-    const assessorSnapshot = await get(rtdbQuery(ref(database, 'assessores'), orderByChild('email'), equalTo(email)));
-    if (assessorSnapshot.exists()) return normalizeProfileRole(toArray(assessorSnapshot)[0]);
-  }
 
   const assessorUserSnapshot = await get(rtdbQuery(ref(database, 'assessores'), orderByChild('userId'), equalTo(uid)));
   if (assessorUserSnapshot.exists()) return normalizeProfileRole(toArray(assessorUserSnapshot)[0]);

@@ -13,7 +13,20 @@ service cloud.firestore {
           exists(/databases/$(database)/documents/users/$(request.auth.uid))
           && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminId == adminId
         )
+        || (
+          exists(/databases/$(database)/documents/assessores/$(request.auth.uid))
+          && get(/databases/$(database)/documents/assessores/$(request.auth.uid)).data.adminId == adminId
+        )
       );
+    }
+
+    function hasPublishedProfile(profileSlug, adminId) {
+      let profilePath = /databases/$(database)/documents/publicProfiles/$(profileSlug);
+      return profileSlug is string
+        && adminId is string
+        && exists(profilePath)
+        && get(profilePath).data.userId == adminId
+        && (!('enabled' in get(profilePath).data) || get(profilePath).data.enabled == true);
     }
 
     match /system_plan_overrides/{planId} {
@@ -21,8 +34,47 @@ service cloud.firestore {
       allow create, update, delete: if signedIn();
     }
 
+    match /users/{userId} {
+      allow get: if signedIn()
+        && (userId == request.auth.uid
+          || resource.data.userId == request.auth.uid
+          || resource.data.adminId == request.auth.uid);
+      allow list: if signedIn()
+        && (resource.data.userId == request.auth.uid
+          || resource.data.adminId == request.auth.uid);
+      allow create: if signedIn()
+        && (request.resource.data.userId == request.auth.uid
+          || request.resource.data.adminId == request.auth.uid);
+      allow update: if signedIn()
+        && (resource.data.userId == request.auth.uid
+          || resource.data.adminId == request.auth.uid);
+      allow delete: if signedIn()
+        && (userId == request.auth.uid || resource.data.adminId == request.auth.uid);
+    }
+
+    match /assessores/{assessorId} {
+      allow get, list: if signedIn()
+        && (resource.data.userId == request.auth.uid
+          || resource.data.uid == request.auth.uid
+          || managesAccount(resource.data.adminId));
+      allow create: if signedIn() && request.resource.data.adminId == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.adminId == request.auth.uid;
+    }
+
+    match /notificacoes/{notificationId} {
+      allow read: if signedIn()
+        && (resource.data.userId == request.auth.uid || resource.data.adminId == request.auth.uid);
+      allow create: if signedIn()
+        && (request.resource.data.userId == request.auth.uid || request.resource.data.adminId == request.auth.uid);
+      allow update, delete: if signedIn()
+        && (resource.data.userId == request.auth.uid || resource.data.adminId == request.auth.uid);
+    }
+
     match /registros_temporarios/{document=**} {
-      allow read, create, update, delete: if true;
+      // Checkout guests can save/remove progress; only signed-in operators can
+      // list/read these records, which may contain personal registration data.
+      allow read: if signedIn();
+      allow create, update, delete: if true;
     }
 
     match /eleitores/{voterId} {
@@ -31,8 +83,26 @@ service cloud.firestore {
           request.resource.data.creatorId is string
           && request.resource.data.creatorId.size() > 0
           && request.resource.data.origin == 'public_form'
+          && (
+            !('profileSlug' in request.resource.data)
+            || request.resource.data.profileSlug == ''
+            || hasPublishedProfile(request.resource.data.profileSlug, request.resource.data.creatorId)
+          )
         );
-      allow read, update, delete: if signedIn();
+      // Public voter registration is multi-step and first creates a draft.
+      // Permit only updates that keep its public origin and owner/profile fixed.
+      allow update: if signedIn()
+        || (request.auth == null
+          && resource.data.origin == 'public_form'
+          && request.resource.data.origin == resource.data.origin
+          && request.resource.data.creatorId == resource.data.creatorId
+          && request.resource.data.get('profileSlug', '') == resource.data.get('profileSlug', '')
+          && (
+            !('profileSlug' in request.resource.data)
+            || request.resource.data.profileSlug == ''
+            || hasPublishedProfile(request.resource.data.profileSlug, request.resource.data.creatorId)
+          ));
+      allow read, delete: if signedIn();
     }
 
     match /publicProfiles/{slug} {
@@ -46,18 +116,18 @@ service cloud.firestore {
     }
 
     match /demandas/{demandId} {
-      allow create: if request.resource.data.origin == 'public_profile'
-        && request.resource.data.adminId is string
-        && request.resource.data.profileSlug is string
-        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.userId == request.resource.data.adminId
-        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.enabled == true
-        && request.resource.data.title is string
-        && request.resource.data.title.size() > 0
-        && request.resource.data.description is string
-        && request.resource.data.contactName is string
-        && request.resource.data.phone is string
-        && request.resource.data.attachments is list
-        && request.resource.data.attachments.size() <= 5;
+      allow create: if managesAccount(request.resource.data.adminId)
+        || (request.resource.data.origin == 'public_profile'
+          && request.resource.data.adminId is string
+          && request.resource.data.profileSlug is string
+          && hasPublishedProfile(request.resource.data.profileSlug, request.resource.data.adminId)
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.description is string
+          && request.resource.data.contactName is string
+          && request.resource.data.phone is string
+          && request.resource.data.attachments is list
+          && request.resource.data.attachments.size() <= 5);
       allow read, update, delete: if managesAccount(resource.data.adminId);
     }
 
@@ -65,8 +135,7 @@ service cloud.firestore {
       allow read: if managesAccount(resource.data.adminId);
       allow create: if request.resource.data.origin == 'public_profile'
         && request.resource.data.profileSlug is string
-        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.userId == request.resource.data.adminId
-        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.enabled == true
+        && hasPublishedProfile(request.resource.data.profileSlug, request.resource.data.adminId)
         && request.resource.data.answers is map;
       allow update, delete: if managesAccount(resource.data.adminId);
     }
@@ -100,7 +169,7 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/publicAppointments/$(request.resource.data.appointmentId)).data.profileSlug == request.resource.data.profileSlug
         && getAfter(/databases/$(database)/documents/publicAppointments/$(request.resource.data.appointmentId)).data.appointmentDate == request.resource.data.slotDate
         && getAfter(/databases/$(database)/documents/publicAppointments/$(request.resource.data.appointmentId)).data.serviceId == request.resource.data.serviceId
-        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.enabled == true;
+        && hasPublishedProfile(request.resource.data.profileSlug, request.resource.data.adminId);
       allow delete: if managesAccount(resource.data.adminId);
     }
 
@@ -110,8 +179,7 @@ service cloud.firestore {
         && request.resource.data.status == 'requested'
         && request.resource.data.slotIds is list
         && request.resource.data.slotIds.size() > 1
-        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.userId == request.resource.data.adminId
-        && get(/databases/$(database)/documents/publicProfiles/$(request.resource.data.profileSlug)).data.enabled == true
+        && hasPublishedProfile(request.resource.data.profileSlug, request.resource.data.adminId)
         && get(/databases/$(database)/documents/publicAppointmentSettings/$(request.resource.data.adminId)).data.enabled == true
         && getAfter(/databases/$(database)/documents/publicAppointmentSlots/$(request.resource.data.slotIds[0])).data.appointmentId == appointmentId
         && getAfter(/databases/$(database)/documents/publicAppointmentSlots/$(request.resource.data.slotIds[0])).data.slotType == 'daily';
@@ -122,10 +190,16 @@ service cloud.firestore {
 
     match /{document=**} {
       allow read, create, update, delete: if signedIn()
+        && document[0] != 'demandas'
         && document[0] != 'publicSubmissions'
         && document[0] != 'publicAppointments'
         && document[0] != 'publicAppointmentSlots'
-        && document[0] != 'publicAppointmentSettings';
+        && document[0] != 'publicAppointmentSettings'
+        && document[0] != 'publicProfiles'
+        && document[0] != 'eleitores'
+        && document[0] != 'users'
+        && document[0] != 'assessores'
+        && document[0] != 'notificacoes';
     }
   }
 }
