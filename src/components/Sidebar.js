@@ -9,6 +9,7 @@ import {
   Users, 
   Calendar, 
   Vote, 
+  Activity,
   User, 
   LogOut, 
   X,
@@ -51,6 +52,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, toggleMenu, i
         { name: 'Eleitores', icon: Vote },
         { name: 'Funil Eleitoral', icon: Rows3 },
         { name: 'Caminho para a Vitória', icon: Route },
+        { name: 'Estratégia Política', icon: Activity },
         { name: 'Prestação de Contas', icon: ReceiptText },
         { name: 'Relatórios', icon: Files }
       ]

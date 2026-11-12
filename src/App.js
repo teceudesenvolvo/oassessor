@@ -31,6 +31,7 @@ const Agenda = lazy(() => import('./screens/in/Agenda'));
 const Voters = lazy(() => import('./screens/in/Voters'));
 const NewVoter = lazy(() => import('./screens/in/NewVoter'));
 const VoteComparison = lazy(() => import('./screens/in/VoteComparison'));
+const PoliticalStrategy = lazy(() => import('./screens/in/PoliticalStrategy'));
 const VoterMap = lazy(() => import('./screens/in/VoterMap'));
 const PollingStationMap = lazy(() => import('./screens/in/PollingStationMap'));
 const VoterDetails = lazy(() => import('./screens/in/VoterDetails'));
@@ -158,6 +159,7 @@ function AppContent() {
                 <Route path="voters/map" element={<VoterMap />} />
                 <Route path="voters/stations-map" element={<PollingStationMap />} />
                 <Route path="vote-comparison" element={<VoteComparison />} />
+                <Route path="political-strategy" element={<PoliticalStrategy />} />
                 <Route path="voters/:id" element={<VoterDetails />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="notifications" element={<Notifications />} />
