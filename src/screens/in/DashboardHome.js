@@ -17,6 +17,7 @@ import { useCampaignDashboard } from '../../hooks/useCampaignDashboard';
 import CampaignFilters from '../../components/dashboard/CampaignFilters';
 import MetricCard from '../../components/dashboard/MetricCard';
 import InsightPanel from '../../components/dashboard/InsightPanel';
+import './DashboardHome.css';
 
 export default function DashboardHome() {
   const { user } = useAuth();
@@ -84,77 +85,52 @@ export default function DashboardHome() {
     }
   ];
 
-  const executiveHighlights = [
-    { label: 'Base monitorada', value: metrics.voters, tone: 'default' },
-    { label: 'Apoio em construção', value: metrics.probableVotes, tone: 'highlight' },
-    { label: 'Risco de dispersão', value: metrics.undecided, tone: 'warning' },
-    { label: 'Mobilização pronta', value: metrics.volunteers, tone: 'success' }
-  ];
+  const firstName = String(user?.displayName || user?.email || 'equipe').split(/[\s@]/)[0];
+  const goalTarget = Number(String(metrics.goal.value).replace(/\D/g, '')) || metrics.voters || 1;
 
   return (
-    <div className="campaign-dashboard">
+    <div className="campaign-dashboard campaign-dashboard-home">
       <CampaignFilters filters={filters} setFilters={setFilters} options={filterOptions} />
 
-      <section className="campaign-hero campaign-hero-executive">
-        <div className="campaign-hero-copy executive-copy">
+      <section className="campaign-hero campaign-hero-executive campaign-home-overview">
+        <div className="campaign-hero-copy executive-copy campaign-home-welcome">
           <div className="campaign-hero-topline">
             <p className="campaign-kicker">
               <Target size={16} />
-              Central estratégica da campanha
+              Visão geral
             </p>
             <span className="campaign-hero-status">
               <CheckCircle2 size={14} />
-              Operação sincronizada
+              Operação atualizada
             </span>
           </div>
 
-          <h2>Dashboard executivo para decidir rápido, priorizar melhor e mover a campanha com confiança.</h2>
-          <span>
-            Consolidamos captação, conversão, tarefas e sinais de risco em uma leitura premium, com foco em clareza no desktop e fluidez no mobile.
-          </span>
-
-          <div className="campaign-executive-strip">
-            {executiveHighlights.map((item) => (
-              <article key={item.label} className={`campaign-executive-pill ${item.tone}`}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-              </article>
-            ))}
-          </div>
+          <h2>Olá, {firstName}.<br />Aqui está o resumo da sua operação.</h2>
+          <span>Acompanhe a evolução da base, os apoios e as prioridades da equipe em um só lugar.</span>
         </div>
 
         <div className="campaign-goal-card campaign-goal-executive">
           <div className="campaign-goal-header">
-            <span>Meta eleitoral</span>
+            <span>Votos confirmados</span>
             <Vote size={18} />
           </div>
-          <strong>{metrics.goal.value}</strong>
+          <strong>{metrics.confirmedVotes}<small> / {metrics.goal.value}</small></strong>
           <p>{metrics.goal.helper}</p>
           <div className="campaign-goal-progress">
             <div
               className="campaign-goal-progress-bar"
-              style={{ width: `${Math.min(100, Math.round((metrics.confirmedVotes / Math.max(metrics.voters || 1, 1)) * 100))}%` }}
+              style={{ width: `${Math.min(100, Math.round((metrics.confirmedVotes / goalTarget) * 100))}%` }}
             />
           </div>
-          <small>{conversionRate} da base já está em voto confirmado.</small>
+          <small>{conversionRate} da base cadastrada já confirmou apoio.</small>
         </div>
       </section>
 
-      <div className="campaign-metrics-grid">
-        <MetricCard title="Votos confirmados" value={metrics.confirmedVotes} helper="Base com confirmação explícita" tone="success" />
-        <MetricCard title="Votos prováveis" value={metrics.probableVotes} helper="Simpatizantes, apoiadores e multiplicadores" tone="highlight" />
-        <MetricCard title="Apoiadores" value={metrics.supporters} helper="Recorte com potencial de mobilização" />
-        <MetricCard title="Indecisos" value={metrics.undecided} helper="Prioridade para próximo contato" tone="warning" />
-        <MetricCard title="Voluntários" value={metrics.volunteers} helper="Base já disposta a atuar" />
-        <MetricCard title="Lideranças" value={metrics.leaders} helper="Mapeadas nos dados atuais" />
-        <MetricCard title="Eleitores cadastrados" value={metrics.voters} helper="Após aplicação dos filtros" />
-        <MetricCard title="Cadastros do dia" value={metrics.newToday} helper="Novas entradas desde hoje" tone="success" />
-        <MetricCard title="Apoios do dia" value={metrics.supportToday} helper="Atualizações com apoio identificado hoje" />
-        <MetricCard title="Agenda do dia" value={metrics.agendaToday} helper="Compromissos e ações previstos" />
-        <MetricCard title="Próximos eventos" value={metrics.upcomingEvents} helper="Eventos futuros cadastrados" />
-        <MetricCard title="Tarefas pendentes" value={metrics.pendingTasks} helper="Itens aguardando conclusão" tone="warning" />
-        <MetricCard title="Demandas críticas" value={metrics.criticalDemands} helper="Pendências já atrasadas" tone="danger" />
-        <MetricCard title="Alertas" value={metrics.alerts} helper="Sinais que pedem correção de rota" tone="danger" />
+      <div className="campaign-metrics-grid campaign-home-metrics">
+        <MetricCard title="Eleitores cadastrados" value={metrics.voters} helper="Base no recorte selecionado" />
+        <MetricCard title="Votos confirmados" value={metrics.confirmedVotes} helper="Apoios confirmados" tone="success" />
+        <MetricCard title="Votos prováveis" value={metrics.probableVotes} helper="Apoios em construção" tone="highlight" />
+        <MetricCard title="Tarefas pendentes" value={metrics.pendingTasks} helper="Aguardando ação da equipe" tone="warning" />
       </div>
 
       <div className="campaign-executive-grid">

@@ -185,7 +185,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container dashboard-clean-shell">
       {/* Animação de Entrada (Círculo diminuindo) */}
       {showTransition && (
         <div style={{
