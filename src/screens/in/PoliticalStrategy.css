@@ -5,9 +5,12 @@
   --strategy-muted: var(--text-soft, #68766e);
   --strategy-text: var(--text-dark, #16221b);
   color: var(--strategy-text);
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 4px 2px 32px;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 4px 0 32px;
 }
 .political-strategy button, .political-strategy select, .political-strategy input { font: inherit; }
 .political-strategy button { cursor: pointer; }
@@ -71,6 +74,8 @@
 .strategy-empty-inline { margin:0; padding:25px 18px; text-align:center; color:var(--strategy-muted); font-size:13px; }
 .strategy-notice { padding:17px 19px; margin:12px 0; border:1px solid var(--strategy-line); border-radius:16px; color:var(--strategy-muted); background:var(--strategy-bg); line-height:1.55; }
 .strategy-notice strong { display:block; margin-bottom:4px; color:var(--strategy-text); }
+.strategy-territory-note { padding:15px 18px; }
+.strategy-territory-note p { max-width:900px; margin:4px 0 0; }
 .strategy-notice.error { border-color:#f3b7b7; color:#9e3333; background:color-mix(in srgb,#fff 94%,#fdd); }
 .strategy-notice.error strong { color:#9e3333; }
 .strategy-retry-button { display:block; padding:7px 0 0; border:0; color:var(--strategy-accent); background:transparent; font-weight:800; }
@@ -125,4 +130,121 @@
   .strategy-filters { grid-template-columns:1fr; }
   .strategy-list-tools { flex-wrap:wrap; }
   .strategy-row-votes { min-width:70px; }
+}
+
+/* Single-page election analysis */
+.strategy-dashboard {
+  --strategy-accent: #2864e8;
+  --strategy-bg: #fff;
+  --strategy-line: #e5eaf0;
+  --strategy-muted: #718096;
+  --strategy-text: #172033;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 10px 0 34px;
+}
+.strategy-dashboard-header,
+.strategy-panel-heading,
+.strategy-filter-summary,
+.strategy-result-row,
+.strategy-territory-inline,
+.strategy-compare-tray {
+  display: flex;
+  align-items: center;
+}
+.strategy-dashboard-header { justify-content: space-between; gap: 20px; padding: 8px 4px; }
+.strategy-dashboard-header h1 { margin: 6px 0; font-size: clamp(25px, 3vw, 34px); line-height: 1.15; }
+.strategy-dashboard-header p,.strategy-panel-heading p { margin: 4px 0 0; color: var(--strategy-muted); line-height: 1.5; }
+.strategy-eyebrow { color: #60718a; font-size: 11px; font-weight: 850; letter-spacing: .12em; }
+.strategy-live-badge { display: inline-flex; align-items: center; gap: 9px; padding: 10px 13px; border: 1px solid #d8eee1; border-radius: 999px; color: #21774e; background: #f1fbf5; font-size: 12px; font-weight: 750; white-space: nowrap; }
+.strategy-live-badge span { width: 8px; height: 8px; border-radius: 50%; background: #31a66a; box-shadow: 0 0 0 4px #31a66a20; }
+.strategy-panel { min-width: 0; overflow: hidden; border: 1px solid var(--strategy-line); border-radius: 20px; background: var(--strategy-bg); box-shadow: 0 8px 26px #1b2b4510; }
+.strategy-filter-panel,.strategy-chart-panel,.strategy-candidates-panel,.strategy-parties-panel,.strategy-saved-panel,.strategy-selected-candidate { padding: 20px; }
+.strategy-panel-heading { justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+.strategy-panel-heading h2 { margin: 0; color: var(--strategy-text); font-size: 17px; }
+.strategy-panel-heading p { font-size: 12px; }
+.strategy-panel-heading > svg { color: var(--strategy-accent); }
+.strategy-dashboard .strategy-filters { grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 12px; padding: 0; border: 0; background: transparent; }
+.strategy-dashboard .strategy-field { font-size: 11px; }
+.strategy-dashboard .strategy-select { min-height: 46px; border-color: #e4e9f0; background: #f9fafc; }
+.strategy-dashboard .strategy-select select { height: 46px; font-size: 13px; }
+.strategy-dashboard .strategy-select select:disabled { color: #9aa4b2; cursor: not-allowed; }
+.strategy-dashboard .strategy-select:has(select:disabled) { background: #f2f4f7; }
+.strategy-filter-summary { gap: 8px; padding-top: 14px; margin-top: 16px; border-top: 1px solid var(--strategy-line); color: var(--strategy-muted); font-size: 12px; }
+.strategy-metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.strategy-metric-card { display: flex; min-width: 0; flex-direction: column; gap: 5px; padding: 18px; border: 1px solid var(--strategy-line); border-radius: 18px; background: #fff; }
+.strategy-metric-card > span,.strategy-metric-card small { color: var(--strategy-muted); font-size: 12px; }
+.strategy-metric-card strong { color: var(--strategy-accent); font-size: 26px; line-height: 1.1; }
+.strategy-chart-panel { margin-top: 0; }
+.strategy-chart-total { color: var(--strategy-muted); font-size: 12px; }
+.strategy-chart-wrap { width: 100%; height: 280px; min-width: 0; }
+.strategy-results-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, .9fr); align-items: start; gap: 16px; }
+.strategy-candidates-panel,.strategy-parties-panel,.strategy-saved-panel { padding: 18px; }
+.strategy-side-panels { display: flex; min-width: 0; flex-direction: column; gap: 16px; }
+.strategy-dashboard .strategy-search { min-height: 42px; margin: 0 0 8px; border-color: var(--strategy-line); border-radius: 12px; background: #f9fafc; }
+.strategy-result-row { min-width: 0; gap: 10px; padding: 11px 4px; border-bottom: 1px solid #edf0f4; }
+.strategy-result-row:last-child { border-bottom: 0; }
+.strategy-result-main { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; padding: 0; border: 0; text-align: left; color: var(--strategy-text); background: transparent; }
+.strategy-result-main strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.strategy-result-main small,.strategy-saved-row small { color: var(--strategy-muted); font-size: 11px; }
+.strategy-result-row .strategy-rank { width: 28px; height: 28px; flex-basis: 28px; font-size: 11px; }
+.strategy-result-row .strategy-row-votes { min-width: 70px; }
+.strategy-result-row .strategy-row-votes strong { font-size: 12px; }
+.strategy-row-actions { display: inline-flex; align-items: center; gap: 2px; }
+.strategy-mini-action { display: inline-grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 10px; color: #758197; background: transparent; }
+.strategy-mini-action:hover,.strategy-mini-action.active { color: var(--strategy-accent); background: #edf3ff; }
+.strategy-row-chevron { color: #9aa4b2; }
+.strategy-result-count { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; color: var(--strategy-accent); background: #edf3ff; font-size: 12px; font-weight: 800; }
+.strategy-saved-row { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid #edf0f4; }
+.strategy-saved-row:last-child { border-bottom: 0; }
+.strategy-saved-row strong { color: var(--strategy-text); font-size: 12px; }
+.strategy-compare-tray { justify-content: space-between; gap: 10px; padding: 11px 12px; margin-top: 12px; border-radius: 12px; background: #f2f6ff; }
+.strategy-compare-tray > div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.strategy-compare-tray strong { font-size: 12px; }
+.strategy-compare-tray small { overflow: hidden; color: var(--strategy-muted); text-overflow: ellipsis; white-space: nowrap; }
+.strategy-compare-tray button,.strategy-share-button { border: 0; color: var(--strategy-accent); background: transparent; font-size: 12px; font-weight: 750; }
+.strategy-selected-candidate { border-color: #cbd9fb; }
+.strategy-candidate-detail-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 14px 0; border-block: 1px solid var(--strategy-line); }
+.strategy-candidate-detail-metrics > div { display: flex; flex-direction: column; gap: 4px; }
+.strategy-candidate-detail-metrics strong { color: var(--strategy-accent); font-size: 18px; }
+.strategy-candidate-detail-metrics small { color: var(--strategy-muted); font-size: 11px; }
+.strategy-territory-inline { justify-content: space-between; gap: 18px; padding: 14px 0 0; }
+.strategy-territory-inline p { max-width: 740px; margin: 5px 0 0; color: var(--strategy-muted); font-size: 12px; line-height: 1.5; }
+.strategy-dashboard .strategy-primary-button { flex: 0 0 auto; min-height: 40px; margin: 0; border-radius: 11px; background: var(--strategy-accent); font-size: 12px; }
+.strategy-share-button { display: inline-flex; align-items: center; gap: 7px; margin-top: 14px; }
+.strategy-dashboard .strategy-notice { margin: 0; }
+.strategy-dashboard .strategy-source { margin: 0 3px; }
+@media(max-width: 1050px) {
+  .strategy-dashboard .strategy-filters { grid-template-columns: repeat(3, minmax(130px, 1fr)); }
+  .strategy-results-layout { grid-template-columns: minmax(0, 1.35fr) minmax(250px, .9fr); }
+}
+@media(max-width: 760px) {
+  .strategy-dashboard-header { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .strategy-live-badge { align-self: flex-start; }
+  .strategy-dashboard .strategy-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .strategy-results-layout { grid-template-columns: 1fr; }
+  .strategy-side-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .strategy-metric-card { padding: 14px; }
+  .strategy-metric-card strong { font-size: 22px; }
+  .strategy-chart-wrap { height: 250px; }
+}
+@media(max-width: 520px) {
+  .strategy-dashboard { gap: 12px; }
+  .strategy-filter-panel,.strategy-chart-panel,.strategy-candidates-panel,.strategy-parties-panel,.strategy-saved-panel,.strategy-selected-candidate { padding: 14px; border-radius: 16px; }
+  .strategy-dashboard .strategy-filters { grid-template-columns: 1fr 1fr; gap: 9px; }
+  .strategy-dashboard .strategy-field { grid-column: span 1; }
+  .strategy-dashboard .strategy-field:nth-child(3),.strategy-dashboard .strategy-field:nth-child(5) { grid-column: span 2; }
+  .strategy-metric-grid { gap: 8px; }
+  .strategy-metric-card { padding: 11px; border-radius: 14px; }
+  .strategy-metric-card > span,.strategy-metric-card small { font-size: 10px; }
+  .strategy-metric-card strong { font-size: 19px; }
+  .strategy-side-panels { grid-template-columns: 1fr; }
+  .strategy-result-row { gap: 7px; }
+  .strategy-row-actions { gap: 0; }
+  .strategy-mini-action { width: 28px; height: 28px; }
+  .strategy-result-row .strategy-row-votes { min-width: 56px; }
+  .strategy-territory-inline { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .strategy-territory-inline .strategy-primary-button { width: 100%; }
+  .strategy-chart-wrap { height: 220px; }
 }

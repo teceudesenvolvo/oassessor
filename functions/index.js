@@ -1811,3 +1811,6 @@ exports.getPollingPlace = onRequest({ cors: true, invoker: 'public' }, async (re
         res.status(500).send({ error: "Falha ao buscar local de votação." });
     }
 });
+
+const { tseOpenDataResults } = require('./tseOpenData');
+exports.tseOpenDataResults = tseOpenDataResults;

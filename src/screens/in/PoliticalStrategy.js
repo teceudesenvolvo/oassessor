@@ -1,53 +1,43 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, ArrowLeft, CheckSquare, ChevronDown, ChevronRight, FileText, Landmark, Map, MapPin, Search, Share2, Star, UserRound, Users } from 'lucide-react';
-import { useAuth } from '../../useAuth';
+import {
+  BarChart3, ChevronDown, ChevronRight, MapPin, Search,
+  Share2, Star, Users,
+} from 'lucide-react';
+import {
+  Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from 'recharts';
 import './PoliticalStrategy.css';
-import { fetchTseLiveResults } from '../../services/tseLiveResults';
+import { fetchTseOpenDataResults } from '../../services/tseOpenDataResults';
 
-const ENDPOINT = 'https://us-central1-oassessor-blu.cloudfunctions.net/tseHistoricalResults';
 const STORAGE_KEY = 'oassessor-political-strategy-analyses-v1';
 const YEARS = [2026, 2024, 2022, 2020, 2018, 2016, 2014, 2012];
-const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 const OFFICES = [
-  { label: 'Presidente', general: true }, { label: 'Governador', general: true }, { label: 'Senador', general: true },
-  { label: 'Deputado federal', general: true }, { label: 'Deputado estadual/distrital', general: true },
-  { label: 'Prefeito', general: false }, { label: 'Vereador', general: false },
+  { label: 'Presidente', general: true },
+  { label: 'Governador', general: true },
+  { label: 'Senador', general: true },
+  { label: 'Deputado federal', general: true },
+  { label: 'Deputado estadual/distrital', general: true },
+  { label: 'Prefeito', general: false },
+  { label: 'Vereador', general: false },
 ];
-const RESULT_SECTIONS = [
-  ['elections','Explorar eleições',CheckSquare,'Escolha o ano, o estado, o cargo e o turno.'],
-  ['candidates','Candidatos',UserRound,'Pesquise candidaturas e abra os detalhes.'],
-  ['parties','Partidos',Landmark,'Compare o total de votos por partido no recorte atual.'],
-  ['compare','Comparar candidaturas',Users,'Compare até duas candidaturas do mesmo recorte.'],
-];
-const TERRITORY_SECTIONS = [
-  ['municipalities','Município',MapPin], ['zones','Zona eleitoral',Map], ['locations','Local de votação',MapPin], ['sections','Seção',CheckSquare],
+const SCOPES = [
+  { value: 'municipality', label: 'Município' },
+  { value: 'zone', label: 'Zona eleitoral' },
+  { value: 'location', label: 'Local de votação' },
+  { value: 'section', label: 'Seção' },
 ];
 const number = value => Math.round(Number(value || 0)).toLocaleString('pt-BR');
 const pct = value => `${Number(value || 0).toFixed(2).replace('.', ',')}%`;
 const officeList = year => OFFICES.filter(item => item.general === (Number(year) % 4 !== 0));
 
-async function queryResults(user, params) {
-  if (!user) throw new Error('Entre novamente para consultar os resultados históricos.');
-  const response = await fetch(ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` },
-    body: JSON.stringify(params),
-  });
-  const body = await response.text();
-  let result;
-  try { result = JSON.parse(body); } catch { throw new Error(`Resposta inválida do serviço histórico (HTTP ${response.status}).`); }
-  if (!response.ok) throw new Error(result.error || `Falha ao consultar a base histórica (HTTP ${response.status}).`);
-  return result;
-}
-
 export default function PoliticalStrategy() {
-  const { user } = useAuth();
-  const [section, setSection] = useState('home');
   const [year, setYear] = useState(2022);
   const [turn, setTurn] = useState(1);
   const [uf, setUf] = useState('CE');
   const [office, setOffice] = useState('Governador');
   const [municipality, setMunicipality] = useState(null);
+  const [scope, setScope] = useState('municipality');
   const [municipalities, setMunicipalities] = useState([]);
   const [zones, setZones] = useState([]);
   const [locations, setLocations] = useState([]);
@@ -61,118 +51,206 @@ export default function PoliticalStrategy() {
   const [error, setError] = useState('');
   const [retryCount, setRetryCount] = useState(0);
   const [search, setSearch] = useState('');
-  const [savedYearFilter, setSavedYearFilter] = useState('all');
-  const [saved, setSaved] = useState(() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } });
-  const [favorites, setFavorites] = useState(() => { try { return JSON.parse(localStorage.getItem(`${STORAGE_KEY}-favorites`) || '[]'); } catch { return []; } });
-  const [candidate, setCandidate] = useState(null);
+  const [saved, setSaved] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+  });
+  const [favorites, setFavorites] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`${STORAGE_KEY}-favorites`) || '[]'); } catch { return []; }
+  });
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [compare, setCompare] = useState([]);
 
-  const localElection = Number(year) % 4 === 0;
   const offices = officeList(year);
   const availableTurns = ['Presidente', 'Governador', 'Prefeito'].includes(office) ? [1, 2] : [1];
-  const params = useMemo(() => ({ year: Number(year), turn: Number(turn), uf, cargo: office, municipalityCode: municipality?.code || '', zoneCode, locationCode, sectionCode }), [year, turn, uf, office, municipality?.code, zoneCode, locationCode, sectionCode]);
-  const pageTitle = ({ elections: 'Análise de Eleição', candidates: 'Análise de Candidatos', candidate: 'Detalhe do Candidato', compare: 'Comparar candidaturas', analysis: 'Minhas Análises', parties: 'Análise por Partidos', municipalities: 'Análise por Município', municipalityResult: 'Resultado por Município', zones: 'Análise por Zona', zoneResult: 'Resultado por Zona', locations: 'Análise por Local', locationResult: 'Resultado por Local', sections: 'Análise por Seção', sectionResult: 'Resultado por Seção' })[section];
+  const needsZone = scope === 'zone' || scope === 'location' || scope === 'section';
+  const needsLocation = scope === 'location' || scope === 'section';
+  const needsSection = scope === 'section';
+  const params = useMemo(() => ({
+    year: Number(year), turn: Number(turn), uf, cargo: office,
+    municipalityCode: municipality?.code || '', zoneCode, locationCode, sectionCode,
+    granularity: scope, includeMunicipalities: true,
+  }), [year, turn, uf, office, municipality?.code, zoneCode, locationCode, sectionCode, scope]);
 
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); }, [saved]);
   useEffect(() => { localStorage.setItem(`${STORAGE_KEY}-favorites`, JSON.stringify(favorites)); }, [favorites]);
+
   useEffect(() => {
-    const list = officeList(year);
-    setOffice(current => {
-      if (list.some(item => item.label === current)) return current;
+    const validOffices = officeList(year);
+    if (!validOffices.some(item => item.label === office)) {
+      setOffice(Number(year) % 4 === 0 ? 'Prefeito' : 'Governador');
       setTurn(1);
-      return Number(year) % 4 === 0 ? 'Prefeito' : 'Governador';
-    });
-  }, [year]);
+    }
+  }, [year, office]);
 
   useEffect(() => {
-    const needsResults = ['elections','candidates','candidate','compare','parties','municipalities','municipalityResult','zones','zoneResult','locations','locationResult','sections','sectionResult'].includes(section);
-    if (!needsResults) return undefined;
     let active = true;
-    setLoading(true); setError('');
-    const territoryGranularityPages = ['zones','zoneResult','locations','locationResult','sections','sectionResult'].includes(section);
-    const granularity = ['zones','zoneResult'].includes(section) ? 'zone' : ['locations','locationResult'].includes(section) ? 'location' : ['sections','sectionResult'].includes(section) ? 'section' : '';
-    let request;
-    if (territoryGranularityPages && params.municipalityCode && params.year > 2024) request = Promise.reject(new Error('O arquivo oficial por zona, local e seção ainda não está disponível para esta eleição.'));
-    else if (territoryGranularityPages && params.municipalityCode && params.year <= 2024) request = queryResults(user, { ...params, granularity });
-    else if (Number(params.year) >= 2024) request = fetchTseLiveResults({ ...params, includeMunicipalities: localElection || ['municipalities','zones','zoneResult','locations','locationResult','sections','sectionResult'].includes(section) });
-    else request = queryResults(user, params);
-    request.then(data => {
+    setLoading(true);
+    setError('');
+    fetchTseOpenDataResults(params).then(data => {
       if (!active) return;
-      setCandidates(data.candidates || []); setSummary(data.summary || null); setMunicipalities(data.municipalities || []);
-      setZones(data.zones || []); setLocations(data.locations || []); setSections(data.sections || []);
-    }).catch(err => { if (active) setError(err.message || 'Não foi possível carregar os resultados.'); })
-      .finally(() => { if (active) setLoading(false); });
+      setCandidates(data.candidates || []);
+      setSummary(data.summary || null);
+      if (data.municipalities?.length) setMunicipalities(data.municipalities);
+      setZones(data.zones || []);
+      setLocations(data.locations || []);
+      setSections(data.sections || []);
+      setSelectedCandidate(current => current && (data.candidates || []).some(item => item.id === current.id) ? current : null);
+    }).catch(err => {
+      if (active) setError(err.message || 'Não foi possível carregar os resultados oficiais.');
+    }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [user, params, section, localElection, municipality?.code, retryCount]);
+  }, [params, retryCount]);
 
-  const filteredCandidates = useMemo(() => candidates.filter(item => `${item.name} ${item.number} ${item.party}`.toLowerCase().includes(search.trim().toLowerCase())), [candidates, search]);
+  const filteredCandidates = useMemo(() => candidates.filter(item =>
+    `${item.name} ${item.number} ${item.party}`.toLowerCase().includes(search.trim().toLowerCase())), [candidates, search]);
   const parties = useMemo(() => Object.values(candidates.reduce((all, item) => {
     const party = item.party || 'Sem partido';
     all[party] ||= { id: party, name: party, votes: 0, candidates: 0 };
-    all[party].votes += Number(item.votes || 0); all[party].candidates += 1; return all;
-  }, {})).sort((a,b) => b.votes - a.votes), [candidates]);
-
-  const go = next => { setSearch(''); setSection(next); if (next === 'compare') { setCompare([]); } };
-  const saveAnalysis = (record = {}) => {
-    const item = { id: `${Date.now()}`, title: record.title || `${office} · ${year} · ${uf}`, subtitle: record.subtitle || `${year} · ${turn}º turno · ${uf}${municipality ? ` · ${municipality.name}` : ''}`, section: record.section || section, year, turn, uf, office, municipalityCode: municipality?.code || '', municipalityName: municipality?.name || '', zoneCode, locationCode, sectionCode, candidateIds: compare.map(item => item.id), candidateNames: compare.map(item => item.name), compareCandidates: compare, createdAt: new Date().toISOString() };
-    setSaved(current => [item, ...current].slice(0, 100));
-  };
-  const restoreAnalysis = item => {
-    setYear(Number(item.year) || 2022); setTurn(Number(item.turn) || 1); setUf(item.uf || 'CE'); setOffice(item.office || 'Governador');
-    setMunicipality(item.municipalityCode ? { code:item.municipalityCode, name:item.municipalityName || item.municipalityCode } : null);
-    setZoneCode(item.zoneCode || ''); setLocationCode(item.locationCode || ''); setSectionCode(item.sectionCode || '');
-    setCompare(item.compareCandidates || []); setSearch('');
-    setSection(['elections','candidates','candidate','compare','analysis','parties','municipalities','municipalityResult','zones','zoneResult','locations','locationResult','sections','sectionResult'].includes(item.section) ? item.section : 'elections');
-  };
-  const selectMunicipality = value => { setMunicipality(value); setZoneCode(''); setLocationCode(''); setSectionCode(''); };
-  const changeYear = value => { setYear(Number(value)); setTurn(1); setMunicipality(null); setZoneCode(''); setLocationCode(''); setSectionCode(''); setCompare([]); };
-  const filteredSaved = saved.filter(item => (savedYearFilter === 'all' || Number(item.year) === Number(savedYearFilter)) && `${item.title} ${item.subtitle}`.toLowerCase().includes(search.trim().toLowerCase()));
+    all[party].votes += Number(item.votes || 0);
+    all[party].candidates += 1;
+    return all;
+  }, {})).sort((a, b) => b.votes - a.votes), [candidates]);
+  const chartCandidates = filteredCandidates.slice(0, 8).map(item => ({
+    name: item.name.length > 20 ? `${item.name.slice(0, 19)}…` : item.name,
+    votos: Number(item.votes || 0),
+    fullName: item.name,
+  }));
+  const scopeLabel = SCOPES.find(item => item.value === scope)?.label || 'Município';
   const validVotes = Number(summary?.vv || 0);
+  const scopeNeedsSelection = !municipality
+    || (needsZone && !zoneCode) || (needsLocation && !locationCode) || (needsSection && !sectionCode);
+  const activeTerritory = [
+    municipality?.name,
+    needsZone ? zones.find(item => item.code === zoneCode)?.name : null,
+    needsLocation ? locations.find(item => item.code === locationCode)?.name : null,
+    needsSection ? `Seção ${sectionCode}` : null,
+  ].filter(Boolean).join(' · ');
 
-  const select = (label, value, onChange, options) => <label className="strategy-field"><span>{label}</span><div className="strategy-select"><select value={value} onChange={event => onChange(event.target.value)}>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select><ChevronDown size={16} /></div></label>;
-  const filters = (withOffice = true, showTerritory = false) => <section className="strategy-filters">
-    {select('Eleição', year, changeYear, YEARS.map(item => ({ value: item, label: item })))}
-    {(office !== 'Presidente' || showTerritory) && select('Estado', uf, value => { setUf(value); setMunicipality(null); setZoneCode(''); setLocationCode(''); setSectionCode(''); setCompare([]); }, UFS.map(item => ({ value: item, label: item })))}
-    {withOffice && <>
-      {select('Cargo', office, value => { setOffice(value); setTurn(1); setZoneCode(''); setLocationCode(''); setSectionCode(''); setCompare([]); }, offices.map(item => ({ value: item.label, label: item.label })))}
-      {select('Turno', turn, value => { setTurn(Number(value)); setZoneCode(''); setLocationCode(''); setSectionCode(''); setCompare([]); }, availableTurns.map(item => ({ value: item, label: `${item}º turno` })))}
-      {(localElection || showTerritory) && <label className="strategy-field"><span>Município</span><div className="strategy-select"><select value={municipality?.code || ''} onChange={event => { selectMunicipality(municipalities.find(item => item.code === event.target.value) || null); setCompare([]); }}><option value="">Selecione um município</option>{municipalities.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</select><ChevronDown size={16} /></div></label>}
-    </>}
-  </section>;
-  const searchBox = placeholder => <label className="strategy-search"><Search size={19} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder={placeholder} /></label>;
-  const candidateRows = (rows = filteredCandidates, showCandidateButton = true) => <div className="strategy-list">{rows.map((item, index) => <button className="strategy-row" key={item.id || item.name} onClick={() => { if (showCandidateButton) { setCandidate(item); setSection('candidate'); } }}><span className="strategy-rank">{index + 1}</span><span className="strategy-row-copy"><strong>{item.name}</strong><small>{item.number || ''}{item.party ? ` · ${item.party}` : ''}</small></span><span className="strategy-row-votes"><strong>{number(item.votes)}</strong>{item.percent != null && <small>{pct(item.percent)}</small>}</span>{showCandidateButton && <ChevronRight size={18} />}</button>)}{!rows.length && <p className="strategy-empty-inline">{candidates.length ? 'Nenhuma candidatura corresponde à busca.' : 'Nenhuma candidatura encontrada para este recorte oficial.'}</p>}</div>;
-  const errorState = error && <div className="strategy-notice error"><strong>Não foi possível carregar os dados</strong><span>{error}</span><button className="strategy-retry-button" onClick={() => setRetryCount(value => value + 1)}>Tentar novamente</button></div>;
-  const loadingState = loading && <div className="strategy-loading"><span className="strategy-spinner" />Consultando resultados oficiais do TSE…</div>;
-  const sectionHeader = <header className="strategy-page-header"><button className="strategy-icon-button" aria-label="Voltar para Estratégia Política" onClick={() => go('home')}><ArrowLeft /></button><div><h2>{pageTitle}</h2><i /></div><button className="strategy-icon-button" aria-label="Início da Estratégia Política" onClick={() => go('home')}><span className="strategy-home-glyph">⌂</span></button></header>;
+  const clearDeeper = () => { setZoneCode(''); setLocationCode(''); setSectionCode(''); };
+  const saveAnalysis = () => {
+    const record = {
+      id: `${Date.now()}`,
+      title: `${office} · ${municipality?.name || uf}`,
+      subtitle: `${year} · ${turn}º turno · ${scopeLabel}${activeTerritory ? ` · ${activeTerritory}` : ''}`,
+      year, turn, uf, office, municipalityCode: municipality?.code || '',
+      municipalityName: municipality?.name || '', zoneCode, locationCode, sectionCode,
+      candidateNames: compare.map(item => item.name), createdAt: new Date().toISOString(),
+    };
+    setSaved(current => [record, ...current].slice(0, 100));
+  };
+  const toggleCompare = item => setCompare(current => current.some(candidate => candidate.id === item.id)
+    ? current.filter(candidate => candidate.id !== item.id)
+    : current.length < 2 ? [...current, item] : [current[1], item]);
 
-  return <main className="political-strategy">
-    {section === 'home' ? <>
-      <section className="strategy-hero"><div className="strategy-kicker"><Activity size={16} /> DADOS OFICIAIS · TSE</div><h1>Estratégia política</h1><p>Consulte resultados por eleição e aprofunde a leitura por município, zona, local ou seção. Os dados variam conforme a eleição e a disponibilidade oficial.</p><div className="strategy-hero-meta"><span /> Fonte oficial do TSE · sem estimativas</div><button className="strategy-hero-cta" onClick={() => go('elections')}>Começar por uma eleição <ChevronRight size={18}/></button></section>
-      <section className="strategy-home-group"><div className="strategy-section-heading"><div><h2>Resultados</h2><p>Comece pelo pleito e depois escolha o tipo de análise.</p></div></div><nav className="strategy-nav-grid" aria-label="Análises de resultados">{RESULT_SECTIONS.map(([id,label,Icon,description]) => <button key={id} onClick={() => go(id)}><span className="strategy-nav-icon"><Icon size={20} /></span><span><strong>{label}</strong><small>{description}</small></span><ChevronRight size={17}/></button>)}</nav></section>
-      <section className="strategy-home-group"><div className="strategy-section-heading"><div><h2>Explorar por território</h2><p>Os recortes dependem da eleição e do município selecionados.</p></div></div><nav className="strategy-territory-grid" aria-label="Recortes territoriais">{TERRITORY_SECTIONS.map(([id,label,Icon]) => <button key={id} onClick={() => go(id)}><Icon size={19}/><strong>{label}</strong><ChevronRight size={16}/></button>)}</nav><p className="strategy-muted strategy-territory-help">O TSE não disponibiliza votação oficial por bairro. Por isso, esse recorte não aparece como opção.</p></section>
-      <div className="strategy-section-heading"><div><h2>Minhas análises</h2><p>Filtros guardados neste navegador.</p></div><button onClick={() => go('analysis')}>Ver todas <ChevronRight size={16} /></button></div>
-      <div className="strategy-card">{saved.slice(0,4).map(item => <button key={item.id} className="strategy-row" onClick={() => restoreAnalysis(item)}><span className="strategy-round-icon"><MapPin size={19} /></span><span className="strategy-row-copy"><strong>{item.title}</strong><small>{item.subtitle}</small></span><ChevronRight size={18} /></button>)}{!saved.length && <div className="strategy-empty-state"><FileText size={22}/><strong>Nenhuma análise salva</strong><span>Use “Salvar” dentro de uma análise para guardar seus filtros neste navegador.</span></div>}</div>
-      <div className="strategy-section-heading"><div><h2>Acesso rápido por ano</h2><p>Selecione um ano para iniciar a consulta.</p></div></div><div className="strategy-year-pills">{YEARS.slice(0,3).map(item => <button key={item} onClick={() => { changeYear(item); go('elections'); }}>{item}</button>)}</div>
-    </> : <>
-      {sectionHeader}
-      {section === 'analysis' ? <>
-        {searchBox('Buscar análises…')}<div className="strategy-list-tools"><label>Filtrar por ano <select value={savedYearFilter} onChange={event => setSavedYearFilter(event.target.value)}><option value="all">Todos</option>{YEARS.map(item => <option key={item} value={item}>{item}</option>)}</select></label><span>{filteredSaved.length} salvas neste navegador</span><button onClick={() => { if (window.confirm('Excluir todas as análises salvas neste navegador?')) { setSaved([]); localStorage.removeItem(STORAGE_KEY); } }}>Limpar análises</button></div>
-        <div className="strategy-card">{filteredSaved.map(item => <div className="strategy-row" key={item.id}><button className="strategy-row-open" onClick={() => restoreAnalysis(item)}><span className="strategy-row-copy"><strong>{item.title}</strong><small>{item.subtitle}</small></span><ChevronRight size={18} /></button><button className="strategy-icon-button small" aria-label={`Compartilhar ${item.title}`} onClick={() => navigator.clipboard?.writeText(`${item.title}\n${item.subtitle}\nFonte: TSE`)}><Share2 size={17} /></button></div>)}{!filteredSaved.length && <p className="strategy-empty-inline">Nenhuma análise salva encontrada.</p>}</div>
-        <button className="strategy-primary-button" onClick={() => go('elections')}>＋ Nova análise</button>
-      </> : null}
-      {section === 'elections' && <>{filters(false)}<div className="strategy-section-heading"><h2>Eleição {year} · {uf}</h2><button onClick={() => saveAnalysis({section:'elections'})}>＋ Salvar</button></div><div className="strategy-card">{(localElection ? ['Prefeito','Vereador'] : offices.map(item => item.label)).flatMap(position => [1,...(['Presidente','Governador'].includes(position) ? [2] : [])].map(round => ({position,round}))).map((item,index) => <button className="strategy-row" key={`${item.position}-${item.round}`} onClick={() => { setOffice(item.position); setTurn(item.round); setSection('candidates'); }}><span className="strategy-round-icon"><CheckSquare size={20} /></span><span className="strategy-row-copy"><strong>Eleição {year} · {item.round}º turno · {uf}</strong><small>{item.position}</small></span><ChevronRight size={18} /></button>)}</div></>}
-      {['candidates','parties','compare','municipalities'].includes(section) && <>
-        {filters(true, section === 'municipalities')}
-        {section === 'candidates' && <>{searchBox('Buscar por nome, número ou partido…')}{errorState}{loadingState}{!loading && !error && (localElection && !municipality ? <div className="strategy-notice">Selecione um município para consultar candidatos deste pleito.</div> : <div className="strategy-card">{candidateRows()}</div>)}</>}
-        {section === 'parties' && <>{errorState}{loadingState}{!loading && !error && (localElection && !municipality ? <div className="strategy-notice">Selecione um município para consultar os votos por partido neste pleito.</div> : <div className="strategy-card">{candidateRows(parties.map(item => ({...item, number:`${item.candidates} candidaturas`})), false)}</div>)}</>}
-        {section === 'compare' && <><div className="strategy-section-heading"><div><h2>Novo comparativo</h2><p>Escolha duas candidaturas da mesma eleição, cargo e território.</p></div><span>{compare.length}/2 selecionadas</span></div>{compare.length > 0 && <div className="strategy-selection-summary">{compare.map(item => <span key={item.id}>{item.name}</span>)}<button onClick={() => setCompare([])}>Limpar seleção</button></div>}{errorState}{loadingState}{!loading && !error && (localElection && !municipality ? <div className="strategy-notice">Escolha município e cargo para listar candidaturas.</div> : <div className="strategy-card">{filteredCandidates.map((item,index) => { const selected = compare.some(c => c.id === item.id); const limitReached = compare.length >= 2 && !selected; return <button key={item.id || `${item.name}-${item.number}`} disabled={limitReached} className={`strategy-row ${selected ? 'is-selected' : ''} ${limitReached ? 'is-disabled' : ''}`} onClick={() => setCompare(current => current.some(c => c.id === item.id) ? current.filter(c => c.id !== item.id) : current.length < 2 ? [...current,item] : current)}><span className="strategy-rank">{index+1}</span><span className="strategy-row-copy"><strong>{item.name}</strong><small>{item.party} · {number(item.votes)} votos</small></span><span className="strategy-check">{selected ? '✓' : '+'}</span></button>; })}{!filteredCandidates.length && <p className="strategy-empty-inline">Nenhuma candidatura encontrada com essa busca e esse recorte.</p>}</div>)}{compare.length > 0 && <div className="strategy-card strategy-comparison">{compare.map(item => <article key={item.id}><span className="strategy-avatar">{item.name?.slice(0,1)}</span><strong>{item.name}</strong><b>{number(item.votes)}</b><small>{pct(item.percent)} · {item.party}</small></article>)}{compare.length === 2 && <div className="strategy-comparison-note"><p>Comparação dos votos no recorte selecionado acima. Para comparar outro território, altere os filtros e crie uma nova análise.</p><button className="strategy-primary-button" onClick={() => saveAnalysis({section:'compare',title:`${compare[0].name} × ${compare[1].name}`})}>Salvar comparativo</button></div>}</div>}</>}
-        {section === 'municipalities' && <>{errorState}{loadingState}{!loading && !error && <><button className="strategy-primary-button" disabled={!municipality} onClick={() => setSection('municipalityResult')}>Analisar por Município</button>{municipality && <button className="strategy-row strategy-card" onClick={() => setSection('municipalityResult')}><span className="strategy-row-copy"><strong>{municipality.name}</strong><small>Ver votação de {office} · {year} · {turn}º turno</small></span><ChevronRight /></button>}</>}</>}
+  const select = (label, value, onChange, options, disabled = false) => (
+    <label className="strategy-field" key={label}>
+      <span>{label}</span>
+      <div className="strategy-select">
+        <select value={value} onChange={event => onChange(event.target.value)} disabled={disabled}>
+          {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <ChevronDown size={16} />
+      </div>
+    </label>
+  );
+  const renderRows = (items, isParty = false) => (
+    <div className="strategy-list">
+      {items.map((item, index) => {
+        const isSelected = compare.some(candidate => candidate.id === item.id);
+        const favorited = favorites.some(candidate => candidate.id === item.id);
+        return <article className="strategy-result-row" key={item.id || item.name}>
+          <span className="strategy-rank">{index + 1}</span>
+          <button className="strategy-result-main" onClick={() => !isParty && setSelectedCandidate(item)}>
+            <strong>{item.name}</strong>
+            <small>{isParty ? `${item.candidates} candidaturas` : `${item.number || ''}${item.party ? ` · ${item.party}` : ''}`}</small>
+          </button>
+          <div className="strategy-row-votes"><strong>{number(item.votes)}</strong>{item.percent != null && <small>{pct(item.percent)}</small>}</div>
+          {!isParty && <div className="strategy-row-actions">
+            <button className={`strategy-mini-action ${isSelected ? 'active' : ''}`} aria-label="Comparar candidatura" title="Comparar" onClick={() => toggleCompare(item)}><Users size={16} /></button>
+            <button className={`strategy-mini-action ${favorited ? 'active' : ''}`} aria-label="Favoritar candidatura" title="Favoritar" onClick={() => setFavorites(current => favorited ? current.filter(candidate => candidate.id !== item.id) : [...current, item])}><Star size={16} fill={favorited ? 'currentColor' : 'none'} /></button>
+            <ChevronRight className="strategy-row-chevron" size={18} />
+          </div>}
+        </article>;
+      })}
+      {!items.length && <p className="strategy-empty-inline">{candidates.length ? 'Nenhum resultado corresponde à busca.' : 'Não há candidaturas para este recorte oficial.'}</p>}
+    </div>
+  );
+
+  return <main className="political-strategy strategy-dashboard">
+    <header className="strategy-dashboard-header">
+      <div><span className="strategy-eyebrow">DADOS OFICIAIS · TSE</span><h1>Estratégia política</h1><p>Acompanhe a votação e aprofunde a análise sem perder os filtros selecionados.</p></div>
+      <div className="strategy-live-badge"><span /> Apuração oficial</div>
+    </header>
+
+    <section className="strategy-panel strategy-filter-panel" aria-label="Filtros da apuração">
+      <div className="strategy-panel-heading"><div><h2>Configure a análise</h2><p>Os resultados abaixo acompanham estes filtros.</p></div><BarChart3 size={21} /></div>
+      <div className="strategy-filters">
+        {select('Eleição', year, value => { setYear(Number(value)); setTurn(1); setMunicipality(null); clearDeeper(); }, YEARS.map(item => ({ value: item, label: item })))}
+        {select('Estado', uf, value => { setUf(value); setMunicipality(null); clearDeeper(); }, UFS.map(item => ({ value: item, label: item })))}
+        {select('Cargo', office, value => { setOffice(value); setTurn(1); clearDeeper(); }, offices.map(item => ({ value: item.label, label: item.label })))}
+        {select('Turno', turn, value => setTurn(Number(value)), availableTurns.map(item => ({ value: item, label: `${item}º turno` })))}
+        {select('Detalhar por', scope, value => { setScope(value); clearDeeper(); }, SCOPES)}
+        {select('Município', municipality?.code || '', value => {
+          setMunicipality(municipalities.find(item => item.code === value) || null); clearDeeper();
+        }, [{ value: '', label: 'Selecione um município' }, ...municipalities.map(item => ({ value: item.code, label: item.name }))])}
+        {needsZone && select('Zona eleitoral', zoneCode, value => { setZoneCode(value); setLocationCode(''); setSectionCode(''); }, [{ value: '', label: 'Selecione uma zona' }, ...zones.map(item => ({ value: item.code, label: item.name }))], !municipality)}
+        {needsLocation && select('Local de votação', locationCode, value => { setLocationCode(value); setSectionCode(''); }, [{ value: '', label: 'Selecione um local' }, ...locations.map(item => ({ value: item.code, label: item.name }))], !zoneCode)}
+        {needsSection && select('Seção', sectionCode, setSectionCode, [{ value: '', label: 'Selecione uma seção' }, ...sections.map(item => ({ value: item.code, label: item.name }))], !locationCode)}
+      </div>
+      <div className="strategy-filter-summary"><MapPin size={16} /><span>{year} · {uf} · {office} · {turn}º turno · {scopeLabel}{activeTerritory ? ` · ${activeTerritory}` : ''}</span></div>
+    </section>
+
+    {error && <div className="strategy-notice error"><strong>Não foi possível carregar os dados</strong><span>{error}</span><button className="strategy-retry-button" onClick={() => setRetryCount(value => value + 1)}>Tentar novamente</button></div>}
+    {loading && <div className="strategy-loading"><span className="strategy-spinner" />Consultando os arquivos oficiais do TSE. A primeira consulta territorial pode levar alguns instantes…</div>}
+
+    {!loading && !error && <>
+      {scopeNeedsSelection && <div className="strategy-notice"><strong>Continue o recorte territorial</strong><p>Selecione {!municipality ? 'um município' : needsZone && !zoneCode ? 'uma zona eleitoral' : needsLocation && !locationCode ? 'um local de votação' : 'uma seção'} acima. O resultado será atualizado aqui, sem abrir outra tela.</p></div>}
+      {!municipality && <div className="strategy-notice"><strong>Escolha um município</strong><p>Os resultados e gráficos serão carregados nesta página assim que você selecionar o município. A lista vem dos arquivos oficiais do TSE.</p></div>}
+
+      {municipality && <>
+        <section className="strategy-metric-grid" aria-label="Resumo dos resultados">
+          <article className="strategy-metric-card"><span>Votos válidos</span><strong>{number(validVotes)}</strong><small>{activeTerritory || (municipality?.name || uf)}</small></article>
+          <article className="strategy-metric-card"><span>Candidaturas</span><strong>{number(candidates.length)}</strong><small>{office} · {year}</small></article>
+          <article className="strategy-metric-card"><span>Partidos</span><strong>{number(parties.length)}</strong><small>no recorte selecionado</small></article>
+        </section>
+
+        {!scopeNeedsSelection && candidates.length > 0 && <section className="strategy-panel strategy-chart-panel">
+          <div className="strategy-panel-heading"><div><h2>Votação das candidaturas</h2><p>Principais resultados em {scopeLabel.toLowerCase()}.</p></div><span className="strategy-chart-total">{number(validVotes)} votos válidos</span></div>
+          <div className="strategy-chart-wrap">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartCandidates} margin={{ top: 12, right: 16, left: 4, bottom: 54 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e6ebf0" />
+                <XAxis dataKey="name" angle={-25} textAnchor="end" interval={0} height={68} tick={{ fontSize: 11, fill: '#657287' }} />
+                <YAxis tickFormatter={value => number(value)} width={70} tick={{ fontSize: 11, fill: '#657287' }} />
+                <Tooltip formatter={value => [`${number(value)} votos`, 'Votação']} labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label} />
+                <Bar dataKey="votos" fill="#2864e8" radius={[6, 6, 0, 0]} maxBarSize={54} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>}
+
+        <div className="strategy-results-layout">
+          <section className="strategy-panel strategy-candidates-panel">
+            <div className="strategy-panel-heading"><div><h2>Resultado por {scopeLabel.toLowerCase()}</h2><p>Selecione uma candidatura para ver os detalhes.</p></div><span className="strategy-result-count">{filteredCandidates.length}</span></div>
+            <label className="strategy-search"><Search size={18} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar nome, número ou partido" /></label>
+            {renderRows(filteredCandidates)}
+            {compare.length > 0 && <div className="strategy-compare-tray"><div><strong>Comparação</strong><small>{compare.map(item => item.name).join(' × ')}</small></div><button onClick={() => setCompare([])}>Limpar</button></div>}
+          </section>
+          <aside className="strategy-side-panels">
+            <section className="strategy-panel strategy-parties-panel"><div className="strategy-panel-heading"><div><h2>Votação por partido</h2><p>Soma dos votos das candidaturas.</p></div></div>{renderRows(parties.slice(0, 6), true)}</section>
+            <section className="strategy-panel strategy-saved-panel"><div className="strategy-panel-heading"><div><h2>Análises salvas</h2><p>Este navegador guarda até 100 recortes.</p></div><button className="strategy-mini-action" aria-label="Salvar análise atual" title="Salvar análise" onClick={saveAnalysis}><Star size={16}/></button></div>{saved.slice(0, 4).map(item => <div className="strategy-saved-row" key={item.id}><strong>{item.title}</strong><small>{item.subtitle}</small></div>)}{!saved.length && <p className="strategy-muted">Salve o recorte atual para consultá-lo depois.</p>}</section>
+          </aside>
+        </div>
+
+        {selectedCandidate && <section className="strategy-panel strategy-selected-candidate">
+          <div className="strategy-panel-heading"><div><span className="strategy-eyebrow">DETALHE DA CANDIDATURA</span><h2>{selectedCandidate.name}</h2><p>{selectedCandidate.party} · {selectedCandidate.number}</p></div><button className="strategy-mini-action" onClick={() => setSelectedCandidate(null)} aria-label="Fechar detalhes">×</button></div>
+          <div className="strategy-candidate-detail-metrics"><div><strong>{number(selectedCandidate.votes)}</strong><small>votos</small></div><div><strong>{pct(selectedCandidate.percent)}</strong><small>dos votos válidos</small></div><div><strong>{candidates.findIndex(item => item.id === selectedCandidate.id) + 1}º</strong><small>colocação</small></div></div>
+          <div className="strategy-territory-inline"><div><strong>Explorar resultado territorial</strong><p>Altere “Detalhar por” nos filtros acima para município, zona, local ou seção. A página mantém a eleição e o contexto selecionados.</p></div><button className="strategy-primary-button" onClick={() => { setScope('municipality'); setSelectedCandidate(null); clearDeeper(); }}>Ver municípios</button></div>
+          <button className="strategy-share-button" onClick={() => navigator.clipboard?.writeText(`${selectedCandidate.name} · ${number(selectedCandidate.votes)} votos (${pct(selectedCandidate.percent)})`)}><Share2 size={16}/> Copiar resumo</button>
+        </section>}
       </>}
-      {section === 'candidate' && candidate && <><div className="strategy-card strategy-candidate-profile"><div className="strategy-avatar large">{candidate.name?.slice(0,1)}</div><div><small>{candidate.party} · {candidate.number}</small><h2>{candidate.name}</h2><span>{candidate.elected || 'Candidato'}</span></div><button className="strategy-icon-button" aria-label={`${favorites.some(item => item.id === candidate.id) ? 'Remover' : 'Adicionar'} ${candidate.name} dos favoritos`} title="Favoritar candidato" onClick={() => setFavorites(current => current.some(item => item.id === candidate.id) ? current.filter(item => item.id !== candidate.id) : [...current,candidate])}><Star fill={favorites.some(item => item.id === candidate.id) ? 'currentColor' : 'none'}/></button><button className="strategy-icon-button" aria-label={`Copiar dados de ${candidate.name}`} title="Copiar dados do candidato" onClick={() => navigator.clipboard?.writeText(`${candidate.name} · ${number(candidate.votes)} votos (${pct(candidate.percent)})`)}><Share2/></button></div><div className="strategy-card strategy-candidate-metrics"><div><strong>{pct(candidate.percent)}</strong><small>dos votos válidos</small></div><div><strong>{number(candidate.votes)}</strong><small>votos</small></div><div><strong>{candidates.indexOf(candidate)+1}º</strong><small>colocação</small></div></div><div className="strategy-notice"><strong>Resultados oficiais por território</strong><p>Selecione um município e, quando os arquivos oficiais estiverem disponíveis, aprofunde por zona, local e seção. O TSE não publica votação por bairro.</p><button className="strategy-primary-button" onClick={() => go('municipalities')}>Explorar territórios</button></div></>}
-      {section === 'municipalityResult' && <>{errorState}{loadingState}{!loading && !error && <><div className="strategy-card"><div className="strategy-kicker"><MapPin size={17}/> RESULTADO POR MUNICÍPIO</div><h2>{municipality?.name} · {year} · {office}</h2><p>{turn}º turno · {uf}</p><div className="strategy-candidate-metrics"><div><strong>{number(validVotes)}</strong><small>votos válidos</small></div><div><strong>{candidates.length}</strong><small>candidaturas</small></div></div></div><div className="strategy-card">{candidateRows()}</div><button className="strategy-primary-button" onClick={() => saveAnalysis({section:'municipalityResult',title:municipality?.name,subtitle:`${office} · ${year} · ${turn}º turno · ${uf}`})}><Star size={16}/> Salvar análise</button></>}</>}
-      {['zones','locations','sections'].includes(section) && <>{filters(true, true)}<section className="strategy-filters"><label className="strategy-field"><span>Zona</span><div className="strategy-select"><select value={zoneCode} onChange={event => { setZoneCode(event.target.value); setLocationCode(''); setSectionCode(''); }}><option value="">Selecione uma zona</option>{zones.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</select><ChevronDown size={16}/></div></label>{section !== 'zones' && <label className="strategy-field"><span>Local de votação</span><div className="strategy-select"><select value={locationCode} onChange={event => { setLocationCode(event.target.value); setSectionCode(''); }} disabled={!zoneCode}><option value="">Selecione um local</option>{locations.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</select><ChevronDown size={16}/></div></label>}{section === 'sections' && <label className="strategy-field"><span>Seção</span><div className="strategy-select"><select value={sectionCode} onChange={event => setSectionCode(event.target.value)} disabled={!locationCode}><option value="">Selecione uma seção</option>{sections.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</select><ChevronDown size={16}/></div></label>}<button className="strategy-primary-button" disabled={!municipality || (section === 'zones' ? !zoneCode : section === 'locations' ? !zoneCode || !locationCode : !zoneCode || !locationCode || !sectionCode)} onClick={() => go(section === 'zones' ? 'zoneResult' : section === 'locations' ? 'locationResult' : 'sectionResult')}>Analisar por {section === 'zones' ? 'Zona' : section === 'locations' ? 'Local' : 'Seção'}</button></section>{errorState}{loadingState}{!municipality && <div className="strategy-notice">Selecione eleição, estado, cargo, turno e município para carregar os recortes oficiais.</div>}{!loading && !error && municipality && !zones.length && <div className="strategy-notice"><strong>Recorte territorial indisponível</strong><p>Não encontramos dados oficiais de zona para esta combinação de eleição e município. Os resultados por município continuam disponíveis.</p></div>}</>}
-      {['zoneResult','locationResult','sectionResult'].includes(section) && <>{errorState}{loadingState}{!loading && !error && <><div className="strategy-card"><div className="strategy-kicker"><MapPin size={17}/> {section === 'zoneResult' ? 'RESULTADO POR ZONA' : section === 'locationResult' ? 'RESULTADO POR LOCAL' : 'RESULTADO POR SEÇÃO'}</div><h2>{municipality?.name} · {year} · {office}</h2><p>{turn}º turno · {uf} · {zones.find(item => item.code === zoneCode)?.name}{section !== 'zoneResult' ? ` · ${locations.find(item => item.code === locationCode)?.name}` : ''}{section === 'sectionResult' ? ` · Seção ${sectionCode}` : ''}</p><div className="strategy-candidate-metrics"><div><strong>{number(validVotes)}</strong><small>votos das candidaturas</small></div><div><strong>{candidates.length}</strong><small>candidaturas</small></div></div></div><div className="strategy-card">{candidateRows()}</div><button className="strategy-primary-button" onClick={() => saveAnalysis({section,title:municipality?.name,subtitle:`${office} · ${year} · ${turn}º turno · ${uf} · ${zoneCode}`})}><Star size={16}/> Salvar análise</button></>}</>}
-      <p className="strategy-source">Fonte: Tribunal Superior Eleitoral (TSE). Apuração oficial de 2024 e 2026; acervo histórico de 2012 a 2022, sem projeções.</p>
-    </>}
+      </>}
+
+    <p className="strategy-source">Fonte: Dados Abertos do Tribunal Superior Eleitoral (TSE). Os recortes por zona, local e seção dependem dos arquivos publicados para cada eleição. O TSE não publica votação por bairro.</p>
   </main>;
 }
