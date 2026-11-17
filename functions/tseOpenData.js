@@ -1,11 +1,15 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { Readable } = require('node:stream');
 const { createInflateRaw } = require('node:zlib');
+const { createHash } = require('node:crypto');
 const admin = require('firebase-admin');
 
 const DATASET_BASE = 'https://cdn.tse.jus.br/estatistica/sead/odsele';
 const CACHE_BUCKET = 'oassessor-blu.firebasestorage.app';
 const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const RESULT_CACHE_VERSION = 'v1';
+const RESULT_CACHE_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
+const CURRENT_ELECTION_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
 const CARGO_CODES = {
   Presidente: '1', Governador: '3', Senador: '5', 'Deputado federal': '6',
   'Deputado estadual/distrital': '7', Prefeito: '11', Vereador: '13',
@@ -151,6 +155,66 @@ async function fetchZip(year, scope, kind) {
   finally { archiveLoads.delete(cacheKey); }
 }
 
+function stableSerialize(value) {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function getResultsCacheFile(params) {
+  const key = createHash('sha256').update(stableSerialize(params)).digest('hex');
+  return admin.storage().bucket(CACHE_BUCKET).file(`tse-open-data/results/${RESULT_CACHE_VERSION}/${key}.json`);
+}
+
+async function readCachedResults(params) {
+  try {
+    const file = getResultsCacheFile(params);
+    const [exists] = await file.exists();
+    if (!exists) return null;
+    const [metadata] = await file.getMetadata();
+    const expiresAt = Date.parse(metadata.metadata?.expiresAt || '');
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      await file.delete({ ignoreNotFound: true });
+      return null;
+    }
+    const [contents] = await file.download();
+    return JSON.parse(contents.toString('utf8'));
+  } catch (error) {
+    console.warn('Não foi possível ler o cache persistente dos resultados do TSE:', error.message);
+    return null;
+  }
+}
+
+async function writeCachedResults(params, data) {
+  try {
+    const year = Number(params.year);
+    const maxAge = year >= new Date().getFullYear()
+      ? CURRENT_ELECTION_CACHE_MAX_AGE_MS
+      : RESULT_CACHE_MAX_AGE_MS;
+    const cachedAt = new Date();
+    const expiresAt = new Date(cachedAt.getTime() + maxAge);
+    const file = getResultsCacheFile(params);
+    await file.save(JSON.stringify(data), {
+      resumable: false,
+      metadata: {
+        contentType: 'application/json; charset=utf-8',
+        cacheControl: `public, max-age=${Math.floor(maxAge / 1000)}`,
+        metadata: {
+          source: 'TSE Dados Abertos',
+          cachedAt: cachedAt.toISOString(),
+          expiresAt: expiresAt.toISOString(),
+          electionYear: String(year),
+        },
+      },
+    });
+  } catch (error) {
+    // A indisponibilidade do Storage não deve impedir a consulta oficial.
+    console.warn('Não foi possível gravar o cache persistente dos resultados do TSE:', error.message);
+  }
+}
+
 async function buildResults(params) {
   const year = Number(params.year);
   const turn = Number(params.turn || 1);
@@ -280,14 +344,21 @@ exports.tseOpenDataResults = onRequest({ cors: true, invoker: 'public', memory: 
   if (req.method !== 'POST') { res.set('Allow', 'POST').status(405).json({ error: 'Método não permitido.' }); return; }
   try {
     const params = req.body || {};
-    const cacheKey = JSON.stringify(params);
+    const cacheKey = stableSerialize(params);
     const cached = requestCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) { res.set('Cache-Control', 'public, max-age=300').json(cached.data); return; }
     for (const [key, value] of requestCache) if (value.expiresAt <= Date.now()) requestCache.delete(key);
     if (requestCache.size >= 100) requestCache.delete(requestCache.keys().next().value);
+    const persisted = await readCachedResults(params);
+    if (persisted) {
+      requestCache.set(cacheKey, { data: persisted, expiresAt: Date.now() + 5 * 60 * 1000 });
+      res.set('Cache-Control', 'public, max-age=300').set('X-Results-Cache', 'cloud-storage').json(persisted);
+      return;
+    }
     const data = await buildResults(params);
+    await writeCachedResults(params, data);
     requestCache.set(cacheKey, { data, expiresAt: Date.now() + 5 * 60 * 1000 });
-    res.set('Cache-Control', 'public, max-age=300').json(data);
+    res.set('Cache-Control', 'public, max-age=300').set('X-Results-Cache', 'miss').json(data);
   } catch (error) {
     console.error('Erro ao consultar os dados abertos do TSE:', error);
     res.status(400).json({ error: error.message || 'Não foi possível consultar os dados oficiais do TSE.' });
