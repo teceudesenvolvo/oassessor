@@ -10,6 +10,7 @@ const CARGO_CODES = {
   Presidente: '1', Governador: '3', Senador: '5', 'Deputado federal': '6',
   'Deputado estadual/distrital': '7', Prefeito: '11', Vereador: '13',
 };
+const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 const requestCache = new Map();
 const archiveLoads = new Map();
 
@@ -106,8 +107,14 @@ function getValue(record, ...names) {
 function addGroup(map, key, values) {
   if (!key) return;
   const existing = map.get(key);
-  if (existing) existing.votes += values.votes;
-  else map.set(key, { ...values });
+  if (existing) {
+    existing.votes += values.votes;
+    existing.stateVotes = { ...(existing.stateVotes || {}) };
+    Object.entries(values.stateVotes || {}).forEach(([state, votes]) => {
+      existing.stateVotes[state] = Number(existing.stateVotes[state] || 0) + Number(votes || 0);
+    });
+    if (Object.keys(existing.stateVotes).length > 1) existing.uf = '';
+  } else map.set(key, { ...values, stateVotes: values.stateVotes || {} });
 }
 
 function asArray(map) { return [...map.values()]; }
@@ -157,45 +164,36 @@ async function buildResults(params) {
   const granularity = String(params.granularity || 'municipality');
   const includeMunicipalities = Boolean(params.includeMunicipalities);
   if (!Number.isInteger(year) || year < 1994 || year > new Date().getFullYear()) throw new Error('Ano eleitoral inválido.');
-  if (!/^[A-Z]{2}$/.test(uf) || !cargoCode) throw new Error('Informe um estado e um cargo eleitoral válidos.');
+  if ((uf && !/^[A-Z]{2}$/.test(uf)) || !cargoCode) throw new Error('Informe um estado e um cargo eleitoral válidos.');
+  if (!uf && granularity !== 'municipality') throw new Error('Selecione um estado antes de detalhar o resultado por território.');
   if (granularity === 'section' && sectionCode && (!municipalityCode || !zoneCode || !locationCode)) throw new Error('Selecione município, zona e local para consultar a seção.');
   if (granularity === 'location' && locationCode && (!municipalityCode || !zoneCode)) throw new Error('Selecione município e zona para consultar o local.');
 
   const sectionData = ['location','section'].includes(granularity);
   const localOffice = ['Prefeito', 'Vereador'].includes(cargo);
-  const needsMunicipalityList = includeMunicipalities && !municipalityCode;
-  if ((localOffice || needsMunicipalityList) && !municipalityCode) {
-    const archive = await fetchZip(year, uf, 'votacao_candidato_munzona');
-    const csv = findZipCsv(archive, year, uf);
+  const kind = sectionData ? 'votacao_secao' : 'votacao_candidato_munzona';
+  const nationalLocalElection = !uf && localOffice && !municipalityCode;
+  if (!uf && (zoneCode || locationCode || sectionCode)) throw new Error('Selecione um estado antes de detalhar zona, local ou seção.');
+  const archive = await fetchZip(year, uf || 'BR', kind);
+  const states = uf ? [uf] : UFS;
+  const maps = { candidates: new Map(), municipalities: new Map(), zones: new Map(), locations: new Map(), sections: new Map() };
+  const stateTotals = new Map();
+
+  for (const state of states) {
+    let csv;
+    try { csv = findZipCsv(archive, year, state); }
+    catch (error) {
+      if (uf) throw error;
+      continue;
+    }
     const iterator = parseSemicolonCsv(csv);
     const first = await iterator.next();
-    if (first.done) throw new Error('O conjunto oficial do TSE está vazio.');
+    if (first.done) continue;
     const headers = first.value.map(normalizedHeader);
-    const municipalities = new Map();
     for await (const values of iterator) {
-      const row = Object.fromEntries(headers.map((header, index) => [header, values[index] || '']));
-      if (Number(getValue(row, 'ANO_ELEICAO')) !== year || Number(getValue(row, 'NR_TURNO')) !== turn) continue;
-      if (getValue(row, 'SG_UF').toUpperCase() !== uf || getValue(row, 'CD_CARGO').padStart(2, '0') !== cargoCode.padStart(2, '0')) continue;
-      const code = getValue(row, 'CD_MUNICIPIO');
-      const name = getValue(row, 'NM_MUNICIPIO');
-      if (code && name) municipalities.set(code, { code, name });
-    }
-    return { candidates: [], summary: { vv: 0 }, municipalities: asArray(municipalities).sort((a,b) => a.name.localeCompare(b.name, 'pt-BR')), zones: [], locations: [], sections: [] };
-  }
-  const kind = sectionData ? 'votacao_secao' : 'votacao_candidato_munzona';
-  const scope = uf;
-  const archive = await fetchZip(year, scope, kind);
-  const csv = findZipCsv(archive, year, scope);
-  const iterator = parseSemicolonCsv(csv);
-  const first = await iterator.next();
-  if (first.done) throw new Error('O conjunto oficial do TSE está vazio.');
-  const headers = first.value.map(normalizedHeader);
-  const maps = { candidates: new Map(), municipalities: new Map(), zones: new Map(), locations: new Map(), sections: new Map() };
-
-  for await (const values of iterator) {
     const row = Object.fromEntries(headers.map((header, index) => [header, values[index] || '']));
     if (Number(getValue(row, 'ANO_ELEICAO')) !== year || Number(getValue(row, 'NR_TURNO')) !== turn) continue;
-    if (getValue(row, 'SG_UF').toUpperCase() !== uf || getValue(row, 'CD_CARGO').padStart(2, '0') !== cargoCode.padStart(2, '0')) continue;
+    if (getValue(row, 'SG_UF').toUpperCase() !== state || getValue(row, 'CD_CARGO').padStart(2, '0') !== cargoCode.padStart(2, '0')) continue;
     const municipality = getValue(row, 'CD_MUNICIPIO');
     const municipalityName = getValue(row, 'NM_MUNICIPIO');
     const zone = getValue(row, 'NR_ZONA');
@@ -222,16 +220,47 @@ async function buildResults(params) {
     if (!name || !candidateId || candidateId === '-1') continue;
     const voteValue = getValue(row, 'QT_VOTOS', 'QT_VOTOS_NOMINAIS');
     const votes = Number(voteValue.replace(/\./g, '').replace(',', '.')) || 0;
+    if (nationalLocalElection && votes > 0) {
+      const stateTotal = stateTotals.get(state) || { uf: state, votes: 0, candidacies: new Set() };
+      stateTotal.votes += votes;
+      stateTotal.candidacies.add(candidateId);
+      stateTotals.set(state, stateTotal);
+      continue;
+    }
+    const candidateKey = !uf && cargo !== 'Presidente' ? `${state}:${candidateId}` : candidateId;
+    const candidateMetadata = {
+      id: candidateKey || candidateNumber, name, number: candidateNumber,
+      party: getValue(row, 'SG_PARTIDO'), votes,
+      stateVotes: { [state]: votes }, uf: state,
+      ...(municipalityName && (municipalityCode || localOffice) ? { municipality: municipalityName } : {}),
+    };
     if (sectionData) {
       if ((granularity === 'location' && locationCode) || (granularity === 'section' && sectionCode)) addGroup(maps.candidates, `${candidateId}`, {
-        id: candidateId || candidateNumber, name, number: candidateNumber, party: getValue(row, 'SG_PARTIDO'), votes,
+        ...candidateMetadata,
       });
     } else {
-      addGroup(maps.candidates, `${candidateId || candidateNumber}`, {
-        id: candidateId || candidateNumber, name, number: candidateNumber, party: getValue(row, 'SG_PARTIDO'), votes,
+      addGroup(maps.candidates, `${candidateKey || candidateNumber}`, {
+        ...candidateMetadata,
         elected: getValue(row, 'DS_SIT_TOT_TURNO'),
       });
     }
+  }
+  }
+
+  if (nationalLocalElection) {
+    const byState = UFS.map(state => {
+      const item = stateTotals.get(state);
+      return item ? { uf: state, votes: item.votes, candidacies: item.candidacies.size } : { uf: state, votes: null, candidacies: null };
+    });
+    return {
+      candidates: [], summary: {
+        vv: byState.reduce((total, item) => total + Number(item.votes || 0), 0),
+        candidacies: byState.reduce((total, item) => total + Number(item.candidacies || 0), 0),
+        states: byState.filter(item => item.votes != null).length,
+      },
+      stateResults: byState,
+      municipalities: [], zones: [], locations: [], sections: [],
+    };
   }
 
   const candidates = asArray(maps.candidates).sort((left, right) => right.votes - left.votes);

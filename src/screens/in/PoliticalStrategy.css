@@ -213,6 +213,16 @@
 .strategy-territory-inline p { max-width: 740px; margin: 5px 0 0; color: var(--strategy-muted); font-size: 12px; line-height: 1.5; }
 .strategy-dashboard .strategy-primary-button { flex: 0 0 auto; min-height: 40px; margin: 0; border-radius: 11px; background: var(--strategy-accent); font-size: 12px; }
 .strategy-share-button { display: inline-flex; align-items: center; gap: 7px; margin-top: 14px; }
+.strategy-state-votes { padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--strategy-line); }
+.strategy-state-votes > strong { color: var(--strategy-text); font-size: 14px; }
+.strategy-state-votes > p { margin: 4px 0 12px; color: var(--strategy-muted); font-size: 12px; }
+.strategy-state-votes > div:not(.strategy-panel-heading) { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 7px; }
+.strategy-state-votes article { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border: 1px solid var(--strategy-line); border-radius: 10px; background: #f9fafc; }
+.strategy-state-votes article span { color: var(--strategy-muted); font-size: 10px; font-weight: 800; }
+.strategy-state-votes article strong { color: var(--strategy-text); font-size: 11px; font-variant-numeric: tabular-nums; }
+.strategy-state-votes article small { color: var(--strategy-muted); font-size: 9px; text-align: center; }
+.strategy-state-overview { padding: 18px; margin: 0 0 16px; border: 1px solid var(--strategy-line); border-radius: 16px; background: var(--strategy-surface); }
+.strategy-state-overview .strategy-panel-heading { margin-bottom: 12px; }
 .strategy-dashboard .strategy-notice { margin: 0; }
 .strategy-dashboard .strategy-source { margin: 0 3px; }
 @media(max-width: 1050px) {
@@ -247,4 +257,5 @@
   .strategy-territory-inline { align-items: flex-start; flex-direction: column; gap: 10px; }
   .strategy-territory-inline .strategy-primary-button { width: 100%; }
   .strategy-chart-wrap { height: 220px; }
+  .strategy-state-votes > div:not(.strategy-panel-heading) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
